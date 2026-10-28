@@ -52,7 +52,7 @@ TAG_TEXT = {
     "dut": "a connected DUT",
     "phy": "a loaded PHY",
     "idle": "the DUT or instrument to be idle",
-    "no_fault": "the fault to be cleared",
+    "no_fault": "the fault to be cleared (Recover, next to the status in the top bar)",
     "instrument:signal_generator": "a connected signal generator",
     "instrument:rf_switch": "a connected RF switch",
     "instrument:chamber": "a connected temperature chamber",

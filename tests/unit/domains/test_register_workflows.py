@@ -33,6 +33,15 @@ def test_write_shows_the_read_back_value_and_highlights_changed_fields(harness):
     assert harness.services.history.entries[-1].operation == "WRITE"
 
 
+def test_writing_a_write_only_register_records_what_was_written(harness):
+    """There's no read-back (value_readback is None), so history shows the written value and nothing warns."""
+    harness.select("BUFC.BUF0_CMD")
+    harness.shell.detail.write("0x1")
+    entry = harness.services.history.entries[-1]
+    assert (entry.operation, entry.target, entry.value) == ("WRITE", "BUFC.BUF0_CMD", 1)
+    assert not any(level == "warning" for level, _ in harness.ix.toasts)
+
+
 def test_bad_input_shows_a_message_and_sends_nothing(harness):
     harness.select("BUFC.LPMODE")
     harness.shell.detail.write("not a number")

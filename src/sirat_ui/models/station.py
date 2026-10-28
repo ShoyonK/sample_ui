@@ -52,9 +52,10 @@ class DutInfo:
 
 @dataclass
 class WriteResult:
-    written: int
-    readback: int
-    verified: bool = True    # False: the read-back differs. The write happened; the GUI warns (req 7)
+    """registers.write / write_field (API WriteRes). value_written is the whole register value written."""
+    value_written: int
+    value_readback: Optional[int]   # None when the register can't be read back (write-only)
+    verified: bool = True           # False: the read-back differs. The write happened; the GUI warns (req 7)
 
 
 @dataclass

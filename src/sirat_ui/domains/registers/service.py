@@ -136,9 +136,10 @@ class RegisterService:
             self._history.record("WRITE", reg.full_name, shown, field.name if field else None, readback)
 
         def done(result: WriteResult) -> None:
-            record(result.readback)
-            if not result.verified:
-                self._errors.verify_mismatch(target, result.written, result.readback)
+            readback = result.value_readback
+            record(result.value_written if readback is None else readback)   # write-only: what was written
+            if not result.verified and readback is not None:
+                self._errors.verify_mismatch(target, result.value_written, readback)
                 self._status.set(f"{target} @ 0x{reg.address:08X} · read-back differs")
                 out.resolve(result)
                 return

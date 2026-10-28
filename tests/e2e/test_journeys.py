@@ -3,9 +3,9 @@
 import pytest
 from PyQt5.QtCore import Qt
 from pages import Dialogs, RegistersPage, Ui
+from sirat_ui.domains.shell.pages import PAGES as PAGE_TABLE
 
-PAGES = ["registers", "watch", "actions", "sequences", "dumps", "radio", "instruments", "advanced", "tests",
-         "settings"]
+PAGES = [p["key"] for p in PAGE_TABLE]   # a new page row is load-tested without touching this file
 
 
 def test_every_page_loads_without_qml_warnings(running, qtbot):
@@ -601,3 +601,18 @@ def test_advanced_memory_read_and_confirmed_write(running, qtbot):
     ui.wait_for(dialogs.confirm_open)
     dialogs.accept_confirm()
     ui.wait_for(lambda: running.h.shell.memory.rows.items[0]["cells"][0] == {"t": "0x12345678", "c": True})
+
+
+def test_recover_a_faulted_dut_from_the_top_bar(running, qtbot):
+    ui, dialogs = Ui(running.app, qtbot), Dialogs(running.app, qtbot)
+    assert not ui.visible("recoverButton")
+    op = {"type": "dut_control_method", "method_path": "lpw.radio.SetPower", "method_name": "SetPower",
+          "params": {"power_dbm": 30}}                  # the fake DUT asserts: a hardware error mid-run
+    action = running.h.services.actions.add("fault_journey", [op])
+    running.h.services.actions.run([action.name])
+    running.h.scheduler.advance(2000)
+    ui.wait_for(lambda: ui.visible("recoverButton") and ui.text("connectionPill") == "Fault")
+    ui.click("recoverButton")
+    ui.wait_for(dialogs.confirm_open)
+    dialogs.accept_confirm()
+    ui.wait_for(lambda: not ui.visible("recoverButton") and ui.text("connectionPill") == "Connected")

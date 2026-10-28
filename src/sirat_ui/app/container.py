@@ -31,7 +31,8 @@ from sirat_ui.domains.automation.sequences import SequenceService
 from sirat_ui.domains.automation.sequences_viewmodel import SequencesViewModel
 from sirat_ui.domains.connection.service import ConnectionService
 from sirat_ui.domains.connection.system_info_viewmodel import SystemInfoViewModel
-from sirat_ui.domains.connection.viewmodels import ConnectionViewModel, DisconnectRecoveryViewModel
+from sirat_ui.domains.connection.viewmodels import (ConnectionViewModel, DisconnectRecoveryViewModel,
+                                                   FaultRecoveryViewModel)
 from sirat_ui.domains.dumps.comparison_viewmodel import ComparisonViewModel
 from sirat_ui.domains.dumps.picker_viewmodel import PeripheralPickerViewModel
 from sirat_ui.domains.dumps.progress_viewmodel import DumpProgressViewModel
@@ -216,6 +217,7 @@ class ServiceContainer:
             "dialogs": self.dialogs,
             "connection": ConnectionViewModel(s.connection, st, s.log, s.hardware, ix),
             "recovery": DisconnectRecoveryViewModel(s.connection, st, s.actions, ix, open_radio_page=self._go("radio")),
+            "faultRecovery": FaultRecoveryViewModel(s.connection, st, ix),
             "log": LogViewModel(s.log, ix),
             "windows": WindowsViewModel(),
             "dock": DockViewModel(s.history, s.log, s.actions),

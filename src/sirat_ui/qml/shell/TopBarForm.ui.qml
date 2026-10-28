@@ -11,6 +11,7 @@ Rectangle {
     property alias chipChip: chipChip
     property alias positionControl: positionControl
     property alias connectionPill: connectionPill
+    property alias recoverButton: recoverButton
     property alias phyChip: phyChip
     property alias searchButton: searchButton
     property alias connectionButton: connectionButton
@@ -50,6 +51,14 @@ Rectangle {
             id: connectionPill
             objectName: "connectionPill"
             text: "Connected"
+        }
+        AppButton {
+            id: recoverButton
+            objectName: "recoverButton"
+            text: "Recover"
+            iconName: "refresh"
+            variant: "danger"
+            small: true
         }
         Chip {
             id: phyChip

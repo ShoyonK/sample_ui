@@ -28,7 +28,32 @@ def test_read_only_bits_make_verification_fail(fake):
     """The write happened, so it's a result with verified=False, not an error (API design 6, registers)."""
     out = []
     fake.write_register(1, "BUFC.BUF0_CTRL", 0xFF).then(out.append)
-    assert (out[0].written, out[0].readback, out[0].verified) == (0xFF, 0x07, False)
+    assert (out[0].value_written, out[0].value_readback, out[0].verified) == (0xFF, 0x07, False)
+
+
+def test_write_only_registers_have_no_read_back(fake):
+    """API WriteRes: value_readback is None when the register can't be read back; that's still verified."""
+    out = []
+    fake.write_register(1, "BUFC.BUF0_CMD", 1).then(out.append)
+    assert (out[0].value_written, out[0].value_readback, out[0].verified) == (1, None, True)
+
+
+def test_unknown_rf_switch_path_is_not_found(fake):
+    """API errors: not_found covers an unknown register, path, id, session or capture."""
+    assert results(fake.rf_connect(1, "NO_SUCH_PATH")) == [("err", ErrorCode.NOT_FOUND)]
+
+
+def test_a_hardware_error_in_a_run_sets_the_fault_and_recover_clears_it(fake):
+    """API doc "Activities": the fault blocks runs (no_fault) until sys.recover."""
+    op = {"type": "dut_control_method", "method_path": "lpw.radio.SetChannel", "method_name": "SetChannel",
+          "params": {"channel": 99}}
+    fake.run_sequence(1, [op])
+    fake.scheduler.advance(2000)
+    assert "RAIL assert" in (fake.facts[1].fault or "")
+    assert results(fake.run_sequence(1, [op])) == [("err", ErrorCode.WRONG_STATE)]
+    fake.recover(1)
+    assert fake.facts[1].fault is None
+    assert results(fake.run_sequence(1, [op]))[0][0] == "ok"
 
 
 def test_access_rules(fake):

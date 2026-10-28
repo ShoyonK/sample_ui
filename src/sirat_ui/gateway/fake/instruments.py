@@ -170,7 +170,7 @@ class FakeBench:
 
     def rf_connect(self, path: str) -> None:
         if path not in self.paths:
-            raise ApiError(ErrorCode.INVALID_PARAMS, f"Unknown switch path '{path}'")
+            raise ApiError(ErrorCode.NOT_FOUND, f"Unknown switch path '{path}'")
 
     # ---------------------------------------------------------------- temperature chamber (req 29)
 

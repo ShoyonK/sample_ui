@@ -218,6 +218,7 @@ class FakeStationGateway(AdvancedMethods):
         def run() -> None:
             self.facts[position].fault = None
             self.facts[position].activity = "idle"
+            self._log("info", f"DUT {position} recovered: safe state applied, fault cleared", position=position)
             self._emit_status()
         return self._respond("sys.recover", None, run, pos=position)
 
@@ -466,7 +467,9 @@ class FakeStationGateway(AdvancedMethods):
         if reg.critical and not confirm:
             raise ApiError(ErrorCode.CONFIRMATION_REQUIRED, f"{name} is in a critical peripheral", {"register": name})
         readback = self.memory.write(name, new_value)
-        verified = not (verify and reg.access.readable and expect(readback) != wanted)
+        if not reg.access.readable:
+            return WriteResult(new_value, None, True)    # nothing to read back
+        verified = not (verify and expect(readback) != wanted)
         return WriteResult(new_value, readback, verified)
 
     def write_register(self, position: int, name: str, value: int, confirm: bool = False, verify: bool = True) -> Call:
@@ -540,7 +543,13 @@ class FakeStationGateway(AdvancedMethods):
             raise ApiError(ErrorCode.INSTRUMENT_ERROR, f"{instrument.id} isn't connected")
 
     def _activity_done(self, activity: FakeActivity) -> None:
-        self.facts[activity.position].activity = "idle"
+        """API doc "Activities": a hardware error during an activity sets the position's fault (sys.recover
+        clears it)."""
+        facts = self.facts[activity.position]
+        facts.activity = "idle"
+        if activity.error is not None and activity.error.code == ErrorCode.HARDWARE_ERROR:
+            facts.fault = activity.error.message
+            self._log("error", f"DUT {activity.position} fault: {activity.error.message}", position=activity.position)
         self._emit_status()
 
     def _execute_op(self, position: int, op: Dict[str, Any]) -> Any:

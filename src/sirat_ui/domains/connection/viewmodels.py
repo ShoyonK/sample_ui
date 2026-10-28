@@ -11,6 +11,7 @@ from sirat_ui.domains.connection.service import ConnectionService
 from sirat_ui.domains.logs.service import LogService
 from sirat_ui.domains.radio.phy import WIFI_FAMILY
 from sirat_ui.domains.settings.hardware import HardwareConfigService
+from sirat_ui.models.dialogs import ConfirmRequest
 from sirat_ui.models.station import LogLine, RpcAddress
 from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
@@ -212,3 +213,55 @@ class DisconnectRecoveryViewModel(BaseViewModel):
     @pyqtSlot()
     def dismiss(self) -> None:
         self._update(visible=False)
+
+
+class FaultRecoveryViewModel(BaseViewModel):
+    """The top bar's Recover button: shown while the selected DUT position has a fault.
+
+    A hardware error during a run faults the position (API doc "Activities"), and the station then refuses
+    runs until sys.recover applies the safe state. Recovering asks first, because it resets the DUT's state.
+    """
+
+    changed = pyqtSignal()
+
+    def __init__(self, service: ConnectionService, state: StationState, interactions: InteractionService,
+                 parent: Optional[QObject] = None) -> None:
+        super().__init__(parent)
+        self._service = service
+        self._state = state
+        self._interactions = interactions
+        self._busy = False
+        state.changed.connect(self.changed.emit)
+
+    busy = qprop(bool, "_busy", changed)
+
+    @pyqtProperty(bool, notify=changed)
+    def hasFault(self) -> bool:  # noqa: N802
+        return bool(self._state.facts.fault)
+
+    @pyqtProperty(str, notify=changed)
+    def faultText(self) -> str:  # noqa: N802
+        fault = self._state.facts.fault
+        return f"DUT {self._state.position} fault: {fault}" if fault else ""
+
+    @pyqtSlot()
+    def recover(self) -> None:
+        fault, position = self._state.facts.fault, self._state.position
+        if not fault or self._busy:
+            return
+        request = ConfirmRequest(f"Recover DUT {position}?",
+                                 "The station applies the safe state to the DUT and clears the fault. Actions and "
+                                 "sequences can run again afterwards.",
+                                 [("Fault", fault)], confirm_text="Recover", tone="warning")
+
+        def answered(answer: Any) -> None:
+            if not answer.accepted:
+                return
+            self._update(busy=True)
+            self._service.recover(position).then(lambda _: self._done(position), lambda _: self._update(busy=False))
+
+        self._interactions.confirm(request).then(answered)
+
+    def _done(self, position: int) -> None:
+        self._update(busy=False)
+        self._interactions.toast("success", f"DUT {position} recovered")

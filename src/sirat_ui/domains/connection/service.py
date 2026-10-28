@@ -98,6 +98,14 @@ class ConnectionService:
         """Req 31 system information for the selected position (DutInfo). The caller shows failures inline."""
         return self._gateway.dut_info(self._state.position)
 
+    def recover(self, position: int) -> Call:
+        """sys.recover: applies the safe state and clears the position's fault (set by a hardware error during a
+        run). Until then the station refuses runs that require no_fault."""
+        def done(_: object) -> None:
+            self._log.success(f"DUT {position} recovered: safe state applied, fault cleared")
+
+        return self._gateway.recover(position).then(done, lambda e: self._errors.present(e, f"Recover DUT {position}"))
+
     def disconnect(self, position: int) -> Call:
         def done(_: object) -> None:
             self._state.set_chip(position, None)

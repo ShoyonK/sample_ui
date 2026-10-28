@@ -238,6 +238,17 @@ def main() -> int:
     pump(app, 600)
     grab(app, args.out / "22_advanced_memory.png")
 
+    # A hardware error mid-run faults DUT 1; the top bar offers Recover. Recovered afterwards for the next shots.
+    actions = app.container.services.actions
+    failing = actions.add("too_loud", [{"type": "dut_control_method", "method_path": "lpw.radio.SetPower",
+                                        "method_name": "SetPower", "params": {"power_dbm": 30}}])
+    actions.run([failing.name])
+    pump(app, 1500)
+    grab(app, args.out / "24_fault_recover.png")
+    app.container.services.connection.recover(1)
+    actions.remove(failing.name)
+    pump(app, 300)
+
     shell.state.toggleDarkMode()
     shell.advanced.setTab(1)
     pump(app, 600)

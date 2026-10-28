@@ -22,6 +22,7 @@ class FakeActivity:
         self.results: List[Dict[str, Any]] = []
         self.aborted = False
         self.finished = False
+        self.error: Optional[ApiError] = None
 
 
 class FakeSequencer:
@@ -65,5 +66,6 @@ class FakeSequencer:
 
     def _finish(self, activity: FakeActivity, ok: bool, error: Optional[ApiError] = None) -> None:
         activity.finished = True
+        activity.error = error
         self._on_done(activity)
         self._emit(ActivityFinished(activity.activity_id, activity.position, ok, activity.results, error))
