@@ -1,0 +1,4211 @@
+# SiRAT - Comprehensive Requirements Document
+
+**Version:** 1.0  
+**Date:** 2026-10-06  
+**Purpose:** Complete functional and technical requirements for SiRAT (Silicon Labs Register Access Tool)
+
+---
+
+## Document Organization
+
+This document is organized into four requirement categories for each feature:
+
+1. **USER REQUIREMENTS** - What the user can do (user-facing capabilities)
+2. **FUNCTIONAL REQUIREMENTS** - How the system behaves (business logic, validation, processing)
+3. **UI REQUIREMENTS** - Visual appearance and interaction specifications
+4. **DATA REQUIREMENTS** - What data is stored, where, and in what format
+
+Requirements are grouped by **feature area** rather than by file/module.
+
+---
+
+## TABLE OF CONTENTS
+
+### CORE APPLICATION
+1. [Application Launch & Initialization](#1-application-launch--initialization)
+2. [Main Window Layout](#2-main-window-layout)
+3. [DUT Connection Management](#3-dut-connection-management)
+
+### REGISTER BROWSING & VIEWING
+4. [Peripheral Tree View](#4-peripheral-tree-view)
+5. [Register Detail View](#5-register-detail-view)
+6. [Search & Filtering](#6-search--filtering)
+7. [Access Policy & Safety](#7-access-policy--safety)
+
+### DATA MANAGEMENT
+8. [Favorites System](#8-favorites-system)
+9. [Operation History](#9-operation-history)
+10. [Field Notes & Annotations](#10-field-notes--annotations)
+11. [Field Formulas & Calculations](#11-field-formulas--calculations)
+12. [Register Dumps](#12-register-dumps)
+
+### ACTIONS & AUTOMATION
+13. [Actions Panel](#13-actions-panel)
+14. [Sequences](#14-sequences)
+15. [Custom Functions](#15-custom-functions)
+16. [Code Generation](#16-code-generation)
+
+### ADVANCED TOOLS
+17. [Data Logger](#17-data-logger)
+18. [Watch List](#18-watch-list)
+19. [Memory Viewer](#19-memory-viewer)
+20. [Python Console](#20-python-console)
+21. [Radio Calculator Diff](#21-radio-calculator-diff)
+
+### DUT CONTROL
+22. [DUT Control API Explorer](#22-dut-control-api-explorer)
+23. [Load PHY Configurations](#23-load-phy-configurations)
+24. [PRS Signal Routing](#24-prs-signal-routing)
+
+### INSTRUMENT INTEGRATION
+25. [Signal Generator Configuration](#25-signal-generator-configuration)
+26. [BLE Packet Configuration](#26-ble-packet-configuration)
+27. [GFSK Packet Generator](#27-gfsk-packet-generator)
+28. [RF Switch Control](#28-rf-switch-control)
+29. [Temperature Chamber Control](#29-temperature-chamber-control)
+30. [ECA Capture](#30-eca-capture)
+
+### SYSTEM FEATURES
+31. [System Information](#31-system-information)
+32. [Hardware Configuration](#32-hardware-configuration)
+33. [Test Execution](#33-test-execution)
+34. [Session Management](#34-session-management)
+35. [Logging & Debugging](#35-logging--debugging)
+
+---
+
+# DETAILED REQUIREMENTS BY FEATURE
+
+---
+
+## 1. APPLICATION LAUNCH & INITIALIZATION
+
+### USER REQUIREMENTS
+- User can launch SiRAT from PyCharm debug console while paused at breakpoint
+- User can launch SiRAT in blocking mode (waits for window close)
+- User can launch SiRAT in non-blocking async mode (returns immediately)
+- User can launch SiRAT from Python code within test context
+- User can close SiRAT via window controls or Ctrl+Q
+
+### FUNCTIONAL REQUIREMENTS
+
+**Workspace Root Detection:**
+- Method 1: Inspect `dut.configurators.phy` module path, navigate up 7 directory levels
+- Method 2: Search upward from current working directory looking for workspace markers:
+  - `tests/series_six` directory exists
+  - `configs/station_configurations` directory exists
+- Method 3: Fallback to current working directory
+- Log warning if workspace root cannot be determined
+
+**DUT Validation:**
+- Parent object must have `.dut` attribute OR parent itself must be DUT
+- DUT must have `.rm` register map with `readByName()` and `writeByName()` methods
+- No explicit validation - fails at runtime if requirements not met
+
+**Initialization Sequence:**
+1. Setup logging with console and file handlers
+2. Create/reuse QApplication singleton instance
+3. Set application name to 'SiRAT'
+4. Load window icon from `SiRAT_logo.png` if exists
+5. Create session debug log file: `C:/temp/sirat/session_log_<timestamp>.log`
+6. Initialize core models: AccessPolicy, DutInterface, SvdLoader, SessionData, FieldCalculation, FieldNotes
+7. Setup disconnect detection callback on DutInterface
+8. Load peripherals from DUT register map (filters `_NS/_S` by default)
+9. Create main window UI components
+10. Load persistent user settings from `~/.sirat/` directory
+11. Show window maximized
+12. Start Qt event loop (blocking or background thread based on launch mode)
+
+**Auto-Load on Startup:**
+- Favorites from `~/.sirat_favorites.json`
+- Actions from `~/.sirat_actions.json`
+- Watch list from `~/.sirat_watch_list.json`
+- Data logger config from `~/.sirat_data_logger.json`
+- Custom functions from `~/.sirat_custom_functions.json`
+- Sequences from `~/.sirat_sequences.json`
+- Field formulas from `~/.sirat/field_formulas.json`
+- Field notes from `~/.sirat/field_notes.json`
+- Preferences from `~/.sirat/preferences.json`
+
+**Singleton Behavior:**
+- Multiple calls to launch functions bring existing window to front instead of creating duplicate
+- QApplication reused if already exists
+
+### UI REQUIREMENTS
+
+**Window Properties:**
+- Title: "SiRAT"
+- Size: 1400x900 pixels
+- Position: (100, 100) on screen
+- Icon: `SiRAT_logo.png` from package directory
+- Initial state: Maximized
+- Window flags: Standard main window
+
+**Launch Indicators:**
+- No splash screen
+- Window appears immediately after initialization
+- Loading happens in background with lazy evaluation
+
+### DATA REQUIREMENTS
+
+**Session Debug Log:**
+- Location: `C:/temp/sirat/session_log_<YYYYMMDD_HHMMSS>.log`
+- Format: Plain text with timestamps
+- Pattern: `<timestamp> - <level> - <logger_name> - <message>`
+- Encoding: UTF-8
+- Retention: Manual cleanup (not auto-deleted)
+
+**Python Dependencies:**
+```
+PyQt5>=5.15.0          # GUI framework
+pyqtgraph>=0.13.0      # Plotting
+```
+
+**Python Version:**
+- Required: Python 3.10 (workspace standard)
+- No explicit version check in code
+
+**Entry Points:**
+```python
+# From __init__.py
+launch_viewer(parent, log_level=logging.INFO) -> int
+launch_viewer_async(parent, log_level=logging.INFO) -> ViewerHandle
+```
+
+**Version:**
+- Current: "0.1.0" (from `_version.py`)
+
+---
+
+## 2. MAIN WINDOW LAYOUT
+
+### USER REQUIREMENTS
+- User sees hierarchical layout with tree view, detail view, and operation log
+- User can resize all panels via splitters
+- User can collapse/expand sections
+- User sees favorites panel only when favorites exist
+- User can access all features via menu bar
+- User can view SiRAT logo in bottom-right corner
+
+### FUNCTIONAL REQUIREMENTS
+
+**Layout Structure:**
+```
+MainWindow
+├── MenuBar
+├── Central Widget
+│   ├── Vertical Splitter (75% main view, 25% bottom)
+│   │   ├── Horizontal Splitter (30% tree, 15% favorites, 55% detail)
+│   │   │   ├── PeripheralTreeView
+│   │   │   ├── FavoritesPanel (conditional visibility)
+│   │   │   └── RegisterDetailView
+│   │   └── Bottom Widget
+│   │       ├── LogView (max 400px wide)
+│   │       ├── HistoryPanel (stretch=2)
+│   │       ├── Middle Widget ("Create Action" button)
+│   │       ├── ActionsPanel (stretch=2)
+│   │       └── Logo (150px wide, bottom-right)
+└── StatusBar
+```
+
+**Splitter Ratios:**
+- Horizontal: [420, 210, 770] pixels (Tree: 30%, Favorites: 15%, Detail: 55%)
+- Vertical: [675, 225] pixels (Main: 75%, Log: 25%)
+- User can adjust via drag handles
+- Ratios not persisted between sessions
+
+**Favorites Panel Visibility:**
+- Hidden when `session_data.favorites` is empty
+- Shown when favorites exist
+- Updates automatically when favorites added/removed via `favorites_changed` signal
+
+**Menu Structure:**
+
+**File Menu:**
+- ☑ Auto-Read Register on Click (toggle, default: checked)
+- Export User Settings...
+- Import User Settings...
+- Clear All User Settings...
+- Exit (Ctrl+Q)
+
+**View Menu:**
+- Clear Register Cache
+- ☑ Show Peripherals with _NS/_S (toggle, default: unchecked)
+
+**Dump Menu:**
+- Take a Dump...
+- Compare Dumps...
+- Diff vs Dump...
+- Radio Calculator Diff...
+
+**Tools Menu:**
+- Data Logger...
+- Watch List...
+- Custom Functions...
+- Actions...
+- Sequences...
+- Test Executor...
+- Debug Test Harness...
+- Memory Viewer...
+
+**DUT Control Menu:**
+- 🔌 Connect to DUT...
+- DUT Control API Explorer...
+- Load LPW PHY...
+- Load WiFi PHY... (enabled only for Everest family)
+- PRS Signal Routing...
+- ECA Capture Configurator... (currently disabled)
+
+**Instrument Control Menu:**
+- Temp Chamber Control...
+- BLE PacketSRW Config...
+- GFSK Packet Generator...
+- RF Switch Paths...
+
+**Help Menu:**
+- Hardware Configuration
+- About SiRAT...
+
+### UI REQUIREMENTS
+
+**Visual Theme:**
+- Standard Qt theme (system default)
+- Light background for all panels
+- White background for log and table views
+- Consistent 11pt base font throughout
+- Bold headers at 12-14pt
+
+**Colors:**
+- Standard Qt widget colors
+- Custom colors applied per feature (see individual feature sections)
+
+**Spacing & Margins:**
+- Main layout: 5px margins, 5px spacing
+- Group boxes: 10px padding
+- Button rows: 5px spacing
+
+**Logo Display:**
+- Location: Bottom-right corner of bottom panel
+- Image: `SiRAT_logo.png` scaled to 150px height
+- Aspect ratio maintained
+- Background: Transparent
+- Alignment: Bottom-right
+
+**Responsive Behavior:**
+- All splitters user-adjustable
+- Minimum widget sizes enforced (e.g., LogView max 400px wide)
+- Panels collapse gracefully when window resized small
+
+### DATA REQUIREMENTS
+
+**Window State:**
+- No persistence of window position or size
+- No persistence of splitter positions
+- Always starts at 1400x900 maximized
+
+**Session State (in memory):**
+```python
+# Instance attributes
+workspace_root: Path
+peripherals: List[PeripheralModel]
+show_secure_peripherals: bool = False
+auto_read_on_click: bool = True
+_disconnect_dialog_shown: bool = False
+_last_disconnect_time: float = 0
+_executing_custom_function: bool = False
+_custom_function_namespace: dict = None
+```
+
+**Lazy-Initialized Dialogs:**
+All dialogs created on first use, not at startup:
+- data_logger_dialog
+- memory_viewer_dialog
+- python_console_dialog
+- watch_list_dialog
+- prs_routing_dialog
+- ble_packet_srw_config_dialog
+- gfsk_packet_generator_dialog
+- eca_capture_dialog
+- instrument_control_dialog
+- rf_switch_dialog
+- custom_functions_dialog
+- actions_dialog
+- sequences_dialog
+- test_executor_dialog
+- debug_harness_dialog
+
+---
+
+## 3. DUT CONNECTION MANAGEMENT
+
+### USER REQUIREMENTS
+- User can connect to DUT via menu action "Connect to DUT"
+- User can specify DUT position (1-4)
+- User can select DUT config type (EFX, EFR32)
+- User can optionally specify custom DUT config file path
+- User sees connection progress in real-time
+- User can reconnect RPC if connection lost
+- User can add reconnect operation to Actions
+- User sees disconnect recovery dialog when DUT disconnects
+
+### FUNCTIONAL REQUIREMENTS
+
+**Connection Process:**
+1. User opens DUT Connect Dialog
+2. User selects DUT position (1-4), config type, optional config file
+3. User clicks "Connect" button
+4. Background thread started (non-blocking UI)
+5. Calls `BenchUtils.connect_six_dut_rf(position, config_type, config_file)`
+6. Establishes RPC connection via `dut.rpc_io.Connect()`
+7. Finds Session object from `dut.Session` or `SessionGlobals.Session`
+8. Stores DUT and Session references in parent object
+9. Updates console with success message or error traceback
+10. Re-enables Connect button
+
+**Disconnect Detection:**
+- DutInterface monitors all read/write operations
+- Checks error messages for disconnect indicators:
+  - 'Disconnected'
+  - 'Cannot read register'
+  - 'Cannot write register'
+  - 'is not accessible'
+  - 'RPC connection lost'
+  - 'Connection timeout'
+- If disconnect detected and callback registered:
+  - Calls `main_window._on_dut_disconnect()`
+  - Debounces: Ignores disconnects within 2 seconds of previous
+  - Shows DisconnectRecoveryDialog (only if not already shown)
+
+**Disconnect Recovery Flow:**
+1. Modal DisconnectRecoveryDialog appears
+2. User clicks "Reconnect" button
+3. Calls `dut.rpc_io.Connect()`
+4. On success:
+   - Shows success message
+   - Enables "Load LPW PHY" and "Load WiFi PHY" buttons
+   - Shows PHY instruction panel
+5. User loads PHY as needed
+6. User closes dialog
+
+**Reconnect Operation:**
+- Creates `dut_reconnect` operation type
+- Can be added to Actions for automated reconnection
+- Operation format:
+```python
+{
+    'type': 'dut_reconnect',
+    'description': 'Reconnect RPC'
+}
+```
+
+### UI REQUIREMENTS
+
+**DUT Connect Dialog:**
+- Window: Non-modal, independent, 700x600 pixels
+- Title: "Connect to DUT"
+- Layout:
+  - DUT Position dropdown (1, 2, 3, 4)
+  - DUT Config Type dropdown (EFX, EFR32)
+  - DUT Config File text input (placeholder: "Leave empty for station default")
+  - Console output (QTextEdit, read-only, Courier 10pt)
+  - Button row: Connect, Close
+- Button states:
+  - Connect: Enabled initially, disabled during connection ("⏳ Connecting...")
+  - Close: Always enabled
+
+**Disconnect Recovery Dialog:**
+- Window: Modal dialog, 600x400 pixels
+- Title: "DUT Disconnected"
+- Icon: Warning icon (❗)
+- Layout:
+  - Header: "⚠️ DUT Connection Lost" (bold, red, 14pt)
+  - Explanation text: Common causes (power cycle, J-Link disconnect, firmware assert)
+  - Status message label (green for success, red for error)
+  - PHY instruction panel (shown after successful reconnect)
+  - Button row: Reconnect, Load LPW PHY, Load WiFi PHY, Close
+- Button states:
+  - Reconnect: Changes text during operation ("Reconnecting..." → "✓ Connected")
+  - PHY buttons: Disabled until reconnect succeeds, then enabled
+  - Close: Always enabled
+
+**Console Output Colors:**
+- Success: Green (100, 255, 100)
+- Error: Red (255, 100, 100)
+- Warning: Orange (255, 200, 100)
+- Info: Blue (100, 200, 255)
+- Default: White text on black background
+
+### DATA REQUIREMENTS
+
+**Connection State:**
+- Stored in parent object attributes:
+  - `parent.dut` - DUT instance
+  - `parent.Session` - Session object (if found)
+- Not persisted to disk
+- Lost when SiRAT closes
+
+**Disconnect Debounce:**
+```python
+_last_disconnect_time: float = 0  # Timestamp of last disconnect
+_disconnect_dialog_shown: bool = False  # Prevent multiple dialogs
+```
+
+**Reconnect Action Data:**
+```json
+{
+    "type": "dut_reconnect",
+    "description": "Reconnect RPC"
+}
+```
+
+---
+
+## 4. PERIPHERAL TREE VIEW
+
+### USER REQUIREMENTS
+- User can browse hierarchical list of peripherals and registers
+- User can expand/collapse peripherals to see registers
+- User can search/filter peripherals and registers by name
+- User can click peripheral to see information
+- User can click register to select and optionally auto-read it
+- User can right-click peripheral to read all registers
+- User can collapse entire tree with "Collapse All" button
+- User sees register values update after reads
+- User sees color-coded registers based on access type
+
+### FUNCTIONAL REQUIREMENTS
+
+**Peripheral Loading:**
+- Peripherals loaded from `SvdLoader.load_peripherals(dut.rm)`
+- Filters peripherals by default: hides those with `_NS` or `_S` in name
+- User can toggle filter via menu: "Show Peripherals with _NS/_S"
+- Filter state saved to preferences
+- Peripherals sorted alphabetically by name
+
+**Lazy Loading of Registers:**
+- Peripherals initially created with placeholder child "Loading..."
+- On first expansion: Removes placeholder, creates register child items
+- Prevents loading ~300 registers for 100+ peripherals upfront
+- Performance optimization for large register maps
+
+**Search & Filter:**
+- Real-time filtering with 300ms debounce
+- Matches against:
+  - Peripheral names
+  - Register names
+  - Field names (by examining register.fields)
+- Search behavior:
+  - Match by peripheral: Shows all registers in peripheral, expands peripheral
+  - Match by register: Shows only matching registers, expands parent peripheral
+  - Match by field: Shows registers containing matching field
+  - Empty search: Collapses all, shows all items
+- Auto-selects register if exactly one match found
+- Search box has clear button (X)
+
+**Item Selection:**
+- Single-click peripheral: Emits `peripheral_selected(PeripheralModel)`, expands if has registers
+- Single-click register: Emits two signals:
+  - `register_selected(RegisterModel)` - UI update only
+  - `register_selected_by_user(RegisterModel)` - Triggers auto-read if enabled
+- Distinction allows DetailView to update without triggering auto-read
+
+**Context Menu:**
+- Right-click on peripheral: Shows "Read All Registers" option
+- Executes: Reads all registers sequentially with progress dialog
+- Updates tree values and DetailView cache
+- Shows completion message: "{peripheral.name}: X registers read, Y failed"
+
+**Value Updates:**
+- Initial state: Register value column shows "─" (not read yet)
+- After read: Shows formatted value (hex/dec/bin based on format setting)
+- Updated via `update_register_value(register, value)` called from main window
+- Uses `_register_items` dict for O(1) lookup by full_name
+
+### UI REQUIREMENTS
+
+**Tree Structure:**
+- QTreeWidget with 3 columns: Name | Address | Value
+- Column widths: [200, 100, auto] (Name, Address, Value stretch)
+- Single selection mode
+- Alternating row colors: Enabled
+- Font: 11pt default
+- Icons: 📦 for peripherals, 📄 for registers
+
+**Search Box:**
+- QLineEdit with placeholder: "Filter peripherals/registers..."
+- Clear button (X) on right side
+- Located above tree
+- Font: 11pt
+
+**Collapse All Button:**
+- Text: "🗁 Collapse All"
+- Maximum width: 120px
+- Located below tree
+- Style: Default button style
+
+**Color Coding:**
+- Register row background colored by `access_policy.get_access_color(register.access)`:
+  - Read-only: Light blue (#E3F2FD)
+  - Read-write: Light green (#E8F5E9)
+  - Write-only: Light red (#FFEBEE)
+  - Write-once: Light orange (#FFF3E0)
+  - Read-write-once: Light purple (#F3E5F5)
+  - Unknown: Light gray (#F5F5F5)
+
+**Address Format:**
+- Hex format: `0x<address in 8-digit uppercase hex>`
+- Example: `0x40084000`
+
+**Value Format:**
+- Not read: "─"
+- After read: Formatted per user preference (hex/dec/bin)
+- Default: Hex format `0x<value in 8-digit uppercase hex>`
+
+**Progress Dialog (Read All):**
+- Modal dialog
+- Cancelable
+- Title: "Reading Registers"
+- Label updates per register: "Reading {peripheral}.{register}..."
+- Shows progress: X of Y registers
+
+### DATA REQUIREMENTS
+
+**Tree Item Storage:**
+```python
+# Item.data(Qt.UserRole) stores tuple:
+('peripheral', PeripheralModel)  # For peripheral items
+('register', RegisterModel)      # For register items
+('placeholder', None)            # For lazy-load placeholder
+```
+
+**Value Cache:**
+```python
+_register_items: Dict[str, QTreeWidgetItem]
+# Maps full_name -> QTreeWidgetItem for O(1) updates
+```
+
+**Search State:**
+```python
+_search_timer: QTimer  # Single-shot, 300ms timeout
+_pending_search_text: str  # Buffered search text
+```
+
+**No Persistence:**
+- Tree expansion state not saved
+- Search text not saved
+- Scroll position not saved
+
+---
+
+## 5. REGISTER DETAIL VIEW
+
+### USER REQUIREMENTS
+- User can view detailed information about selected register
+- User can read register value from hardware
+- User can write register value to hardware
+- User can toggle individual bits via interactive bit pattern widget
+- User can view and edit field values in table
+- User can add/remove register from favorites
+- User can add fields to data logger
+- User can add fields to watch list
+- User can define formulas for calculated values
+- User can add notes to fields
+- User can save current register state to actions
+- User can choose display format (Hex/Dec/Bin)
+- User can auto-write field values by pressing Enter in table
+
+### FUNCTIONAL REQUIREMENTS
+
+**Display Modes:**
+- **Register Mode**: Shows single register with fields, value, bit pattern
+- **Peripheral Mode**: Shows peripheral info with "Read All Registers" button
+- Mode determined by what's passed to `show_register()` vs `show_peripheral()`
+
+**Read Operation:**
+1. User clicks "Read Register" button
+2. Calls `dut_interface.read_register(register)`
+3. Updates register value display
+4. Extracts and displays all field values
+5. Updates bit pattern widget
+6. Stores value in cache: `_read_register_values[full_name] = value`
+7. Updates `session_data.last_values[full_name]` for change detection
+8. Emits `register_read(register, value)` signal
+9. Logs operation to history panel (only manual reads, not auto-reads)
+
+**Write Operation:**
+1. User edits register value in text box
+2. User clicks "Write Register" button
+3. Parses value string (hex, dec, or bin format)
+4. Shows confirmation dialog if `access_policy.requires_confirmation(peripheral_name)` is True
+5. Calls `dut_interface.write_register(register, value)`
+6. Reads back register for verification
+7. If read-back ≠ written value: Shows warning dialog with details
+8. Updates all displays with read-back value (not written value)
+9. Updates cache and last_values
+10. Logs operation to history panel
+
+**Field-Level Write (Auto-Write):**
+1. User double-clicks Value cell to edit
+2. User types new value and presses Enter
+3. Validates value is within field's bit width: `0 <= value <= (2^bit_width - 1)`
+4. Shows confirmation dialog if required by AccessPolicy
+5. Reads current register value
+6. Inserts new field value using `field.insert_value(current, new_value)`
+7. Writes modified register value
+8. Reads back entire register
+9. Updates all field displays with read-back values
+10. Logs as field write to history panel with full register value
+
+**Bit Toggle Instant Write:**
+1. User clicks bit in BitToggleWidget
+2. Widget emits `value_changed(new_register_value)` signal
+3. Connected to `_on_bit_toggle_changed(value)` slot
+4. Shows confirmation dialog if required
+5. If user confirms or no confirmation needed:
+   - Writes new value via `dut_interface.write_register()`
+   - Reads back and updates displays
+6. If user cancels:
+   - Reverts BitToggleWidget to previous value (no write)
+
+**Change Detection:**
+- Compares current field value to `session_data.last_values[register.full_name]`
+- Extracts old field value using `field.extract_value(old_register_value)`
+- If old_field_value ≠ current_field_value:
+  - Highlights field row with yellow background
+  - Sets tooltip: "Value changed: was 0xX, now 0xY"
+
+**Enum Display:**
+- For fields with enumerations: Calls `field.get_enum_by_value(field_value)`
+- If enum found: Displays enum name in Enum column, dark green color
+- Tooltip: "{enum.name} ({value})\n{description}"
+
+**Calculated Values:**
+- For each field: Checks `field_calculator.has_formula(field.full_name)`
+- If formula exists: Calls `field_calculator.format_result(field.full_name, field_value)`
+- Displays result in Calculated column with blue text
+- Column hidden if no fields have formulas
+
+**Field Notes:**
+- Notes column always visible and editable
+- On edit: Calls `field_notes.set_note(field.full_name, note_text)`
+- If note exists: Light yellow background
+- Auto-saved on change (no explicit save button)
+
+**Favorites:**
+- Star button visible only for registers (hidden for peripherals)
+- Click star: Toggles `session_data.add_favorite()` / `remove_favorite()`
+- Emits `favorites_changed()` signal
+- Button icon updates: ⭐ (favorited) ☆ (not favorited)
+
+**Formula Management:**
+- Formula button per field
+- Click opens `FieldFormulaDialog(field.full_name, current_formula)`
+- User enters Python expression using 'x' as variable
+- User enters unit (Hz, MHz, V, etc.)
+- On save: Calls `field_calculator.set_formula(field.full_name, formula, unit)`
+- Updates Calculated column display
+
+**Save to Actions:**
+- Button: "💾 Save Register to Actions"
+- Prompt for action name
+- Creates register set with all current field values
+- Adds to actions panel
+
+### UI REQUIREMENTS
+
+**Layout:**
+```
+RegisterDetailView
+├── Register Information Group
+│   └── Name + Star Button + Chip Info
+├── Register Value Group
+│   └── Value Edit | Format Combo | Read Button | Write Button
+├── Bit Pattern Group
+│   └── BitToggleWidget (32 interactive checkboxes)
+└── Bit Fields Group
+    ├── Fields Table (11 columns, alternating rows)
+    └── Save to Actions Button
+```
+
+**Register Information:**
+- Name label: Bold, 14pt
+- Star button: Max 40px width, ⭐/☆ icon
+- Chip info label: Bold, 28pt, right-aligned, shows "FAMILY revX"
+- Address: Format `0x<8-digit hex uppercase>`
+
+**Register Value:**
+- Value edit: Stretch=3, placeholder "0x00000000"
+- Format combo: Options [Hex, Dec, Bin], default Hex
+- Read button: Standard QPushButton
+- Write button: Standard QPushButton
+- Not-read-yet state: Shows `<not read yet - click "Read Register">`
+
+**Bit Pattern Widget:**
+- 32 bits arranged in 4 byte groups: [31..24] [23..16] [15..8] [7..0]
+- Each bit: 28x28px checkbox, toggleable
+- Bit number labels below each bit
+- Byte group labels above: "Byte 3", "Byte 2", "Byte 1", "Byte 0"
+- 15px spacer between byte groups
+- Bit colors:
+  - Set (1): Light green background (#90EE90), forest green border (#228B22)
+  - Cleared (0): Light gray background (#E0E0E0), gray border (#999)
+
+**Fields Table:**
+- 11 columns: Bits | Name | Access | Value | Enum | Calculated | Description | Watch | Logger | Formula | Notes
+- Column widths:
+  - Bits: ResizeToContents
+  - Name: 120px, Interactive (user-resizable)
+  - Access: ResizeToContents
+  - Value: 80px, Interactive
+  - Enum: 100px, Interactive
+  - Calculated: 80px, ResizeToContents
+  - Description: ResizeToContents
+  - Watch: 50px, Fixed
+  - Logger: 50px, Fixed
+  - Formula: 60px, Fixed
+  - Notes: Stretch
+- Alternating row colors: Enabled
+- Font: Courier 9pt (monospace)
+- Header font: Bold
+
+**Field Table Cell Styling:**
+- **Bits**: Center-aligned, format "7-4" or "3"
+- **Name**: Bold for field names
+- **Access**: Center-aligned, colored background per AccessType
+- **Value**: Right-aligned, editable if writable
+  - Writable not-read: Light gray text
+  - Writable read: Black text, white background
+  - Read-only not-read: Light gray text
+  - Read-only read: Gray text
+  - Changed: Yellow background (#FFFF96)
+- **Enum**: Dark green text (0, 128, 0)
+- **Calculated**: Blue text, column hidden if no formulas
+- **Description**: Wrapped text
+- **Watch/Logger/Formula**: Buttons, 👁/📊/X² icons
+- **Notes**: Editable, light yellow background if note exists
+
+**Color Coding:**
+- Access type backgrounds (from AccessPolicy):
+  - Read-only: #E3F2FD (light blue)
+  - Read-write: #E8F5E9 (light green)
+  - Write-only: #FFEBEE (light red)
+  - Write-once: #FFF3E0 (light orange)
+  - Read-write-once: #F3E5F5 (light purple)
+  - Unknown: #F5F5F5 (light gray)
+- Changed fields: #FFFF96 (yellow)
+- Notes exist: #FFFFDC (light yellow)
+- Calculated values: Blue text
+- Enum values: Dark green text
+
+**Tooltips:**
+- Star button (favorited): "Remove from favorites"
+- Star button (not favorited): "Add to favorites"
+- Changed field: "Value changed: was 0xX, now 0xY"
+- Not-read field: "Value not read yet - may not be accurate"
+- Read-only field: "Read-only field"
+- Calculated value: "Calculated value from formula"
+- Enum value: "{enum.name} ({value})\n{description}"
+- Note cell: "Click to edit note"
+- Watch button: "Add to Watch List"
+- Logger button: "Add to Data Logger"
+- Formula button (exists): "Edit formula"
+- Formula button (new): "Add formula"
+
+**Dialogs:**
+- Confirmation dialog for critical peripheral writes: Shows register/field name, address, new value, warning message
+- Write verification warning: Shows written value vs read-back value
+- Invalid value warning: Shows max value for field
+
+### DATA REQUIREMENTS
+
+**Instance State:**
+```python
+current_register: Optional[RegisterModel]  # Currently displayed register
+current_peripheral: Optional[PeripheralModel]  # For peripheral mode
+register_value: int  # Current register value
+value_format: str  # 'hex', 'dec', or 'bin'
+_read_register_values: Dict[str, int]  # Cache {full_name: value}
+```
+
+**Shared State References:**
+```python
+dut_interface: DutInterface
+access_policy: AccessPolicy
+session_data: SessionData
+field_calculator: FieldCalculation
+field_notes: FieldNotes
+history_panel: HistoryPanel
+favorites_panel: FavoritesPanel
+```
+
+**Signals Emitted:**
+```python
+register_read(RegisterModel, int)  # After successful read
+favorites_changed()  # Favorite added/removed
+save_action_clicked()  # Save to actions requested
+add_to_data_logger(FieldModel)  # Field to data logger
+add_to_watch_list(FieldModel)  # Field to watch list
+format_changed()  # Display format changed
+```
+
+**Table Item Data:**
+```python
+# Value cells store FieldModel in UserRole:
+item.setData(Qt.UserRole, field_model)
+```
+
+**No Direct Persistence:**
+- Current register not saved
+- Display format saved to preferences
+- Cache cleared on application close
+
+---
+
+## 6. SEARCH & FILTERING
+
+### USER REQUIREMENTS
+- User can search/filter peripherals and registers by typing in search box
+- User sees real-time filter results as they type
+- User can clear search to show all items
+- User sees matched items highlighted/expanded
+- User can navigate to auto-selected item if exactly one match
+- Search matches peripheral names, register names, and field names
+
+### FUNCTIONAL REQUIREMENTS
+
+**Search Execution:**
+- Debounced with 300ms delay after last keystroke
+- Implemented with QTimer single-shot
+- On timer timeout: Calls `_perform_search()`
+- Disables tree updates during search, re-enables after (performance)
+
+**Matching Algorithm:**
+1. Convert search text to lowercase
+2. For each peripheral:
+   - Match peripheral name (case-insensitive substring)
+   - If peripheral matches: Show all registers, expand peripheral
+3. For each register (if peripheral didn't match):
+   - Match register name (case-insensitive substring)
+   - If register matches: Show register, expand parent peripheral
+4. For each field in register (if register didn't match):
+   - Match field name (case-insensitive substring)
+   - If field matches: Show register, expand parent peripheral
+5. Hide all non-matching items
+6. If exactly 1 register matches: Auto-select and emit `register_selected`
+
+**Empty Search Behavior:**
+- Shows all peripherals
+- Hides all registers (collapsed state)
+- Clears selection
+
+**Filter State:**
+- "_NS/_S Filter" stored separately from search
+- Applied in addition to search filter
+- Controlled via menu checkbox
+
+### UI REQUIREMENTS
+
+**Search Box:**
+- QLineEdit above tree view
+- Placeholder text: "Filter peripherals/registers..."
+- Clear button (X) visible when text entered
+- Font: 11pt
+- Width: Full width of tree view
+
+**Visual Feedback:**
+- Matched items: Visible and expanded
+- Non-matched items: Hidden (not grayed out)
+- Auto-selected item: Standard Qt selection highlight
+
+**Debounce Indicator:**
+- No visual indicator of debounce
+- Search appears instantaneous to user (300ms is imperceptible)
+
+### DATA REQUIREMENTS
+
+**Search State:**
+```python
+_search_timer: QTimer  # Single-shot, 300ms
+_pending_search_text: str  # Buffered during debounce
+```
+
+**No Persistence:**
+- Search text cleared on app close
+- Filter state (show _NS/_S) saved to preferences
+
+---
+
+## 7. ACCESS POLICY & SAFETY
+
+### USER REQUIREMENTS
+- User prevented from reading write-only fields
+- User prevented from writing read-only fields
+- User warned before writing to critical peripherals (CMU, EMU, MSC, SMU)
+- User sees visual indicators of access permissions
+- User can disable confirmation dialogs via settings
+- User sees color-coding of registers/fields by access type
+
+### FUNCTIONAL REQUIREMENTS
+
+**Access Types (from CMSIS-SVD):**
+- `read-only` → READ_ONLY
+- `write-only` → WRITE_ONLY
+- `read-write` → READ_WRITE
+- `writeOnce` → WRITE_ONCE
+- `read-writeOnce` → READ_WRITE_ONCE
+- Unknown strings → UNKNOWN
+
+**Read Permission Check:**
+- Allowed: READ_ONLY, READ_WRITE, READ_WRITE_ONCE
+- Blocked: WRITE_ONLY, WRITE_ONCE, UNKNOWN
+- On attempt to read write-only:
+  - Logs warning: "Cannot read write-only field: {full_name}"
+  - Returns None (no read attempt)
+
+**Write Permission Check:**
+- Allowed: WRITE_ONLY, READ_WRITE, WRITE_ONCE, READ_WRITE_ONCE
+- Blocked: READ_ONLY, UNKNOWN
+- On attempt to write read-only:
+  - Logs warning: "Cannot write read-only field: {full_name}"
+  - Returns False (no write attempt)
+
+**Value Range Validation:**
+- Before write: Checks `0 <= value <= (2^bit_width - 1)`
+- On out-of-range:
+  - Logs error: "Value 0xX out of range for {full_name} (max: 0xY)"
+  - Returns False (no write attempt)
+
+**Critical Peripheral Confirmation:**
+- Critical peripherals: CMU, EMU, MSC, SMU
+- On write to critical peripheral:
+  - If `confirmation_disabled` is False: Shows confirmation dialog
+  - If user cancels: Aborts write
+  - If user checks "Don't show again": Sets `confirmation_disabled = True`
+- Confirmation can be re-enabled via Settings menu
+
+**Read-Sensitive Peripherals:**
+- Peripherals with side effects: USART, I2C, SPI
+- Reading these clears FIFOs/flags
+- No blocking, just informational logging
+
+**Write Verification:**
+- After every write: Reads back register value
+- If read-back ≠ written value:
+  - Shows warning dialog with written vs read-back
+  - Possible causes: Read-only bits, hardware override
+  - Uses read-back value for display (not written value)
+
+### UI REQUIREMENTS
+
+**Access Type Colors:**
+- READ_ONLY: #E3F2FD (light blue)
+- READ_WRITE: #E8F5E9 (light green)
+- WRITE_ONLY: #FFEBEE (light red)
+- WRITE_ONCE: #FFF3E0 (light orange)
+- READ_WRITE_ONCE: #F3E5F5 (light purple)
+- UNKNOWN: #F5F5F5 (light gray)
+
+**Access Type Text:**
+- READ_ONLY: "R"
+- READ_WRITE: "RW"
+- WRITE_ONLY: "W"
+- WRITE_ONCE: "W1"
+- READ_WRITE_ONCE: "RW1"
+- UNKNOWN: "?"
+
+**Confirmation Dialog:**
+- Title: "Confirm Write to Critical Register"
+- Icon: Warning icon
+- Message: Shows register/field name, address, new value
+- Warning text: "This is a critical peripheral. Writing incorrect values may cause device lockup or debug access loss." (red text)
+- Checkbox: "Don't show this warning again"
+- Buttons: OK (green), Cancel (default, red)
+
+**Write Verification Dialog:**
+- Title: "Write Verification Failed"
+- Icon: Warning icon
+- Message: "Written value: 0xX\nRead-back value: 0xY\n\nThis may be normal if register has read-only bits or hardware overrides."
+- Button: OK
+
+### DATA REQUIREMENTS
+
+**AccessPolicy Class:**
+```python
+class AccessPolicy:
+    CRITICAL_PERIPHERALS: Set[str] = {'CMU', 'EMU', 'MSC', 'SMU'}
+    READ_SENSITIVE_PERIPHERALS: Set[str] = {'USART', 'I2C', 'SPI'}
+    confirmation_disabled: bool = False
+```
+
+**No Persistence:**
+- `confirmation_disabled` state not saved (resets on restart)
+- Could be added to preferences if desired
+
+---
+
+## 8. FAVORITES SYSTEM
+
+### USER REQUIREMENTS
+- User can mark registers as favorites via star button
+- User can view list of favorites in dedicated panel
+- User can click favorite to navigate to and read register
+- User can remove favorites via context menu
+- User sees favorites panel only when favorites exist
+- Favorites persist across sessions
+
+### FUNCTIONAL REQUIREMENTS
+
+**Adding Favorite:**
+1. User clicks star button (☆) next to register name
+2. Calls `session_data.add_favorite(register.full_name)`
+3. Star icon changes to ⭐
+4. Emits `favorites_changed()` signal
+5. Favorites panel updates to show new favorite
+6. If this was first favorite: Panel becomes visible
+
+**Removing Favorite:**
+- Method 1: Click star button (⭐) → Calls `remove_favorite()`, updates icon
+- Method 2: Right-click in favorites list → "Remove from Favorites" → Removes and updates
+
+**Navigating to Favorite:**
+1. User single-clicks favorite in favorites panel
+2. Emits `register_selected(full_name)` signal
+3. Main window receives signal, parses full_name:
+   - Extracts peripheral name and register name
+   - Finds RegisterModel in peripherals list
+4. Calls `detail_view.show_register(register)`
+5. Calls `tree_view.set_selection(register)`
+6. If auto-read enabled: Reads register automatically
+
+**Panel Visibility:**
+- Hidden when `session_data.favorites` is empty (on startup or after clearing all)
+- Shown when favorites exist
+- Updated via `_update_favorites_visibility()` called on `favorites_changed` signal
+- Max width: 300px
+
+**List Display:**
+- Empty state: Shows gray text "(no favorites yet)"
+- With favorites: Shows list sorted alphabetically
+  - Each item prefixed with 📌 icon
+  - Format: "📌 PERIPHERAL.REGISTER"
+
+### UI REQUIREMENTS
+
+**Star Button (in Register Detail View):**
+- Location: Next to register name, before chip info
+- Maximum width: 40px
+- Icon: ⭐ when favorited, ☆ when not
+- Tooltip: "Remove from favorites" (if favorited) or "Add to favorites" (if not)
+- Visible only in register mode (hidden for peripheral mode)
+- Visible only if favorites panel exists
+
+**Favorites Panel:**
+- QVBoxLayout with 5px margins
+- Header: "⭐ Favorites" (bold, 11pt, 3px padding)
+- QListWidget: 9pt font, single selection
+- Context menu on right-click: "❌ Remove from Favorites"
+- Maximum width: 300px
+- Conditional visibility (hidden when empty)
+
+**Empty State:**
+- Single list item: "(no favorites yet)"
+- Gray text color (#808080)
+- Not selectable
+
+**List Item Format:**
+- Prefix: 📌 emoji
+- Text: "PERIPHERAL.REGISTER"
+- Font: 9pt
+- Background: Alternating row colors
+
+### DATA REQUIREMENTS
+
+**Storage Format:**
+```python
+# In SessionData class
+favorites: Set[str]  # Set of full_name strings
+# Example: {'MODEM.CTRL', 'CMU.CLKEN0', 'GPIO.PA_DOUT'}
+```
+
+**Persistence File:**
+- Location: `~/.sirat_favorites.json`
+- Format:
+```json
+{
+  "favorites": [
+    "MODEM.CTRL",
+    "CMU.CLKEN0",
+    "GPIO.PA_DOUT"
+  ]
+}
+```
+- Auto-loaded on startup
+- Auto-saved on close
+
+**Signals:**
+```python
+# FavoritesPanel
+register_selected = pyqtSignal(str)  # Emits full_name
+favorites_changed = pyqtSignal()  # Notifies of add/remove
+
+# RegisterDetailView
+favorites_changed = pyqtSignal()  # Notifies main window
+```
+
+---
+
+## 9. OPERATION HISTORY
+
+### USER REQUIREMENTS
+- User sees chronological list of all read/write operations
+- User can filter history by READ or WRITE operations
+- User can select multiple operations to re-execute
+- User can create actions from selected operations
+- User can copy history to clipboard
+- User can clear entire history
+- User sees color-coded operations (blue for READ, green for WRITE)
+- Auto-read operations do NOT appear in history (only manual reads)
+
+### FUNCTIONAL REQUIREMENTS
+
+**History Tracking:**
+- Only manual operations logged (button clicks, not auto-reads)
+- Each entry stores:
+  - Timestamp (datetime.now())
+  - Full register name
+  - Operation type: 'read', 'write', 'field_write', 'prs'
+  - Value (for writes)
+  - Field name (for field writes) or None
+- Stored in two parallel lists:
+  - `history_items`: Raw data tuples
+  - `all_items`: Display data tuples with color info
+
+**Adding to History:**
+- **Register Read**: `add_read_operation(full_name, value)`
+  - Color: Light blue (220, 235, 255)
+  - Format: "[HH:MM:SS] READ {full_name} → 0x{value:08X}"
+- **Register Write**: `add_write_operation(full_name, value)`
+  - Color: Light green (220, 255, 220)
+  - Format: "[HH:MM:SS] WRITE {full_name} ← 0x{value:08X}"
+- **Field Write**: `add_field_write_operation(full_name, field_name, value)`
+  - Color: Light yellow (255, 255, 220)
+  - Format: "[HH:MM:SS] WRITE {full_name}.{field_name} ← 0x{value:X} (full register: 0x{reg_value:08X})"
+- **PRS Operation**: `add_prs_operation(description, register_ops)`
+  - Color: Light purple (255, 230, 255)
+  - Format: "[HH:MM:SS] PRS: {description}"
+
+**Filtering:**
+- Two checkboxes: READ (default: checked), WRITE (default: checked)
+- On checkbox change: Rebuilds list based on checked states
+- Filter applied to display only, raw history unchanged
+
+**Re-execution:**
+1. User selects one or more items (Ctrl/Shift+Click)
+2. User clicks "▶ Run" button
+3. For each selected item:
+   - If READ: Reads register via `dut_interface.read_register()`
+   - If WRITE: Writes register via `dut_interface.write_register()`
+   - If PRS: Executes PRS register sequence
+4. Emits `execute_history_item(full_name, operation, value)` signal per item
+5. Main window updates displays after each execution
+
+**Create Action from History:**
+1. User selects one or more WRITE operations
+2. User clicks "Create Action..." button
+3. Filters selection to only WRITE operations (skips READS and PRS)
+4. Shows warning if no write operations selected
+5. Prompts for action name
+6. Builds operations list:
+   - For register writes: `{'register': full_name, 'value': value}`
+   - For field writes: `{'register': reg_name, 'field': field_name, 'value': field_value}`
+7. Emits `create_action(name, operations_list)` signal
+8. Main window adds to actions panel
+
+**Clear History:**
+- User clicks "Clear" button
+- Clears both `history_items` and `all_items` lists
+- Clears list widget
+- No confirmation (immediate action)
+
+### UI REQUIREMENTS
+
+**Panel Layout:**
+- Header: "📜 Operation History" (bold, 11pt, 3px padding)
+- Filter checkboxes: "READ" (checked), "WRITE" (checked)
+- QListWidget: Courier 9pt, extended selection (multi-select)
+- Button row: "▶ Run" (60px), "Clear" (50px)
+
+**List Item Format:**
+- Timestamp: [HH:MM:SS] format
+- Operation: READ/WRITE in uppercase
+- Register: Full hierarchical name
+- Value: Hex format 0x<8-digit uppercase>
+- Background color: Per operation type
+
+**Colors:**
+- READ: Light blue (220, 235, 255)
+- WRITE (register): Light green (220, 255, 220)
+- WRITE (field): Light yellow (255, 255, 220)
+- PRS: Light purple (255, 230, 255)
+
+**Context Menu:**
+- Right-click: "💾 Save Selected..." → Opens file dialog to save as JSON
+
+**Multi-Selection:**
+- Mode: ExtendedSelection (Ctrl+Click, Shift+Click)
+- Visual: Standard Qt selection highlight
+
+### DATA REQUIREMENTS
+
+**History Storage:**
+```python
+# In HistoryPanel
+history_items: List[Tuple[datetime, str, str, int, Optional[str]]]
+# Format: (timestamp, full_name, operation, value, field_name_or_reg_ops)
+
+all_items: List[Tuple[str, QColor, str, str, int, Optional[str]]]
+# Format: (item_text, bg_color, operation, full_name, value, field_name_or_reg_ops)
+```
+
+**No Persistence:**
+- History cleared on application close
+- Can be manually saved via context menu to JSON
+
+**JSON Export Format:**
+```json
+[
+  {
+    "register": "MODEM.CTRL",
+    "operation": "write",
+    "value": 305419896,
+    "field": null
+  },
+  {
+    "register": "CMU.CLKEN0",
+    "operation": "read",
+    "value": 4294967295
+  }
+]
+```
+
+**Signals:**
+```python
+execute_history_item = pyqtSignal(str, str, int)  # (full_name, operation, value)
+create_action = pyqtSignal(str, list)  # (action_name, operations_list)
+```
+
+---
+
+## 10. FIELD NOTES & ANNOTATIONS
+
+### USER REQUIREMENTS
+- User can add text notes to any register field
+- User can edit notes by clicking in Notes column
+- User sees yellow background on fields with notes
+- Notes persist across sessions
+- Notes auto-save on edit (no save button needed)
+- User can clear individual notes by deleting text
+
+### FUNCTIONAL REQUIREMENTS
+
+**Adding/Editing Notes:**
+1. User clicks in Notes column cell for a field
+2. Cell becomes editable (QTableWidgetItem with ItemIsEditable flag)
+3. User types note text
+4. User presses Enter or clicks away
+5. Table widget emits `itemChanged` signal
+6. Connected slot calls `field_notes.set_note(field.full_name, note_text)`
+7. Note automatically saved to `~/.sirat/field_notes.json`
+8. Cell background updated to light yellow if note not empty
+
+**Clearing Notes:**
+1. User clears text in Notes cell
+2. On item changed: Calls `field_notes.set_note(field.full_name, "")`
+3. Empty note triggers deletion from storage
+4. Cell background returns to white
+
+**Loading Notes:**
+- On startup: `field_notes._load_notes()` reads JSON file
+- On displaying register: For each field, calls `field_notes.get_note(field.full_name)`
+- If note exists: Populates cell and sets yellow background
+
+**Storage Management:**
+- Notes stored in `FieldNotes` class instance
+- Dict mapping: `{field_full_name: note_text}`
+- Auto-saved immediately on every change (no batching)
+
+### UI REQUIREMENTS
+
+**Notes Column:**
+- Location: Rightmost column in fields table
+- Width: Stretch (takes remaining space)
+- Cell properties:
+  - Always editable (even for read-only fields)
+  - Font: 11pt (matches table default)
+  - Alignment: Left
+  - Word wrap: Enabled
+  - Background: White (default) or light yellow (#FFFFDC) if note exists
+
+**Visual Indicator:**
+- Yellow background (#FFFFDC) when note exists
+- Tooltip: "Click to edit note"
+- No icon or special text prefix
+
+**Editing:**
+- Single-click to focus cell
+- Double-click enters edit mode (Qt default)
+- Press Enter or click away to save
+- No explicit save button
+
+### DATA REQUIREMENTS
+
+**Storage Format:**
+```python
+# In FieldNotes class
+notes: Dict[str, str]
+# Key: field_full_name (e.g., "MODEM.CTRL.OPERATIONAL")
+# Value: note text (string)
+```
+
+**Persistence File:**
+- Location: `~/.sirat/field_notes.json`
+- Format:
+```json
+{
+  "MODEM.CTRL.OPERATIONAL": "This controls operational mode",
+  "CMU.HFCLKSEL.HF": "High frequency clock select",
+  "GPIO.PA_DOUT.DOUT0": "LED control pin"
+}
+```
+- Encoding: UTF-8
+- Indentation: 2 spaces
+- Auto-loaded on startup via `_load_notes()`
+- Auto-saved on every change via `_save_notes()`
+
+**FieldNotes Class:**
+```python
+class FieldNotes:
+    notes: Dict[str, str]
+    config_dir: Path  # ~/.sirat
+    notes_file: Path  # ~/.sirat/field_notes.json
+    
+    def get_note(field_full_name: str) -> str
+    def set_note(field_full_name: str, note: str) -> None
+    def has_note(field_full_name: str) -> bool
+    def clear_all() -> None
+```
+
+---
+
+## 11. FIELD FORMULAS & CALCULATIONS
+
+### USER REQUIREMENTS
+- User can define formulas to convert raw field values to physical units
+- User can specify units (Hz, MHz, V, °C, %)
+- User sees calculated values in dedicated column
+- User can edit/remove formulas via dialog
+- Formulas persist across sessions
+- User can test formula before saving
+
+### FUNCTIONAL REQUIREMENTS
+
+**Formula Definition:**
+- Formula: Python expression using 'x' as variable representing raw field value
+- Unit: String label (e.g., "Hz", "MHz", "GHz", "V", "mV", "°C", "%")
+- Example formulas:
+  - Frequency: `x * 40e6 / 2**19` with unit "Hz"
+  - Temperature: `(x - 32) * 5/9` with unit "°C"
+  - Voltage: `x * 3.3 / 4096` with unit "V"
+  - Percentage: `x / 255 * 100` with unit "%"
+
+**Adding/Editing Formula:**
+1. User clicks X² button next to field
+2. Opens `FieldFormulaDialog(field.full_name, current_formula)`
+3. Dialog shows:
+   - Field full name (label)
+   - Formula input box (Python expression)
+   - Unit input box (optional text)
+   - Help text with examples
+   - Test button (validates syntax)
+4. User enters formula and unit
+5. User clicks "Test" to validate with x=100
+6. User clicks "💾 Save Formula"
+7. Calls `field_calculator.set_formula(field.full_name, formula, unit)`
+8. Formula auto-saved to `~/.sirat/field_formulas.json`
+9. Detail view refreshes to show calculated value
+
+**Removing Formula:**
+1. User clicks X² button on field with existing formula
+2. Dialog shows "🗑 Remove Formula" button
+3. User clicks remove button
+4. Confirmation dialog: "Are you sure?"
+5. If confirmed: Emits `formula_changed(field_name, '', '')` (empty strings)
+6. Calls `field_calculator.remove_formula(field.full_name)`
+7. Calculated column hidden if no more formulas exist
+
+**Calculation Evaluation:**
+- Evaluation: `eval(formula, safe_dict)` where safe_dict contains:
+  - `x`: field value (int)
+  - `__builtins__`: {} (security)
+  - Math functions: abs, round, min, max, pow
+  - Constants: e=2.718281828459045, pi=3.141592653589793
+- On error: Returns None (silent failure)
+- Result converted to float
+
+**Result Formatting:**
+- If abs(result) >= 1: Format with 3 decimal places
+- If abs(result) < 1: Format with 6 decimal places
+- Append unit with space: "{value} {unit}"
+- Example: "2440.125 MHz"
+
+**Column Visibility:**
+- Calculated column shown only if at least one field has formula
+- Hidden otherwise (saves space)
+- Updates on formula add/remove
+
+### UI REQUIREMENTS
+
+**Formula Button:**
+- Location: In fields table, Formula column (60px fixed width)
+- Icon: X² (superscript 2)
+- Style:
+  - With formula: Light blue background
+  - No formula: Default button background
+- Tooltip:
+  - With formula: "Edit formula"
+  - No formula: "Add formula"
+
+**Calculated Column:**
+- Location: Between Enum and Description columns
+- Width: 80px, ResizeToContents
+- Cell properties:
+  - Read-only (not editable)
+  - Font color: Blue
+  - Alignment: Right
+  - Tooltip: "Calculated value from formula"
+- Conditional visibility (hidden if no formulas)
+
+**Field Formula Dialog:**
+- Window: Independent, 600x500 pixels at (300, 300)
+- Title: "Set Formula for {field_full_name}"
+- Layout:
+  - Header: "📐 Define Calculation Formula" (bold, 12pt, 5px padding)
+  - Field name label (gray background #e0e0e0, rounded, bold)
+  - Formula group:
+    - Help text with examples (gray, #f5f5f5 background)
+    - Formula input (QLineEdit, Courier New 10pt, placeholder "x * 40e6 / 2**19")
+  - Unit group:
+    - Help text
+    - Unit input (QLineEdit, 150px max, placeholder "Hz")
+  - Buttons:
+    - "💾 Save Formula" (bold, 5px padding)
+    - "🗑 Remove Formula" (only if current formula exists)
+    - "Cancel"
+
+**Formula Examples in Dialog:**
+1. `x * 40e6 / 2**19` - Frequency from register
+2. `(x - 32) * 5/9` - Temperature F to C
+3. `x * 3.3 / 4096` - Voltage from ADC
+4. `x / 255 * 100` - Percentage
+
+### DATA REQUIREMENTS
+
+**Storage Format:**
+```python
+# In FieldCalculation class
+formulas: Dict[str, Tuple[str, str]]
+# Key: field_full_name
+# Value: (formula, unit)
+# Example: {'SYNTH.FREQ': ('x * 40e6 / 2**19', 'Hz')}
+```
+
+**Persistence File:**
+- Location: `~/.sirat/field_formulas.json`
+- Format:
+```json
+{
+  "SYNTH.FREQ": {
+    "formula": "x * 40e6 / 2**19",
+    "unit": "Hz"
+  },
+  "TEMP.CELSIUS": {
+    "formula": "(x - 32) * 5/9",
+    "unit": "°C"
+  }
+}
+```
+- Encoding: UTF-8
+- Indentation: 2 spaces
+- Auto-loaded on startup
+- Auto-saved on every change
+
+**FieldCalculation Class:**
+```python
+class FieldCalculation:
+    formulas: Dict[str, Tuple[str, str]]
+    config_path: Path  # ~/.sirat/field_formulas.json
+    
+    def has_formula(field_full_name: str) -> bool
+    def get_formula(field_full_name: str) -> Optional[Tuple[str, str]]
+    def set_formula(field_full_name: str, formula: str, unit: str) -> None
+    def remove_formula(field_full_name: str) -> None
+    def calculate(field_full_name: str, field_value: int) -> Optional[float]
+    def format_result(field_full_name: str, field_value: int) -> Optional[str]
+```
+
+**Safe Evaluation Environment:**
+```python
+safe_dict = {
+    'x': field_value,
+    '__builtins__': {},
+    'abs': abs,
+    'round': round,
+    'min': min,
+    'max': max,
+    'pow': pow,
+    'e': 2.718281828459045,
+    'pi': 3.141592653589793
+}
+```
+
+---
+
+## 12. REGISTER DUMPS
+
+### USER REQUIREMENTS
+- User can take dump of selected peripherals
+- User can compare two dumps to see differences
+- User can diff live register values against saved dump
+- User can compare chip state to Radio Calculator PHY config
+- User sees field-level differences with color coding
+- User can save dumps for later comparison
+
+### FUNCTIONAL REQUIREMENTS
+
+**Taking a Dump:**
+1. User selects "Take a Dump..." from Dump menu
+2. Dialog shows list of all peripherals with checkboxes
+3. User selects peripherals to dump (Select All / Select None buttons)
+4. User clicks "Dump" button
+5. Progress dialog shown
+6. For each selected peripheral:
+   - Reads all registers sequentially
+   - Stores in RegisterDump object with timestamp
+7. Prompts for dump name
+8. Saves to `C:/temp/sirat/dumps/<name>_<timestamp>.csv`
+9. Shows success message: "Finished taking a dump 💩"
+
+**Comparing Two Dumps:**
+1. User selects "Compare Dumps..." from Dump menu
+2. Opens file dialog to select first dump (CSV)
+3. Opens file dialog to select second dump (CSV)
+4. Loads both CSVs
+5. Finds common peripherals
+6. For each common peripheral and register:
+   - Compares values
+   - If different: Adds to diff list
+7. Displays comparison dialog:
+   - Summary: X registers differ
+   - Table: Register | Before | After | Change
+   - Color: Red background for changed rows
+8. User can save comparison report
+
+**Diff vs Dump:**
+1. User selects "Diff vs Dump..." from Dump menu
+2. Opens file dialog to select dump CSV
+3. Loads dump data
+4. For each peripheral/register in dump:
+   - Reads live value from hardware
+   - Compares to dump value
+   - If different: Adds to diff list
+5. Displays same comparison dialog as "Compare Dumps"
+
+**Radio Calculator Diff:**
+1. User selects "Radio Calculator Diff..." from Dump menu
+2. Opens file dialog to select `.cfg` file (Radio Calculator output)
+3. Parses configuration file for register/field assignments
+4. Dialog shows list of peripherals with expected field count
+5. User selects peripherals to compare (Select All / Select None)
+6. User clicks "Compare" button
+7. Progress dialog shown
+8. For each field in config:
+   - Reads live value from hardware
+   - Compares to expected value from config
+   - Categorizes: Match (green), Mismatch (red), Error (orange)
+9. Displays results dialog:
+   - Summary: X matches, Y mismatches, Z errors
+   - Table: Peripheral | Register | Field | Expected | Actual | Status
+   - Color coding per row
+10. User can save comparison report
+
+**Dump File Format (CSV):**
+```csv
+Peripheral,Register,Address,Value
+MODEM,CTRL,0x40086000,0x12345678
+MODEM,STATUS,0x40086004,0xABCDEF01
+CMU,CLKEN0,0x40080000,0xFFFFFFFF
+```
+
+**Radio Calculator Config Format:**
+```
+# Comment lines start with #
+PERIPHERAL.REGISTER.FIELD = value
+MODEM.CTRL.OPERATIONAL = 1
+MODEM.FREQ.FREQ = 2440000000
+# Can be decimal or hex (0xABCD)
+```
+
+### UI REQUIREMENTS
+
+**Peripheral Selection Dialog:**
+- Title: "Select Peripherals to Dump"
+- List: Checkboxes for each peripheral
+- Buttons: "Select All", "Select None", "Dump", "Cancel"
+- Width: 400px, Height: 600px
+
+**Comparison Dialog:**
+- Title: "Register Comparison"
+- Summary header: Light blue background (#E8F4F8), bold, 12px font
+- Table columns: Register | Before | After | Change
+- Color coding:
+  - Changed rows: Light red background
+  - Match rows: Light green background (for Radio Calculator Diff)
+- Buttons: "Save Report...", "Close"
+- Width: 900px, Height: 700px
+
+**Progress Dialog:**
+- Title: "Reading Registers" or "Comparing..."
+- Label: Updates per register "Reading PERIPHERAL.REGISTER..."
+- Cancelable: Yes
+- Progress bar: Increments per operation
+
+**Radio Calculator Diff Dialog:**
+- Title: "Radio Calculator Diff"
+- Peripheral list: Shows peripheral name + field count
+  - Format: "MODEM (37 fields)"
+- Buttons: "Select All", "Select None", "Compare", "Cancel"
+
+**Results Dialog:**
+- Title: "Radio Calculator Comparison"
+- Summary: "✓ X Matches | ⚠️ Y Mismatches | ❌ Z Errors"
+- Table columns: Peripheral | Register | Field | Expected | Actual | Status
+- Color coding:
+  - Match (✓): Light green background
+  - Mismatch (⚠️): Light red background
+  - Error (❌): Light orange background
+- Buttons: "Save Report...", "Close"
+
+### DATA REQUIREMENTS
+
+**RegisterDump Class:**
+```python
+@dataclass
+class RegisterDump:
+    name: str
+    timestamp: datetime
+    description: str
+    values: Dict[str, int]  # full_name -> value
+    
+    def to_dict() -> dict
+    @staticmethod
+    def from_dict(data: dict) -> RegisterDump
+```
+
+**Session Data Storage:**
+```python
+# In SessionData class
+dumps: List[RegisterDump]
+max_dumps: int = 50  # Limit to prevent unbounded growth
+
+def add_dump(dump: RegisterDump) -> None
+def get_dump(name: str) -> Optional[RegisterDump]
+def delete_dump(name: str) -> None
+```
+
+**Dump Files:**
+- Location: `C:/temp/sirat/dumps/`
+- Filename format: `<name>_<YYYYMMDD_HHMMSS>.csv`
+- CSV format: UTF-8, comma-separated, quoted strings
+- Manual cleanup (not auto-deleted)
+
+**Radio Calculator Config:**
+- Location: User-selected via file dialog
+- Auto-search pattern: `PHY_<name>.cfg` in workspace
+- Format: Plain text, line-oriented
+- Comments: Lines starting with `#`
+- Assignment: `PERIPHERAL.REGISTER.FIELD = value`
+
+---
+- Actions persist across sessions
+
+### FUNCTIONAL REQUIREMENTS
+
+**Action Types Supported:**
+
+1. **Register Operations** (default, no type specified):
+   - Register write: `{'register': 'PERIPH.REG', 'value': 0x1234}`
+   - Field write: `{'register': 'PERIPH.REG', 'field': 'FIELD', 'value': 0xAB}`
+
+2. **Custom Functions**: `{'type': 'custom_function', 'function_name': 'my_func'}`
+
+3. **RF Switch**: `{'type': 'rf_switch', 'path': 'TX_PATH', 'dut_position': 1}`
+
+4. **Signal Generator**: 
+```python
+{
+    'type': 'signal_generator',
+    'sg_type': 'PacketSrw',
+    'input_config_name': 'BLE_1M',
+    'frequency_mhz': 2440,
+    'power_dbm': 0,
+    'overrides': {},
+    'code': '...'
+}
+```
+
+5. **Load PHY**: `{'type': 'load_phy', 'phy_name': 'PHY_NAME', 'method_name': 'load_ble_phy'}`
+
+6. **Load WiFi PHY**: `{'type': 'load_wifi_phy', 'config': {...}}`
+
+7. **DUT Control Method**:
+```python
+{
+    'type': 'dut_control_method',
+    'method_path': 'common.ble.StartAdvertising',
+    'method_name': 'StartAdvertising',
+    'params': {'power': 0, 'channel': 37}
+}
+```
+
+8. **DUT Reconnect**: `{'type': 'dut_reconnect', 'description': 'Reconnect RPC'}`
+
+9. **Sequence**: `{'type': 'sequence', 'sequence_name': 'SEQ1', 'action_names': ['action1', 'action2']}`
+
+10. **PRS Route**: `{'type': 'prs_route', 'signal': 'FRAMEDET', 'pin': 'PA0', 'channel': 0}`
+
+11. **GFSK Packet**: `{'type': 'gfsk_packet', 'code': '...'}`
+
+**Action Storage Format:**
+```python
+# New format (OrderedDict)
+actions[name] = {
+    'operations': [list of operation dicts],
+    'enabled': True/False
+}
+
+# Legacy formats auto-migrated:
+# Format 1: actions[name] = [operations_list]
+# Format 2: actions[name] = {reg1: val1, reg2: val2}
+```
+
+**Executing Actions:**
+
+**Single Action:**
+1. User clicks "▶ Run" button
+2. Extracts operations list from action
+3. Emits `apply_set(operations_list)` signal
+4. Main window receives and executes sequentially:
+   - Register write: `dut_interface.write_register()`
+   - Custom function: Executes in shared namespace
+   - RF switch: Calls `SwitchUtils.connect_path()`
+   - Signal generator: Loads config, triggers waveform
+   - Load PHY: Calls appropriate loader function
+   - DUT control: Calls method via reflection
+   - PRS route: Calls `pti_prs.setup_prs()`
+5. Logs each operation to history panel
+
+**Apply All Selected:**
+1. User clicks "▶▶ All Selected" button
+2. Filters actions where `enabled == True`
+3. Emits `apply_all_sets()` signal
+4. Main window executes each action sequentially
+5. Shows progress indication in console
+
+**Editing Actions:**
+1. User clicks "✏️ Edit" button
+2. Opens edit dialog showing operations list
+3. User can:
+   - View operation details
+   - Edit values for editable operations (register/field writes)
+   - Add new operations (not implemented)
+   - Remove operations (not implemented)
+   - View non-editable operations as info
+4. User clicks "Save"
+5. Updates action in OrderedDict
+6. Auto-saves to file
+7. Refreshes list display
+
+**Code Generation:**
+1. User checks actions to include
+2. User clicks "⚙ Generate Code" button
+3. For each checked action:
+   - Detects operation type
+   - Generates equivalent Python code
+   - Uses templates per type
+4. Combines into complete script with imports
+5. Displays in dialog with copy button
+6. Can save to .py file
+
+**Reordering:**
+- Move Up: Swaps with previous item in OrderedDict
+- Move Down: Swaps with next item in OrderedDict
+- Maintains checkbox states
+
+### UI REQUIREMENTS
+
+**Panel Layout:**
+```
+ActionsPanel (QVBoxLayout, 5px margins)
+├── Header Row (QHBoxLayout)
+│   ├── Label: "📋 Actions" (bold, 11pt, 3px padding)
+│   └── Pop-out Button: "🗖" (30x20px, gray, opens large view)
+├── QListWidget (main content)
+│   ├── Items with checkboxes (enable/disable)
+│   └── Items colored/iconed by type
+├── Button Row 1 (QHBoxLayout)
+│   ├── "👁 View" (60px)
+│   ├── "✏️ Edit" (60px)
+│   ├── "▶ Run" (60px)
+│   ├── "▶▶ All Selected" (100px)
+│   └── "⚙ Generate Code" (110px)
+└── Button Row 2 (QHBoxLayout)
+    ├── "🗑 Delete" (70px)
+    ├── "🗑 Delete All" (80px)
+    ├── "☐ Deselect All" (100px)
+    ├── "⬆ Up" (50px)
+    └── "⬇ Down" (60px)
+```
+
+**Action List Item Format:**
+- Checkbox: Enable/disable (Qt.ItemIsUserCheckable)
+- Icon prefix per type
+- Name: Bold text
+- Background color per type:
+  - Custom function: Orange (255, 140, 0)
+  - RF switch: Medium purple (147, 112, 219)
+  - Signal generator: Teal (0, 128, 128)
+  - Load PHY: Dodger blue (30, 144, 255)
+  - Load WiFi PHY: Cyan (0, 180, 180)
+  - DUT control: Magenta (199, 21, 133)
+  - DUT reconnect: Forest green (34, 139, 34)
+  - Sequence: Purple (128, 0, 128)
+  - Regular: Black text
+
+**View Dialog:**
+- Title: "View Action: {name}"
+- Size: 700x500
+- Read-only QTextEdit with syntax highlighting
+- Shows all operations formatted
+- Python syntax highlighting for custom functions:
+  - Keywords: Blue (#569CDA), bold
+  - Strings: Orange (#CE9178)
+  - Comments: Green (#6A9955)
+- Close button
+
+**Edit Dialog:**
+- Title: "Edit Action: {name}"
+- Size: 800x600
+- Operations table or list view
+- Editable values for register/field operations
+- Info messages for non-editable operations
+- Save/Cancel buttons
+
+**Large View (Actions Dialog):**
+- Separate window: 900x800
+- Same controls as panel
+- Syncs with main panel
+- Non-modal, independent taskbar entry
+- Console output area below actions
+
+### DATA REQUIREMENTS
+
+**Storage Structure:**
+```python
+# OrderedDict preserves insertion order
+actions: OrderedDict[str, dict] = OrderedDict()
+
+# Per action:
+{
+    'operations': [
+        {'register': 'MODEM.CTRL', 'value': 0x123},
+        {'type': 'custom_function', 'function_name': 'init_ble'},
+        # ... more operations
+    ],
+    'enabled': True  # or False
+}
+```
+
+**Persistence File:**
+- Location: `~/.sirat_actions.json`
+- Format:
+```json
+{
+  "BLE Initialization": {
+    "operations": [
+      {"register": "MODEM.CTRL", "value": 305419896},
+      {"type": "custom_function", "function_name": "start_advertising"}
+    ],
+    "enabled": true
+  },
+  "WiFi Setup": {
+    "operations": [
+      {"type": "load_wifi_phy", "config": {...}}
+    ],
+    "enabled": false
+  }
+}
+```
+- Encoding: UTF-8
+- Indentation: 2 spaces
+- Auto-loaded on startup
+- Auto-saved on any change via `actions_changed` signal
+
+**Signals:**
+```python
+apply_set = pyqtSignal(list)  # operations list
+apply_all_sets = pyqtSignal()  # execute all enabled
+actions_changed = pyqtSignal()  # add/remove/modify
+```
+
+---
+
+## 14. SEQUENCES
+
+### USER REQUIREMENTS
+- User can create sequences that execute multiple actions in order
+- User can add actions to new or existing sequences
+- User can view/edit sequence contents
+- User can execute entire sequence
+- User can reorder actions within sequence
+- User can remove actions from sequence
+- User can delete sequences
+- Sequences persist across sessions
+
+### FUNCTIONAL REQUIREMENTS
+
+**Sequence Structure:**
+```python
+sequences: OrderedDict[str, dict] = OrderedDict()
+
+# Per sequence:
+{
+    'action_names': ['action1', 'action2', 'action3'],
+    'description': 'Optional description'
+}
+```
+
+**Creating Sequence:**
+1. User selects "Sequences..." from Tools menu
+2. Opens Sequences Dialog
+3. User clicks "New Sequence" button
+4. Prompts for sequence name
+5. Creates empty sequence
+6. User adds actions via dropdown or drag-drop
+
+**Adding Actions to Sequence:**
+- Method 1: From Actions Panel
+  - Select actions (checkboxes)
+  - Click "Add to Sequence..."
+  - Choose "New Sequence" or existing sequence name
+  - Actions appended in order
+- Method 2: From Sequences Dialog
+  - Select sequence
+  - Click "Add Action" button
+  - Choose from dropdown of all actions
+  - Action appended to end
+
+**Executing Sequence:**
+1. User clicks "Execute Sequence" button
+2. For each action name in sequence:
+   - Looks up action in actions dict
+   - If not found: Logs warning, continues
+   - If disabled: Skips
+   - If enabled: Executes operations list
+3. Logs each action to console with colored output
+4. Highlights currently executing action
+5. Shows completion summary
+
+**Reordering:**
+- Move Up/Down buttons
+- Swaps positions in action_names list
+- Updates display immediately
+
+**Removing Actions:**
+- Select action in sequence
+- Click "Delete" button
+- Removes from action_names list
+- Does not delete the action itself (only reference)
+
+### UI REQUIREMENTS
+
+**Sequences Dialog:**
+- Window: Non-modal, 1000x700 pixels
+- Title: "Sequence Manager"
+- Layout: Two-panel horizontal splitter (50/50)
+
+**Left Panel: Sequences List**
+- QListWidget with sequence names
+- Bold font for names
+- Shows action count: "Sequence Name (5 actions)"
+- Buttons:
+  - "New Sequence"
+  - "Rename"
+  - "Delete"
+  - "Add to Actions Panel"
+
+**Right Panel: Sequence Details**
+- Header: "Actions in {sequence_name}"
+- QListWidget with actions in order
+- Shows action icons and colors (same as Actions Panel)
+- Buttons:
+  - "Add Action..." (dropdown to select from all actions)
+  - "Remove Selected"
+  - "⬆ Move Up"
+  - "⬇ Move Down"
+  - "Execute Sequence"
+
+**Console Output:**
+- Below panels: QTextEdit, read-only, Courier 9pt
+- Colored output:
+  - Green: Success (100, 255, 100)
+  - Red: Error (255, 100, 100)
+  - Blue: Info (100, 200, 255)
+  - Gray: Timestamps
+- Auto-scroll to bottom
+- Clear button
+
+**Execution Highlighting:**
+- Currently executing action: Yellow background
+- Completed actions: Return to normal
+
+### DATA REQUIREMENTS
+
+**Storage Structure:**
+```python
+sequences: OrderedDict[str, dict] = OrderedDict()
+
+# Per sequence:
+{
+    'action_names': ['BLE Init', 'Start Advertising', 'Set Power'],
+    'description': ''  # Optional
+}
+```
+
+**Persistence File:**
+- Location: `~/.sirat_sequences.json`
+- Format:
+```json
+{
+  "Full BLE Stack": {
+    "action_names": ["BLE Init", "Start Advertising", "Set Power"],
+    "description": "Complete BLE initialization sequence"
+  },
+  "WiFi Test Setup": {
+    "action_names": ["Load WiFi PHY", "Set TX Path", "Configure SG"],
+    "description": ""
+  }
+}
+```
+- Auto-loaded on startup
+- Auto-saved on any change
+
+---
+
+## 15. CUSTOM FUNCTIONS
+
+### USER REQUIREMENTS
+- User can write Python functions with access to DUT
+- User can execute functions and see output
+- User can add functions to Actions
+- User can call functions from sequences
+- User sees syntax highlighting in editor
+- Functions persist across sessions
+- Variables persist between function calls (shared namespace)
+
+### FUNCTIONAL REQUIREMENTS
+
+**Execution Environment:**
+```python
+# Shared namespace persists between calls
+namespace = {
+    'self': parent_obj,
+    'dut': parent_obj.dut,
+    '__builtins__': {},
+    # All imports from common_test_imports
+    # All imports from switch_utils
+}
+```
+
+**Function Storage:**
+```python
+custom_functions: List[dict] = [
+    {
+        'name': 'init_ble',
+        'code': 'dut.dut_control.lpw.ble.StartAdvertising(0, 37)'
+    },
+    ...
+]
+```
+
+**Execution Flow:**
+1. User enters code in editor
+2. User clicks "Run Function" button
+3. Main window checks re-entrance lock (`_executing_custom_function`)
+4. If locked: Shows warning, returns
+5. Sets lock flag
+6. Captures stdout via StringIO
+7. Parses code with AST:
+   - If single expression: Evaluates with `eval()`
+   - If statements: Executes with `exec()`
+8. Stores result in namespace: `last_dut_api_result`, `result_<FunctionName>`
+9. Restores stdout
+10. Displays captured output in console
+11. Displays result if expression (green text)
+12. Clears lock flag
+
+**Syntax Highlighting:**
+- Keywords: Blue (#569CDA), bold
+- Strings: Orange (#CE9178)
+- Comments: Green (#6A9955)
+- Default: Black
+
+**Adding to Actions:**
+1. User clicks "Add to Actions" button
+2. Creates operation: `{'type': 'custom_function', 'function_name': name}`
+3. Adds to actions panel
+4. Auto-saves
+
+### UI REQUIREMENTS
+
+**Custom Functions Dialog:**
+- Window: Non-modal, 900x700 pixels
+- Title: "Custom Functions"
+- Layout: Two-panel horizontal splitter (30/70)
+
+**Left Panel: Functions List**
+- QListWidget with function names
+- Buttons:
+  - "New Function"
+  - "Rename"
+  - "Delete"
+
+**Right Panel: Code Editor & Console**
+- Top: Code editor (QTextEdit, Consolas/Courier New 10pt)
+  - Syntax highlighting
+  - Placeholder text with usage instructions
+- Middle: Buttons
+  - "Run Function" (green)
+  - "Add to Actions" (blue)
+- Bottom: Console output (QTextEdit, read-only)
+  - Captured print statements
+  - Results display
+  - Colored output
+
+**Placeholder Text:**
+```python
+# Write Python code here
+# Available variables:
+#   self - Parent object
+#   dut - DUT instance
+#   All test utilities imported
+#
+# Example:
+# dut.dut_control.lpw.ble.StartAdvertising(0, 37)
+# print("BLE advertising started")
+```
+
+### DATA REQUIREMENTS
+
+**Storage Structure:**
+```python
+custom_functions: List[dict] = [
+    {'name': 'init_ble', 'code': 'dut.dut_control...'},
+    {'name': 'set_power', 'code': 'dut.rta...'},
+]
+```
+
+**Persistence File:**
+- Location: `~/.sirat_custom_functions.json`
+- Format:
+```json
+[
+  {
+    "name": "init_ble",
+    "code": "dut.dut_control.lpw.ble.StartAdvertising(0, 37)\nprint('Started')"
+  },
+  {
+    "name": "read_rssi",
+    "code": "rssi = dut.rta.lpw.GetRSSI()\nprint(f'RSSI: {rssi} dBm')\nreturn rssi"
+  }
+]
+```
+
+**Shared Namespace:**
+- Persists for entire session
+- Variables survive between function calls
+- Results stored as `last_dut_api_result`
+- Can be accessed by subsequent functions
+
+---
+
+## 16. CODE GENERATION
+
+### USER REQUIREMENTS
+- User can generate Python code from action history
+- User can generate code from selected actions
+- User can copy generated code to clipboard
+- Generated code is self-contained and executable
+- Code includes all necessary imports
+
+### FUNCTIONAL REQUIREMENTS
+
+**Code Generation from Actions:**
+
+**Register Write:**
+```python
+dut.rm.writeByName('MODEM.CTRL', 0x12345678)
+```
+
+**Field Write:**
+```python
+dut.rm.writeByName('MODEM.CTRL.OPERATIONAL', 1)
+```
+
+**Custom Function:**
+```python
+# Custom function: {function_name}
+{code}
+```
+
+**RF Switch:**
+```python
+from tests.utils.instrument_utils.switch_utils import SwitchUtils
+SwitchUtils._connect_switch_path_for_role_name('{path}', dut_position={pos})
+```
+
+**Signal Generator:**
+```python
+# Signal Generator Configuration
+{generated_code_from_config}
+```
+
+**Load PHY:**
+```python
+dut.{method_path}(dut)
+```
+
+**DUT Control Method:**
+```python
+dut.dut_control.{path}.{method}(**{params})
+```
+
+**Template Structure:**
+```python
+#!/usr/bin/env python
+"""
+Generated code from SiRAT Actions
+Generated: {timestamp}
+"""
+
+# Imports
+from tests.common_test_imports import *
+from tests.utils.instrument_utils.switch_utils import SwitchUtils
+
+def main(dut):
+    """Execute actions."""
+    
+    # Action: {action_name}
+    {generated_operations}
+    
+    # Action: {next_action_name}
+    {more_operations}
+
+if __name__ == '__main__':
+    # Get DUT instance
+    # dut = ...  # User must configure
+    # main(dut)
+    pass
+```
+
+**Generation Process:**
+1. User selects actions (checkboxes)
+2. User clicks "⚙ Generate Code"
+3. For each checked action:
+   - Iterates operations list
+   - Detects operation type
+   - Applies appropriate template
+   - Adds comments for clarity
+4. Combines into complete script
+5. Displays in dialog with syntax highlighting
+6. Provides copy and save buttons
+
+### UI REQUIREMENTS
+
+**Code Generation Dialog:**
+- Window: Modal, 1000x800 pixels
+- Title: "Generated Python Code"
+- Layout: Vertical
+  - Code display (QTextEdit, Consolas 10pt, read-only)
+  - Syntax highlighting (Python)
+  - Button row:
+    - "📋 Copy to Clipboard"
+    - "💾 Save to File..."
+    - "Close"
+
+**Syntax Highlighting:**
+- Keywords: Blue, bold
+- Strings: Orange
+- Comments: Green
+- Functions: Purple
+- Numbers: Cyan
+
+### DATA REQUIREMENTS
+
+**No Persistence:**
+- Generated code not saved automatically
+- User can manually save via button
+
+---
+
+## 17. DATA LOGGER
+
+### USER REQUIREMENTS
+- User can add multiple fields to real-time logger
+- User can see live plots for each field
+- User can configure sample rate (0.01 to 3600 seconds)
+- User can start/stop logging
+- User can clear collected data
+- User can remove individual fields
+- User sees calculated values if formulas exist
+- Plots auto-scale and show time-series data
+
+### FUNCTIONAL REQUIREMENTS
+
+**Adding Fields:**
+- From Register Detail View: Click 📊 button next to field
+- Emits `add_to_data_logger(FieldModel)` signal
+- Data logger dialog receives signal and adds field
+- Field added to tracked_fields list
+- New plot widget created for field
+- Plot added to scrollable area
+
+**Sampling:**
+1. User sets sample rate (QDoubleSpinBox, 0.01-3600s, 0.01 step)
+2. User clicks "▶ Start"
+3. QTimer started with interval = sample_rate * 1000 ms
+4. On each timeout:
+   - Read all tracked fields (use_cache=False)
+   - Apply formula if exists: `field_calculator.calculate()`
+   - Append to data arrays: times[], values[]
+   - Update plot data
+5. Auto-ranging on X and Y axes
+6. Sample counter increments
+
+**Stopping:**
+- User clicks "⏸ Stop"
+- Timer stopped
+- Data retained
+- Can restart to continue
+
+**Clearing:**
+- User clicks "Clear Data"
+- Empties all plot_data arrays
+- Resets plots
+- Sample counter reset to 0
+
+**Removing Fields:**
+- User selects field in list
+- User clicks "Remove Field"
+- Removes field from tracked_fields
+- Deletes corresponding plot widget
+- Removes from plot_data dict
+
+### UI REQUIREMENTS
+
+**Dialog Layout:**
+```
+Data Logger Dialog (Qt.Window, 900x700)
+├── Header: "📊 Real-Time Data Logger" (bold, 12px, 5px padding)
+├── Fields List (QListWidget, max 80px height, Courier 9pt)
+├── Controls Row (QHBoxLayout)
+│   ├── Label: "Sample Rate (s):"
+│   ├── Rate Spinner (0.01-3600, default 1.0, 100px width)
+│   ├── Start/Stop Button (green/red toggle)
+│   ├── Clear Data Button
+│   └── Remove Field Button
+├── Plots Area (QScrollArea, vertical)
+│   ├── Plot 1 (pyqtgraph PlotWidget, min 150px height)
+│   ├── Plot 2
+│   └── ...
+└── Status Label (sample count, elapsed time)
+```
+
+**Plot Styling:**
+- Background: White
+- Grid: Light gray
+- Axis labels: Black, 10pt
+- Plot line: Blue, 2px width
+- X-axis label: "Sample Number"
+- Y-axis label: "{field_name}"
+- Rectangle zoom enabled (RectMode)
+- All plots X-axis linked (except first)
+
+**Button States:**
+- Start: "▶ Start" (green background)
+- Stop: "⏸ Stop" (red background #ff6666)
+- Disabled when no fields tracked
+
+### DATA REQUIREMENTS
+
+**Instance State:**
+```python
+tracked_fields: List[Tuple[str, FieldModel]]
+# [(display_name, field_model), ...]
+
+plot_data: Dict[str, Tuple[List[float], List[float]]]
+# {display_name: ([times], [values])}
+
+sample_timer: QTimer
+sample_count: int
+```
+
+**Persistence File:**
+- Location: `~/.sirat_data_logger.json`
+- Format:
+```json
+{
+  "tracked_fields": [
+    "MODEM.CTRL.OPERATIONAL",
+    "AGC.GAININDEX.INDEX"
+  ],
+  "sample_rate": 1.0
+}
+```
+- Auto-loaded on startup
+- Auto-saved on close via `data_logger_changed` signal
+
+**Signals:**
+```python
+data_logger_changed = pyqtSignal()  # Emitted on add/remove/close
+```
+
+---
+
+## 18. WATCH LIST
+
+### USER REQUIREMENTS
+- User can add fields to watch list for monitoring
+- User can see current values with auto-refresh
+- User can configure refresh rate (0.1 to 60 seconds)
+- User can manually refresh once
+- User can write field values from watch list
+- User can remove fields individually or clear all
+- User can add all watched fields to data logger
+- User sees value changes highlighted in yellow
+- User sees enum names and calculated values
+
+### FUNCTIONAL REQUIREMENTS
+
+**Adding to Watch List:**
+- From Register Detail View: Click 👁 button
+- Emits `add_to_watch_list(FieldModel)` signal
+- Watch list dialog receives and adds to watch_items dict
+- New row added to table
+
+**Auto-Refresh:**
+1. User sets refresh rate (0.1-60s, default 1.0s)
+2. User clicks "▶ Start"
+3. QTimer started with interval
+4. On each timeout:
+   - For each watch item:
+     - Read field value (no cache)
+     - Apply formula if exists
+     - Compare to last_value
+     - If changed: Highlight yellow, update timestamp
+     - Add to changed_items set
+   - Update table display
+5. User clicks "⏸ Stop" to halt
+
+**Manual Refresh:**
+- User clicks "↻ Refresh"
+- Single execution of refresh logic
+- Does not start timer
+
+**Writing Values:**
+- User double-clicks Value cell
+- Opens write dialog
+- User enters new value
+- Validates and writes via `dut_interface.write_field()`
+- Updates display with new value
+
+**Context Menu:**
+- Right-click on field: "Write Value", "Add to Logger"
+
+### UI REQUIREMENTS
+
+**Dialog Layout:**
+```
+Watch List Dialog (Qt.Window, 900x500)
+├── Header: "👁 Watch List" (bold, 11px, 3px padding)
+├── Table (QTableWidget, 4 columns)
+│   ├── Register/Field (stretch)
+│   ├── Value (resize to contents)
+│   ├── Enum (resize to contents)
+│   └── Calculated (resize to contents)
+├── Controls Row
+│   ├── Label: "Rate (s):"
+│   ├── Rate Spinner (0.1-60, default 1.0, 80px)
+│   ├── "▶ Start" / "⏸ Stop" (80px, green #5cb85c)
+│   ├── "↻ Refresh" (80px, cyan #5bc0de)
+│   ├── "Delete Selected" (120px, orange #f0ad4e)
+│   ├── "Clear All" (80px, red #d9534f)
+│   ├── "📊 Add Selected to Logger" (180px, blue)
+│   └── "📊 Add All to Logger" (150px, blue)
+```
+
+**Table Styling:**
+- Font: Courier 9pt
+- Alternating row colors
+- Multi-selection mode
+- Value column: Right-aligned
+- Enum column: Dark green text (0, 128, 0)
+- Calculated column: Blue text
+- Changed values: Yellow background (#FFFF96)
+
+**Value Format:**
+- Hex: 0x<uppercase hex>
+- Decimal: plain integer
+- Binary: 0b<binary string>
+- Format inherited from main window setting
+
+### DATA REQUIREMENTS
+
+**Instance State:**
+```python
+watch_items: Dict[str, Tuple[Any, int, datetime]]
+# {full_name: (model_obj, last_value, last_change_time)}
+
+changed_items: Set[str]
+# Set of full_names that changed in last refresh
+
+refresh_timer: QTimer
+```
+
+**Persistence File:**
+- Location: `~/.sirat_watch_list.json`
+- Format:
+```json
+{
+  "watched_fields": [
+    "MODEM.CTRL.OPERATIONAL",
+    "AGC.GAININDEX.INDEX"
+  ],
+  "refresh_rate": 1.0
+}
+```
+
+**Signals:**
+```python
+remove_from_watch = pyqtSignal(str)  # full_name
+add_all_to_data_logger = pyqtSignal(list)  # [FieldModel, ...]
+watch_list_changed = pyqtSignal()
+```
+
+---
+
+## 19. MEMORY VIEWER
+
+### USER REQUIREMENTS
+- User can read raw memory at any address
+- User can write single byte/word/dword to memory
+- User can view memory in byte/word/dword format
+- User sees hex dump with ASCII preview
+- User can specify read size (1-4096 bytes)
+- Last address persists across sessions
+
+### FUNCTIONAL REQUIREMENTS
+
+**Reading Memory:**
+1. User enters address (hex or decimal)
+2. User selects size (1-4096 bytes, step 256)
+3. User selects format: Bytes, Words (16-bit), DWords (32-bit)
+4. User clicks "📖 Read"
+5. Address aligned to 4-byte boundary
+6. Calls `dut.rpc_io.ReadByteBlock(aligned_addr, aligned_size)`
+7. Formats data per selected format:
+   - **Bytes**: 16 bytes per line, split 8+8, hex + ASCII
+   - **Words**: 8 words per line, little-endian
+   - **DWords**: 4 dwords per line, little-endian
+8. Displays in monospace text area
+9. Saves address to config file
+
+**Writing Memory:**
+1. User enters write address
+2. User enters value (hex or decimal)
+3. User selects write size: Byte, Word, or DWord
+4. User clicks "✍ Write" (red button)
+5. Confirmation dialog shown (default: No)
+6. If confirmed:
+   - Read 4-byte aligned block containing address
+   - Modify bytes at offset within block
+   - Write back 4-byte block
+7. Success/error message shown
+
+**Address Alignment:**
+- All reads/writes aligned to 4-byte boundaries
+- Read size adjusted up to include offset bytes
+- Write uses read-modify-write for unaligned access
+
+### UI REQUIREMENTS
+
+**Dialog Layout:**
+```
+Memory Viewer (Qt.Window, 800x600, position 200x200)
+├── Title: "🔍 Raw Memory Viewer" (bold, 12px)
+├── Address Group
+│   ├── Address Input (150px, placeholder "0x20000000")
+│   ├── Size Spinner (1-4096, default 256, step 256, 100px)
+│   ├── Format Combo (Bytes/Words/DWords, 130px)
+│   └── "📖 Read" Button (80px)
+├── Memory Display (QTextEdit, Courier New 9pt, white bg, monospace)
+├── Write Group
+│   ├── Write Address (150px, placeholder "0x20000000")
+│   ├── Write Value (150px, placeholder "0x00000000")
+│   ├── Write Size Combo (Byte/Word/DWord, default DWord, 120px)
+│   └── "✍ Write" Button (80px, red #ff6666, bold)
+└── Status Label (gray/green/red styling)
+```
+
+**Memory Display Format:**
+
+**Bytes:**
+```
+Address: 0x20000000
+0x20000000: 12 34 56 78 9A BC DE F0  11 22 33 44 55 66 77 88  |.4Vx......."3DUfw|
+0x20000010: AA BB CC DD EE FF 00 11  22 33 44 55 66 77 88 99  |........"3DUfw..|
+```
+
+**Words (16-bit, little-endian):**
+```
+Address: 0x20000000
+0x20000000: 0x3412 0x7856 0xBC9A 0xF0DE 0x2211 0x4433 0x6655 0x8877
+0x20000010: 0xBBAA 0xDDCC 0xFFEE 0x1100 0x3322 0x5544 0x7766 0x9988
+```
+
+**DWords (32-bit, little-endian):**
+```
+Address: 0x20000000
+0x20000000: 0x78563412 0xF0DEBC9A 0x44332211 0x88776655
+0x20000010: 0xDDCCBBAA 0x1100FFEE 0x55443322 0x99887766
+```
+
+**Confirmation Dialog:**
+- Title: "Confirm Memory Write"
+- Message: "Write 0x{value} to address 0x{address}?"
+- Buttons: Yes (default: No), No
+
+### DATA REQUIREMENTS
+
+**Persistence File:**
+- Location: `~/.sirat/memory_viewer.json`
+- Format:
+```json
+{
+  "last_address": "0x20000000"
+}
+```
+- Loaded on startup
+- Saved on successful read
+
+---
+
+## 20. PYTHON CONSOLE
+
+### USER REQUIREMENTS
+- User can execute Python commands interactively
+- User has access to `dut`, `self`, and test utilities
+- User can navigate command history with arrow keys
+- User sees results and output immediately
+- User can clear console output
+- User can get help on available objects
+
+### FUNCTIONAL REQUIREMENTS
+
+**Execution Environment:**
+```python
+namespace = {
+    'self': parent_obj,
+    'dut': parent_obj.dut,
+    '__builtins__': {},
+    # All non-private names from common_test_imports
+    # All non-private names from switch_utils
+}
+```
+
+**Command Execution:**
+1. User types command in input line
+2. User presses Enter or clicks "▶ Execute"
+3. Captures stdout/stderr via StringIO redirection
+4. Tries `eval(command, namespace)`:
+   - If successful and result not None: Display in green
+   - If SyntaxError: Try `exec(command, namespace)`
+5. If exception: Display traceback in red
+6. Restores stdout/stderr
+7. Displays captured output
+8. Adds command to history (if different from last)
+
+**History Navigation:**
+- Up arrow: Previous command (history_index decrements)
+- Down arrow: Next command (history_index increments)
+- Wraparound at ends
+- Reset to -1 after execution
+
+**Help Command:**
+- User clicks "Help" button
+- Displays available objects:
+  - `self`, `dut` (with types)
+  - All imported utilities
+- Shows example commands
+- Shows keyboard shortcuts
+
+### UI REQUIREMENTS
+
+**Dialog Layout:**
+```
+Python Console (Qt.Window, 900x700, position 200x200)
+├── Title: "Python Console"
+├── Output Text (QTextEdit, Courier New 10pt, white bg, monospace)
+├── Input Line (QLineEdit, Courier New 10pt)
+│   └── Placeholder: "Enter Python code (↑/↓ for history, Enter/Shift+Enter to execute)"
+└── Buttons
+    ├── "▶ Execute (Enter)" (130px)
+    ├── "Clear Output" (100px)
+    ├── "Help" (60px)
+    └── "Close" (60px)
+```
+
+**Output Coloring:**
+- Red: Errors, stderr (255, 100, 100)
+- Green: Results, section headers (100, 255, 100)
+- Blue: Prompts, welcome header (100, 200, 255)
+- Yellow: User commands echoed (255, 255, 100)
+- Gray: Separators, help text (150, 150, 150)
+- White: stdout (212, 212, 212)
+
+**Welcome Message:**
+```
+=== SiRAT Python Console ===
+Available objects:
+  self - Parent object
+  dut - DUT instance
+  
+Type 'help' for more information.
+>>>
+```
+
+### DATA REQUIREMENTS
+
+**Session State:**
+```python
+namespace: dict  # Persists for session
+command_history: List[str]  # All commands
+history_index: int = -1  # Current position in history
+```
+
+**No Persistence:**
+- History cleared on close
+- Namespace cleared on close
+
+---
+
+## 21. RADIO CALCULATOR DIFF
+
+### USER REQUIREMENTS
+- User can compare live chip state to Radio Calculator PHY config
+- User can select specific peripherals to compare
+- User sees field-level differences with color coding
+- User sees match/mismatch/error categorization
+- User gets summary statistics
+- Results displayed in sortable table
+
+### FUNCTIONAL REQUIREMENTS
+
+**Loading Config:**
+1. User selects "Radio Calculator Diff..." from Dump menu
+2. Opens file dialog to select `.cfg` file
+3. Parses configuration:
+   - Skips comment lines (starting with `#`)
+   - Parses assignments: `PERIPHERAL.REGISTER.FIELD = value`
+   - Supports decimal and hex (0x prefix) values
+4. Groups fields by peripheral
+5. Counts fields per peripheral
+
+**Peripheral Selection:**
+1. Dialog shows list of peripherals found in config
+2. Format: "PERIPHERAL_NAME (X fields)"
+3. User checks peripherals to compare
+4. "Select All" / "Select None" buttons
+5. User clicks "Compare"
+
+**Comparison Process:**
+1. Progress dialog shown
+2. For each selected peripheral:
+   - For each field in config:
+     - Parse field path (PERIPHERAL.REGISTER.FIELD)
+     - Read live value from hardware
+     - Extract field value from register
+     - Compare to expected value
+     - Categorize:
+       - **Match**: live == expected
+       - **Mismatch**: live != expected
+       - **Error**: Read failed or field not found
+3. Store results with full details
+
+**Results Display:**
+1. Table with columns:
+   - Peripheral
+   - Register
+   - Field
+   - Expected (from config)
+   - Actual (from hardware)
+   - Status (Match/Mismatch/Error)
+2. Color-coded rows:
+   - Green: Matches (✓)
+   - Red: Mismatches (⚠️)
+   - Orange: Errors (❌)
+3. Summary: "✓ X Matches | ⚠️ Y Mismatches | ❌ Z Errors"
+4. Sortable by any column
+
+### UI REQUIREMENTS
+
+**Selection Dialog:**
+- Title: "Select Peripherals for Comparison"
+- Size: 500x600
+- Layout:
+  - Instruction text
+  - Peripheral list with checkboxes (shows field count)
+  - Buttons: "Select All", "Select None", "Compare", "Cancel"
+
+**Results Dialog:**
+- Title: "Radio Calculator Comparison Results"
+- Size: 1000x700
+- Layout:
+  - Summary header (light blue background #E8F4F8, bold 12pt)
+  - Results table (QTableWidget)
+  - Buttons: "Save Report...", "Close"
+
+**Table Styling:**
+- Font: Courier 9pt
+- Alternating row colors
+- Color coding per row:
+  - Match: Light green background (#E8F5E9)
+  - Mismatch: Light red background (#FFEBEE)
+  - Error: Light orange background (#FFF3E0)
+- Sortable columns (click header to sort)
+
+**Progress Dialog:**
+- Title: "Comparing with Radio Calculator Config"
+- Cancelable: Yes
+- Label updates: "Comparing PERIPHERAL.REGISTER.FIELD..."
+- Progress bar increments per field
+
+### DATA REQUIREMENTS
+
+**Config File Format:**
+```
+# Radio Calculator Output
+# Generated: 2024-01-15
+MODEM.CTRL.OPERATIONAL = 1
+MODEM.FREQ.FREQ = 0x96000000  # 2440 MHz
+AGC.GAININDEX.INDEX = 12
+# ... more fields
+```
+
+**Comparison Results:**
+```python
+results: List[dict] = [
+    {
+        'peripheral': 'MODEM',
+        'register': 'CTRL',
+        'field': 'OPERATIONAL',
+        'expected': 1,
+        'actual': 1,
+        'status': 'match'
+    },
+    {
+        'peripheral': 'AGC',
+        'register': 'GAININDEX',
+        'field': 'INDEX',
+        'expected': 12,
+        'actual': 8,
+        'status': 'mismatch'
+    },
+    {
+        'peripheral': 'MODEM',
+        'register': 'INVALID',
+        'field': 'UNKNOWN',
+        'expected': 0,
+        'actual': None,
+        'status': 'error'
+    }
+]
+```
+
+**No Persistence:**
+- Results not saved automatically
+- User can export via "Save Report..." button
+
+---
+
+## 22. DUT CONTROL API EXPLORER
+
+### USER REQUIREMENTS
+- User can browse DUT control API hierarchy
+- User can view method signatures and docstrings
+- User can execute methods with parameter input
+- User can add method calls to Actions
+- User sees execution results and errors
+- User gets helpful error hints for common issues
+
+### FUNCTIONAL REQUIREMENTS
+
+**API Tree Population:**
+1. Accesses `dut.dut_control` object
+2. Enumerates API packages: Common, Host, LPW, WiFi
+3. For each package: Lists modules (classes)
+4. For each module: Lists methods
+5. Deduplication:
+   - Prefers classes over modules (class_module vs module)
+   - Removes "_module" suffix for display
+   - Skips private methods (starting with `_`)
+6. Creates tree items with stored references
+
+**Method Inspection:**
+1. User clicks method in tree
+2. Extracts signature via `inspect.signature()`
+3. Displays:
+   - Method full path (e.g., "common.ble.StartAdvertising")
+   - Signature with type hints
+   - Docstring (first paragraph)
+4. Generates parameter input form:
+   - Bool parameters: QComboBox with True/False
+   - Other parameters: QLineEdit with type placeholder
+   - Pre-fills default values if specified
+
+**Method Execution:**
+1. User fills parameter inputs
+2. User clicks "▶ Execute Method"
+3. Parses parameter values:
+   - Empty → None
+   - "none" (case-insensitive) → None
+   - "true"/"false" → bool
+   - Starts with "0x" → hex int
+   - Contains "e" or "." → float (convert to int if whole)
+   - Try int
+   - Keep as string
+4. Handles unbound methods:
+   - If first param is 'self': Instantiates class and calls
+   - Otherwise: Calls as static method
+5. Injects 'dut' parameter if in signature
+6. Captures result
+7. Formats output:
+   - Simple types: Direct display
+   - Lists/tuples: Show length + first 10 items
+   - Dicts: Show all key-value pairs
+   - Objects: Show type + public attributes
+8. Displays in output area with color coding
+
+**Error Handling with Hints:**
+- "RPC timeout" → Suggest `dut.rta.lpw.SetRpcTimeout(seconds)` or `ReInit()`
+- "RPC transport error"/"Disconnected" → Suggest `dut.rpc_io.Connect()`
+- "RAIL assert" → Suggest checking parameters (frequency, power)
+- Other errors: Show full traceback
+
+**Adding to Actions:**
+1. User clicks "➕ Add to Actions"
+2. Creates operation:
+```python
+{
+    'type': 'dut_control_method',
+    'method_path': 'common.ble.StartAdvertising',
+    'method_name': 'StartAdvertising',
+    'params': {'power': 0, 'channel': 37}
+}
+```
+3. Adds to actions panel with display name from last two path parts
+
+### UI REQUIREMENTS
+
+**Dialog Layout:**
+```
+DUT Control API Explorer (QMainWindow, 1200x800, position 150x150)
+├── Horizontal Splitter (400px left, 800px right)
+│   ├── Left Panel: API Tree
+│   │   ├── QTreeWidget (3 levels: Package/Module/Method)
+│   │   └── "🗁 Collapse All" Button (max 120px)
+│   └── Right Panel: Details (vertical layout)
+│       ├── Method Info Group (max 150px height)
+│       │   ├── Signature Label (Courier 9pt, light gray bg)
+│       │   └── Docstring (QTextEdit, Courier 8pt, max 60px)
+│       ├── Parameters Group
+│       │   ├── Help Text (parameter format hints)
+│       │   ├── Dynamic Parameter Inputs (QFormLayout)
+│       │   └── Buttons
+│       │       ├── "▶ Execute Method" (bold, 8px padding)
+│       │       └── "➕ Add to Actions" (green #5cb85c, bold, 8px padding)
+│       └── Output/Results Group
+│           ├── QTextEdit (Courier 9pt, read-only)
+│           └── "Clear Output" Button
+```
+
+**Tree Icons:**
+- 📦 Package level
+- 📁 Module level
+- ⚙ Method level
+
+**Output Colors:**
+- Green: Success (✓ Result:)
+- Red: Errors (✗ ERROR:)
+- Blue: Attribute names (#0275d8)
+- Gray: Error hints (#999)
+
+**Parameter Input Hints:**
+- Placeholder shows type name
+- Help text: "💡 Formats: integers (100), hex (0xABCD), floats (3.14), scientific (2440e6), None, True/False | Leave empty to use default"
+
+### DATA REQUIREMENTS
+
+**Tree Item Data:**
+```python
+# Stored in QTreeWidgetItem.data(Qt.UserRole):
+{
+    'type': 'module' or 'method',
+    'object': class_or_method_reference,
+    'path': 'common.ble_module.StartAdvertising'
+}
+```
+
+**No Persistence:**
+- Tree state not saved
+- Last executed method not saved
+
+---
+
+## 23. LOAD PHY CONFIGURATIONS
+
+### USER REQUIREMENTS
+- User can load LPW PHY configurations
+- User can load WiFi PHY configurations (RX/TX)
+- User can configure PHY parameters before loading
+- User sees real-time packet structure visualization
+- User can add PHY load operations to Actions
+- User sees success confirmation with applied parameters
+
+### FUNCTIONAL REQUIREMENTS
+
+**Load LPW PHY:**
+1. User selects "Load LPW PHY..." from DUT Control menu
+2. Opens file dialog to select PHY file or enter PHY name
+3. Calls appropriate loader based on standard:
+   - BLE: `dut.dut_control.lpw.dut_init.reset_and_download_lpw_phy(dut, 'BLE_1M')`
+   - 802.15.4: Similar pattern
+4. Shows success message
+5. Option to add to Actions
+
+**Load WiFi PHY:**
+1. User selects "Load WiFi PHY..." (enabled only for Everest family)
+2. Opens WiFi PHY configuration dialog
+3. User configures:
+   - Mode: RX or TX
+   - Standard: 802.11b/g/a/n/ac/ax/be
+   - Channel: Band-specific channels (2.4G: 1-11, 5G: 36-165)
+   - Power Mode: HP, LP, MP
+   - Rate/MCS: Standard-specific rates
+   - TX Parameters (if TX mode):
+     - Packet Length: 1-65535 bytes
+     - Number of Packets: 0-1000000
+     - Transmit Mode: BURST/CONTINUES/STREAM
+     - Enable Aggregation: checkbox
+   - Advanced (if 802.11ax/be):
+     - PPDU Type
+     - GI/LTF
+     - Enable DCM
+     - Bandwidth
+4. Live packet visualizer updates as parameters change
+5. User clicks "✓ Apply Configuration"
+6. Builds config dict and calls `load_wifi_phy(test_obj, config)`
+7. Success dialog shows:
+   - Configuration table (mode, standard, channel, power, rate)
+   - Function called
+   - TestInputs overrides applied
+8. Option to add to Actions
+
+**PHY Name Determination:**
+- 2.4GHz channels (1-11): Base name `WIFI_2p4G`
+- 5GHz channels (36-165): Base name `WIFI_5G`
+- 802.11ax/be: `PHY_<base>_<power_mode>` (e.g., `PHY_WIFI_2p4G_HP`)
+- Others: Use base name
+
+### UI REQUIREMENTS
+
+**WiFi PHY Dialog:**
+- Window: Non-modal, 85% screen size, centered
+- Title: "WiFi PHY Configuration"
+- Scrollable content area
+- Modern gradient theme:
+  - Dialog background: Linear gradient #f8f9fa → #e9ecef
+  - Group boxes: White, 2px border #dee2e6, 8px radius
+  - Inputs: White, 2px border #ced4da, 6px radius, hover blue
+  - Buttons: Gradient backgrounds, 15px vertical padding, 6px radius
+
+**Layout:**
+```
+WiFi PHY Configuration Dialog
+├── Title: "WiFi PHY Configuration" (Arial 20pt bold, #212529)
+├── Packet Visualizer (220-250px fixed height)
+│   └── WiFiPacketVisualizer widget (live updates)
+├── Mode Selection (radio buttons)
+│   ├── 📥 RX (Receive) [default]
+│   └── 📤 TX (Transmit)
+├── Basic Parameters (4x2 grid)
+│   ├── Standard: [802.11b|g|a|n|ac|ax|be] (default: g)
+│   ├── Channel: [band-specific] (default: 6)
+│   ├── Power Mode: [HP|LP|MP or HP|LP] (default: HP)
+│   └── Rate/MCS: [standard-specific] (default: varies)
+├── TX Parameters (visible only in TX mode)
+│   ├── Packet Length: [1-65535] (default: 1500)
+│   ├── Number of Packets: [0-1000000] (default: 0)
+│   ├── Transmit Mode: [BURST|CONTINUES|STREAM]
+│   └── Enable Aggregation: [checkbox, default checked]
+├── Advanced Parameters (checkable group, 11ax/be only)
+│   ├── PPDU Type: [standard-specific]
+│   ├── GI/LTF: [5 options]
+│   ├── Enable DCM: [checkbox]
+│   └── Bandwidth: [BW_20MHz|40|80|160]
+└── Buttons
+    ├── "✓ Apply Configuration" (green gradient, bold, min 250px)
+    ├── "➕ Add to Actions" (blue gradient, bold, min 220px)
+    └── "Close" (gray, min 150px)
+```
+
+**Success Dialog:**
+- Title: "WiFi PHY Loaded Successfully!"
+- Large heading, green checkmark
+- Configuration summary table
+- Function called (monospace, gray background)
+- TestInputs overrides table
+- Minimum width: 700px
+
+### DATA REQUIREMENTS
+
+**WiFi Config Structure:**
+```python
+{
+    'mode': 'RX' or 'TX',
+    'standard': '802.11g',
+    'channel': 6,
+    'power_mode': 'HP',
+    'rate': '24',  # or MCS index for n/ac/ax/be
+    'phy_name': 'WIFI_2p4G',
+    'tx_params': {  # Only if TX mode
+        'pkt_length': 1500,
+        'num_pkts': 0,
+        'transmit_mode': 'BURST',
+        'aggr_enable': True
+    },
+    'advanced': {  # Only if enabled for ax/be
+        'ppdu_type': 'HE_SU_PPDU',
+        'gi_ltf': '1xLTF_0p8usGI',
+        'dcm': 0 or 1,
+        'bandwidth': 'BW_20MHz'
+    }
+}
+```
+
+**Action Format:**
+```python
+{
+    'type': 'load_wifi_phy',
+    'config': {full_config_dict}
+}
+```
+
+**Persistence:**
+- Last used config not saved (fresh dialog each time)
+- Can be saved as part of Action
+
+---
+
+## 24. PRS SIGNAL ROUTING
+
+### USER REQUIREMENTS
+- User can route internal signals to GPIO pins
+- User can select signal from categorized list
+- User can select output pin and PRS channel
+- User sees validation of port/channel constraints
+- User can view active routes
+- User can remove routes
+- User can add routes to Actions
+
+### FUNCTIONAL REQUIREMENTS
+
+**Dynamic Signal Loading:**
+1. Detects chip family from `dut.info.hw.CHIPREVHW_FAMILY_NAME`
+2. Imports family-specific module:
+   `dut_control_rta.series_six_lpw.{family}.controls.pti_prs_module`
+3. Parses module source code with regex: `r"prsMap\['([^']+)'\]"`
+4. Extracts unique signal names
+5. Sorts alphabetically
+6. Populates signal dropdown
+
+**Fallback Signals** (if module not found):
+- DISABLE
+- MODEM: TIMDET, PREDET, FRAMEDET, EOF, ANT0, ANT1
+- AGC: GAINADJUST, GAINREDUCED
+- RAC: ACTIVE, RX, TX
+- SYNTH: INLOCK, LOCK_WINDOW
+- CMU: HFXO, HCLK
+
+**Port/Channel Validation:**
+- **Ports A/B**: Can only use channels 0-5
+- **Ports C/D**: Can only use channels 6-11
+- Validation on "Apply Route" click
+- Shows warning if constraint violated
+
+**Applying Route:**
+1. User selects signal, pin, channel
+2. Validates port/channel combination
+3. Calls `pti_prs.setup_prs(dut, pin, signal, channel)`
+4. Adds row to active routes table:
+   - Columns: Signal | Pin | Channel | Action
+   - Remove button in Action column
+5. Shows success popup: "Successfully routed {signal} to {pin} via PRS channel {channel}"
+
+**Removing Route:**
+1. User clicks "✖ Remove" button in table row
+2. Calls `pti_prs.setup_prs(dut, pin, 'DISABLE', channel)`
+3. Builds register operations list for history:
+   - PRS.ASYNC_CH{channel}_CTRL.SOURCESEL = 0
+   - PRS.ASYNC_CH{channel}_CTRL.SIGSEL = 0
+   - GPIO.PRS0_ROUTEEN.ASYNCH{channel}PEN = 0
+   - GPIO.PRS0_ASYNCH{channel}ROUTE.PORT = 0
+   - GPIO.PRS0_ASYNCH{channel}ROUTE.PIN = 0
+   - GPIO.PORT{X}_MODE{H/L}.MODE{pin_idx} = 0
+4. Emits `prs_operation_performed(description, register_list)` signal
+5. Removes row from table
+6. Shows success popup
+
+### UI REQUIREMENTS
+
+**Dialog Layout:**
+```
+PRS Signal Routing (Qt.Window, min 800x600)
+├── Title: "🔀 PRS Signal Routing Configuration" (bold, 16px, 10px padding)
+├── Family Indicator: Shows chip family and module path (gray, 9px)
+├── Info Text: Port/channel constraints
+├── Configuration Group: "Add PRS Route"
+│   ├── Signal Combo (min 180px, 11pt)
+│   ├── Pin Combo (min 80px, 11pt): PA0-7, PB0-7, PC0-7, PD0-7
+│   ├── PRS Channel Combo (min 80px, 11pt): 0-11
+│   └── Buttons
+│       ├── "▶ Apply Route" (green #5cb85c, white text, bold, 8px padding)
+│       └── "+ Add to Actions" (green #5cb85c, 8px padding)
+├── Active Routes Table (4 columns)
+│   ├── Signal (stretch)
+│   ├── Pin (resize to contents)
+│   ├── PRS Channel (resize to contents)
+│   └── Action (fixed 80px) - "✖ Remove" button per row
+└── Help Text: Common signals list
+```
+
+**Table Styling:**
+- Alternating row colors
+- Remove button: Red background (#d9534f), white text, 3px padding
+
+**Validation Warning:**
+- QMessageBox.warning
+- Title: "Invalid Port/Channel Combination"
+- Message: "Ports A/B can only use PRS channels 0-5. Ports C/D can only use PRS channels 6-11."
+
+### DATA REQUIREMENTS
+
+**Active Routes:**
+```python
+# Stored in table rows, not persisted
+# Each row contains: signal, pin, channel
+```
+
+**Action Format:**
+```python
+{
+    'type': 'prs_route',
+    'signal': 'FRAMEDET',
+    'pin': 'PA0',
+    'channel': 0
+}
+```
+
+**Signal Emitted:**
+```python
+prs_operation_performed = pyqtSignal(str, list)
+# (description, register_operations_list)
+```
+
+**No Persistence:**
+- Routes cleared when dialog closes
+- Must be added to Actions for persistence
+
+---
+
+## 25. SIGNAL GENERATOR CONFIGURATION
+
+### USER REQUIREMENTS
+- User can configure signal generator parameters
+- User can apply configuration and trigger waveforms
+- User can check role status
+- User can save/load configurations
+- User can add configuration to Actions
+- Configuration persists across sessions
+
+### FUNCTIONAL REQUIREMENTS
+
+**Configuration Parameters:**
+- **Type**: Signal generator type (default: "PacketSrw")
+- **InputConfigName**: Waveform configuration name
+- **Frequency**: Output frequency in MHz
+- **Output Power**: Power level in dBm
+
+**Operations:**
+
+**Apply Configuration:**
+1. User configures parameters
+2. User clicks "Apply Configuration"
+3. Creates config structure
+4. Loads to signal generator via role
+5. Shows success/failure message
+
+**Infinite Trigger:**
+- Continuous waveform generation
+- Calls `sg_role.InfiniteTrigger()`
+
+**Single Trigger:**
+- One-shot waveform
+- Calls `sg_role.SingleTrigger()`
+
+**RF ON/OFF:**
+- Enable/disable RF output
+- Calls `sg_role.RfOn()` or `sg_role.RfOff()`
+
+**Load from SG Role:**
+- Reads current config from signal generator
+- Populates dialog fields
+
+**Adding to Actions:**
+- Creates `signal_generator` operation with full config
+- Includes generated code for reproduction
+
+### UI REQUIREMENTS
+
+**Dialog Layout:**
+```
+Signal Generator Config (Qt.Window, min 600x500)
+├── Title: "Signal Generator Configuration"
+├── Role Status Display (shows if Gen1Role found)
+├── Configuration Group
+│   ├── Type Input
+│   ├── InputConfigName Dropdown (if available)
+│   ├── Frequency (MHz) SpinBox
+│   └── Power (dBm) SpinBox
+├── Buttons
+│   ├── "Apply Configuration"
+│   ├── "Infinite Trigger"
+│   ├── "Single Trigger"
+│   ├── "RF ON"
+│   ├── "RF OFF"
+│   ├── "Load from SG Role"
+│   ├── "Reload Waveform"
+│   └── "Add to Actions"
+└── Status Label
+```
+
+### DATA REQUIREMENTS
+
+**Persistence File:**
+- Location: `~/.sirat/signal_generator.json`
+- Format:
+```json
+{
+  "sg_type": "PacketSrw",
+  "input_config_name": "BLE_1M",
+  "frequency_mhz": 2440,
+  "power_dbm": 0,
+  "overrides": {}
+}
+```
+
+**Action Format:**
+```python
+{
+    'type': 'signal_generator',
+    'sg_type': 'PacketSrw',
+    'input_config_name': 'BLE_1M',
+    'frequency_mhz': 2440,
+    'power_dbm': 0,
+    'overrides': {},
+    'code': '...'  # Generated code
+}
+```
+
+---
+
+## 26. BLE PACKET CONFIGURATION
+
+### USER REQUIREMENTS
+- User can configure BLE packet structure
+- User can set Access Address, CRC Init, whitening seed
+- User can configure preamble and sync word
+- User can generate packet code for signal generator
+- Configuration persists across sessions
+
+### FUNCTIONAL REQUIREMENTS
+
+**Configuration Parameters:**
+- Access Address: 32-bit hex value (default: 0x8E89BED6)
+- CRC Initialization: 24-bit hex value (default: 0x555555)
+- Whitening Initialization: 7-bit value (default: 37)
+- Preamble: 8-bit pattern (default: 0xAA)
+- Sync Word: 32-bit hex value (derived from Access Address)
+
+**Code Generation:**
+1. User configures parameters
+2. User clicks "Generate Packet Code"
+3. Creates Python code to build BLE packet structure
+4. Includes imports from packet generator library
+5. Displays in output area with syntax highlighting
+6. Can copy to clipboard or save to file
+
+### UI REQUIREMENTS
+
+**Dialog Layout:**
+```
+BLE Packet Config (Qt.Window, 700x600)
+├── Title: "BLE Packet Configuration"
+├── Parameters Group
+│   ├── Access Address (hex input)
+│   ├── CRC Init (hex input)
+│   ├── Whitening Seed (decimal input, 0-127)
+│   ├── Preamble (hex input)
+│   └── Sync Word (hex input, read-only, auto-calculated)
+├── Buttons
+│   ├── "Generate Code"
+│   ├── "Copy to Clipboard"
+│   └── "Save to File..."
+└── Output Area (QTextEdit, syntax highlighted, Courier 9pt)
+```
+
+### DATA REQUIREMENTS
+
+**Persistence File:**
+- Location: `~/.sirat/ble_packet.json`
+- Format:
+```json
+{
+  "access_address": "0x8E89BED6",
+  "crc_init": "0x555555",
+  "whitening_init": 37,
+  "preamble": "0xAA"
+}
+```
+
+---
+
+## 27. GFSK PACKET GENERATOR
+
+### USER REQUIREMENTS
+- User can generate GFSK modulated packets
+- User can configure packet parameters
+- User can add packet generation to Actions
+- Generated code is self-contained
+
+### FUNCTIONAL REQUIREMENTS
+
+**Configuration:**
+- User opens GFSK Packet Generator dialog
+- Configures modulation and packet parameters
+- Generates Python code using packet generator library
+- Code can be executed directly or added to Actions
+
+**Adding to Actions:**
+- Creates operation: `{'type': 'gfsk_packet', 'code': '...'}`
+- Code stored in action for later execution
+
+### UI REQUIREMENTS
+
+**Dialog Layout:**
+```
+GFSK Packet Generator (Qt.Window, 800x700)
+├── Title: "GFSK Packet Generator"
+├── Parameters Group (modulation, frequency, power)
+├── Buttons
+│   ├── "Generate Code"
+│   └── "Add to Actions"
+└── Code Output (syntax highlighted)
+```
+
+### DATA REQUIREMENTS
+
+**Action Format:**
+```python
+{
+    'type': 'gfsk_packet',
+    'code': '# Generated GFSK packet code\n...'
+}
+```
+
+---
+
+## 28. RF SWITCH CONTROL
+
+### USER REQUIREMENTS
+- User can connect RF switch paths
+- User can select path name and DUT position
+- User can view available switch roles
+- User can add switch operations to Actions
+
+### FUNCTIONAL REQUIREMENTS
+
+**Switch Path Connection:**
+1. User opens RF Switch dialog
+2. Views available switch roles and paths
+3. Selects path name (e.g., "TX_PATH", "RX_PATH")
+4. Selects DUT position (1-4)
+5. Clicks "Connect Path"
+6. Calls `SwitchUtils.connect_path(path_name, dut_position)`
+7. Shows success/error message
+
+**Adding to Actions:**
+- Creates operation: `{'type': 'rf_switch', 'path': 'TX_PATH', 'dut_position': 1}`
+- Action displayed with purple color in Actions Panel
+
+### UI REQUIREMENTS
+
+**Dialog Layout:**
+```
+RF Switch Control (Qt.Window, 600x400)
+├── Title: "RF Switch Control"
+├── Status: Shows available switch roles
+├── Configuration Group
+│   ├── Path Name Input
+│   ├── DUT Position Spinner (1-4)
+│   └── Buttons
+│       ├── "Connect Path"
+│       └── "Add to Actions"
+└── Status Label
+```
+
+### DATA REQUIREMENTS
+
+**Action Format:**
+```python
+{
+    'type': 'rf_switch',
+    'path': 'TX_PATH',
+    'dut_position': 1
+}
+```
+
+---
+
+## 29. TEMPERATURE CHAMBER CONTROL
+
+### USER REQUIREMENTS
+- User can set chamber temperature
+- User can monitor current temperature
+- User can wait for temperature to stabilize
+- User sees real-time temperature updates
+
+### FUNCTIONAL REQUIREMENTS
+
+**Setting Temperature:**
+1. User enters target temperature (Celsius)
+2. User clicks "Set Temperature"
+3. Calls temperature chamber role methods
+4. Shows confirmation
+
+**Monitoring:**
+- Real-time temperature display
+- Update interval configurable
+- Shows target vs actual temperature
+
+### UI REQUIREMENTS
+
+**Dialog Layout:**
+```
+Temperature Control (Qt.Window, 500x300)
+├── Title: "Temperature Chamber Control"
+├── Current Temperature Display (large, bold)
+├── Target Temperature Input
+├── Buttons
+│   ├── "Set Temperature"
+│   └── "Wait for Stable"
+└── Status Label
+```
+
+### DATA REQUIREMENTS
+
+**No Persistence:**
+- Temperature settings not saved across sessions
+
+---
+
+## 30. ECA CAPTURE
+
+### USER REQUIREMENTS
+- User can configure and trigger ECA capture
+- User can view captured waveform data
+- User can save captures to file
+- User can analyze timing and signal characteristics
+
+### FUNCTIONAL REQUIREMENTS
+
+**ECA Configuration:**
+- User configures trigger conditions
+- User sets capture parameters
+- User initiates capture
+- Data retrieved and displayed
+
+**Waveform Display:**
+- Plot captured data
+- Show timing markers
+- Enable zoom and pan
+- Export data
+
+### UI REQUIREMENTS
+
+**Dialog Layout:**
+```
+ECA Capture (Qt.Window, 1000x700)
+├── Title: "ECA Capture"
+├── Configuration Panel
+│   ├── Trigger settings
+│   ├── Capture parameters
+│   └── "Start Capture" button
+├── Waveform Display (pyqtgraph)
+└── Analysis Panel
+    ├── Timing measurements
+    └── Export controls
+```
+
+### DATA REQUIREMENTS
+
+**Capture Storage:**
+- Format: Binary or CSV
+- Metadata included (config, timestamp)
+
+---
+
+## 31. SYSTEM INFORMATION
+
+### USER REQUIREMENTS
+- User can view comprehensive DUT information
+- User sees chip details, part number, revision
+- User sees firmware version and capabilities
+- User can copy information to clipboard
+- Dialog auto-refreshes on DUT connection
+
+### FUNCTIONAL REQUIREMENTS
+
+**Information Display Categories:**
+
+1. **Chip Information:**
+   - Part Number: `dut.info.hw.PART_NUMBER`
+   - Chip Revision: `dut.info.hw.CHIPREVHW_CHIP_REV`
+   - Family: `dut.info.hw.CHIPREVHW_FAMILY_NAME`
+   - Product Revision: `dut.info.hw.CHIPREVHW_PRODUCT_REV`
+
+2. **Device Information:**
+   - Device Name: `dut.info.hw.DEVINFO_NAME`
+   - Flash Size: `dut.info.hw.MEMINFO_FLASHSIZE` KB
+   - RAM Size: `dut.info.hw.MEMINFO_RAMSIZE` KB
+   - Unique ID: 64-bit hex
+
+3. **RPC Information:**
+   - Host: `dut.info.rta.host`
+   - Port: `dut.info.rta.port`
+   - Timeout: `dut.info.rta.timeout_s` seconds
+
+4. **Firmware/Application:**
+   - App Name, Version, Build Time
+   - Available if DUT provides metadata
+
+**Auto-Refresh on Connection:**
+- Dialog subscribes to `dut_connected` signal
+- When DUT connects, calls `refresh_info()`
+- Updates all displayed values
+- Shows error if read fails
+
+### UI REQUIREMENTS
+
+**Dialog Layout:**
+```
+System Information (Qt.Window, 700x600, position 150x150)
+├── Title: "ℹ️ System Information" (bold, 14px, light blue bg)
+├── Tab Widget
+│   ├── Tab: "Chip Information"
+│   │   └── Key-Value Grid (label: bold, value: Courier 9pt)
+│   ├── Tab: "Device Information"
+│   │   └── Key-Value Grid
+│   ├── Tab: "RPC Information"
+│   │   └── Key-Value Grid
+│   └── Tab: "Firmware/Application"
+│       └── Key-Value Grid
+└── Buttons
+    ├── "🔄 Refresh" (blue #5bc0de, 100px)
+    ├── "📋 Copy All" (green #5cb85c, 100px)
+    └── "Close" (80px)
+```
+
+**Key-Value Grid Styling:**
+- Labels: Bold, right-aligned, min 200px
+- Values: Courier New 9pt, selectable, left-aligned
+- Alternating row background colors
+- Light blue background for section headers
+
+**Copy All Format:**
+```
+=== SiRAT System Information ===
+Generated: 2024-01-15 14:23:45
+
+--- Chip Information ---
+Part Number: EFR32FG25B222F1920IM56
+Chip Revision: A0
+Family: bobcat
+Product Revision: 1
+
+--- Device Information ---
+Device Name: EFR32FG25
+Flash Size: 1920 KB
+RAM Size: 256 KB
+Unique ID: 0x123456789ABCDEF0
+
+--- RPC Information ---
+Host: 192.168.1.100
+Port: 10001
+Timeout: 5 seconds
+```
+
+### DATA REQUIREMENTS
+
+**Signal Subscription:**
+```python
+# Dialog connects to main window's dut_connected signal
+main_window.dut_connected.connect(self.refresh_info)
+```
+
+**No Persistence:**
+- Information retrieved fresh each time
+- Does not cache across sessions
+
+---
+
+## 32. HARDWARE CONFIGURATION
+
+### USER REQUIREMENTS
+- User can configure hardware settings
+- User can set RPC connection parameters (host, port, timeout)
+- User can configure DUT position
+- Settings persist across sessions
+- User can test connection after configuration
+
+### FUNCTIONAL REQUIREMENTS
+
+**Configuration Parameters:**
+- **RPC Host**: IP address or hostname (default: "localhost")
+- **RPC Port**: Port number (1-65535, default: 10001)
+- **RPC Timeout**: Seconds (1-300, default: 5)
+- **DUT Position**: Physical position (1-4, default: 1)
+
+**Saving Configuration:**
+1. User modifies parameters
+2. User clicks "Save"
+3. Validates inputs:
+   - Host: Non-empty string
+   - Port: Valid integer 1-65535
+   - Timeout: Valid integer 1-300
+   - Position: Valid integer 1-4
+4. Writes to config file
+5. Shows confirmation
+6. Emits `config_changed` signal
+
+**Testing Connection:**
+- User clicks "Test Connection"
+- Attempts to connect with configured parameters
+- Shows success/failure message
+- Does not persist connection if test
+
+### UI REQUIREMENTS
+
+**Dialog Layout:**
+```
+Hardware Configuration (Qt.Window, 600x450, position 150x150)
+├── Title: "⚙️ Hardware Configuration" (bold, 14px)
+├── RPC Connection Group
+│   ├── Host Label + LineEdit (min 250px, placeholder "localhost")
+│   ├── Port Label + SpinBox (1-65535, 150px)
+│   └── Timeout Label + SpinBox (1-300s, 150px)
+├── DUT Settings Group
+│   └── Position Label + SpinBox (1-4, 150px)
+├── Buttons
+│   ├── "💾 Save" (green #5cb85c, bold, 100px)
+│   ├── "🔌 Test Connection" (blue #5bc0de, 150px)
+│   └── "Close" (80px)
+└── Status Label (changes color: gray → green/red)
+```
+
+**Input Validation:**
+- Port: Red border if <1 or >65535
+- Timeout: Red border if <1 or >300
+- Position: Red border if <1 or >4
+- Host: Red border if empty
+- Save button disabled if any validation fails
+
+**Status Messages:**
+- Default: "Modify settings and click Save" (gray)
+- After save: "Configuration saved successfully!" (green, 3s)
+- After test success: "Connection successful!" (green, 3s)
+- After test failure: "Connection failed: {error}" (red)
+
+### DATA REQUIREMENTS
+
+**Persistence File:**
+- Location: `~/.sirat/hardware_config.json`
+- Format:
+```json
+{
+  "rpc_host": "192.168.1.100",
+  "rpc_port": 10001,
+  "rpc_timeout": 5,
+  "dut_position": 1
+}
+```
+- Loaded on startup
+- Saved on "Save" button click
+- Creates directory if not exists
+
+**Signals:**
+```python
+config_changed = pyqtSignal()  # Emitted after successful save
+```
+
+---
+
+## 33. TEST EXECUTION
+
+### USER REQUIREMENTS
+- User can execute test sequences
+- User can monitor test progress
+- User sees pass/fail results
+- User can view detailed test output
+- User can stop running tests
+
+### FUNCTIONAL REQUIREMENTS
+
+**Test Execution Flow:**
+1. User selects test sequence or individual test
+2. User clicks "Run Test"
+3. Progress dialog shows current step
+4. Each test step executes in order
+5. Results collected and displayed
+6. Summary shown at completion
+
+**Progress Monitoring:**
+- Current test name displayed
+- Progress bar shows completion
+- Elapsed time shown
+- Cancel button available
+
+**Results Display:**
+- Pass/Fail status with color coding
+- Detailed output per test
+- Timestamps for each step
+- Export results to file
+
+### UI REQUIREMENTS
+
+**Test Execution Dialog:**
+```
+Test Execution (Qt.Window, 900x700)
+├── Title: "Test Execution"
+├── Test Selection Panel
+├── Progress Display
+│   ├── Current test label
+│   ├── Progress bar
+│   └── Elapsed time
+├── Results Table
+│   ├── Test Name
+│   ├── Status (Pass/Fail)
+│   ├── Duration
+│   └── Notes
+└── Buttons
+    ├── "▶ Run"
+    ├── "⏹ Stop"
+    └── "💾 Export Results"
+```
+
+### DATA REQUIREMENTS
+
+**Results Storage:**
+- Format: JSON with test metadata
+- Includes timestamps, status, output
+
+---
+
+## 34. SESSION MANAGEMENT
+
+### USER REQUIREMENTS
+- User can save current session state
+- User can load previous sessions
+- Session includes register values, notes, formulas, actions
+- User can clear session data
+- Sessions persist across application restarts
+
+### FUNCTIONAL REQUIREMENTS
+
+**Session State Components:**
+1. **Register Dumps**: All saved register snapshots
+2. **Field Notes**: User annotations
+3. **Formulas**: All defined formulas
+4. **Actions**: All configured actions
+5. **Favorites**: Favorited registers/fields
+6. **History**: Operation history
+
+**Saving Session:**
+1. User selects "Save Session..." from File menu
+2. Prompts for session name
+3. Collects all session data
+4. Writes to session file
+5. Shows confirmation
+
+**Loading Session:**
+1. User selects "Load Session..." from File menu
+2. Shows list of available sessions
+3. User selects session
+4. Restores all session data
+5. Updates all UI panels
+6. Shows confirmation
+
+**Auto-Save:**
+- Session state auto-saved every 5 minutes
+- Saved to `~/.sirat/autosave.json`
+- Restored on next launch if exists
+
+### UI REQUIREMENTS
+
+**Save Session Dialog:**
+- Prompt for session name
+- Shows current session summary (counts of dumps, notes, actions, etc.)
+- Default name: "Session_{timestamp}"
+
+**Load Session Dialog:**
+- List of saved sessions with metadata
+- Shows session name, date, summary
+- Preview of session contents
+- Load or Delete buttons
+
+### DATA REQUIREMENTS
+
+**Session File Format:**
+```json
+{
+  "session_name": "Test Session 1",
+  "created": "2024-01-15T14:23:45",
+  "modified": "2024-01-15T16:45:30",
+  "dumps": [...],
+  "field_notes": {...},
+  "formulas": [...],
+  "actions": {...},
+  "favorites": [...],
+  "history": [...]
+}
+```
+
+**Session Directory:**
+- Location: `~/.sirat/sessions/`
+- One file per saved session
+- Auto-save: `~/.sirat/autosave.json`
+
+---
+
+## 35. LOGGING & DEBUGGING
+
+### USER REQUIREMENTS
+- User can view application logs in real-time
+- User can filter logs by level (Debug, Info, Warning, Error)
+- User can search log contents
+- User can save logs to file
+- User can clear log display
+- Logs persist to file automatically
+
+### FUNCTIONAL REQUIREMENTS
+
+**Log Levels:**
+- **DEBUG**: Detailed diagnostic info (gray text)
+- **INFO**: General information (white text)
+- **WARNING**: Warning messages (orange text)
+- **ERROR**: Error messages (red text)
+
+**Logging to Console:**
+- All log messages sent to Log View panel
+- Messages formatted with timestamp and level
+- Color-coded by level
+- Auto-scroll to latest message
+
+**Log Filtering:**
+- Checkboxes for each level
+- Shows/hides messages of that level
+- Multiple levels can be enabled simultaneously
+- Filter applied immediately to existing messages
+
+**Log Search:**
+- User enters search text
+- Highlights matching log lines
+- Jump to next/previous match
+- Case-insensitive search
+
+**Persistent Logging:**
+- All logs written to file: `~/.sirat/logs/sirat_{date}.log`
+- Daily rotation: New file each day
+- Old logs kept for 30 days
+- Format: `[YYYY-MM-DD HH:MM:SS.mmm] [LEVEL] Message`
+
+### UI REQUIREMENTS
+
+**Log View Panel:**
+```
+Log View Panel (embedded in main window, bottom-right)
+├── Header Row
+│   ├── Label: "📋 Logs" (bold, 11pt)
+│   ├── Filter Checkboxes (Debug, Info, Warning, Error)
+│   └── Buttons
+│       ├── "🔍 Search"
+│       ├── "💾 Save Log"
+│       ├── "🗑 Clear"
+│       └── "🗖 Pop-out"
+└── Log Text Area
+    ├── QTextEdit (read-only, Courier 9pt, white bg)
+    ├── Auto-scroll
+    └── Word wrap disabled
+```
+
+**Log Format in Display:**
+```
+[14:23:45.123] [INFO] DUT connected: EFR32FG25
+[14:23:46.456] [DEBUG] Reading register MODEM.CTRL
+[14:23:47.789] [WARNING] Field value out of range
+[14:23:48.012] [ERROR] Failed to write register: Timeout
+```
+
+**Color Coding:**
+- DEBUG: Gray (#808080)
+- INFO: Black (#000000)
+- WARNING: Orange (#FF8C00)
+- ERROR: Red (#DC143C)
+
+**Pop-out Dialog:**
+- Separate window: 900x600
+- Same content as panel
+- Independent scroll position
+- Syncs with main panel
+
+**Search Dialog:**
+- Text input for search term
+- Case sensitive checkbox
+- Next/Previous buttons
+- Close button
+- Shows match count
+
+### DATA REQUIREMENTS
+
+**Log Files:**
+- Directory: `~/.sirat/logs/`
+- Filename pattern: `sirat_YYYY-MM-DD.log`
+- Format: Plain text, UTF-8
+- Rotation: Daily at midnight
+- Retention: 30 days (older files auto-deleted)
+- Max file size: 10 MB (rotate if exceeded)
+
+**Log Entry Structure:**
+```
+[2024-01-15 14:23:45.123] [INFO] [SiRAT.MainWindow] DUT connected successfully
+[2024-01-15 14:23:46.456] [DEBUG] [SiRAT.DutInterface] Reading register 0x40080000
+[2024-01-15 14:23:47.789] [WARNING] [SiRAT.RegisterDetail] Field value 0xFF exceeds maximum
+[2024-01-15 14:23:48.012] [ERROR] [SiRAT.DutInterface] Write failed: RPC timeout after 5s
+```
+
+**Python Logging Configuration:**
+```python
+import logging
+
+# Create logger hierarchy
+logger = logging.getLogger('SiRAT')
+logger.setLevel(logging.DEBUG)
+
+# File handler
+file_handler = logging.FileHandler(log_file_path)
+file_handler.setLevel(logging.DEBUG)
+file_formatter = logging.Formatter(
+    '[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+file_handler.setFormatter(file_formatter)
+
+# Console handler (to Log View)
+console_handler = QTextEditHandler(log_text_edit)
+console_handler.setLevel(logging.DEBUG)
+console_formatter = logging.Formatter(
+    '[%(asctime)s] [%(levelname)s] %(message)s',
+    datefmt='%H:%M:%S'
+)
+console_handler.setFormatter(console_formatter)
+
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
+```
+
+**No Additional Persistence:**
+- Log filter states not saved
+- Search terms not saved
+- View cleared on application restart (file logs retained)
+
+---
+
+# END OF REQUIREMENTS DOCUMENT
+
+**Document Status:** COMPLETE - All 35 features documented
+
+**Total Features:** 35
+- Application Infrastructure: 5 features (Launch, Main Window, Connection, Session, Logging)
+- Core Viewing: 5 features (Peripheral Tree, Register Detail, Search, Access Policy, Favorites)
+- Data Management: 4 features (History, Notes, Formulas, Dumps)
+- Actions & Automation: 4 features (Actions, Sequences, Custom Functions, Code Gen)
+- Advanced Tools: 5 features (Data Logger, Watch List, Memory Viewer, Console, Radio Calc Diff)
+- DUT Control: 3 features (API Explorer, Load PHY, PRS Routing)
+- Instrument Integration: 6 features (Signal Gen, BLE Packet, GFSK, RF Switch, Temp Chamber, ECA)
+- System Features: 3 features (System Info, Hardware Config, Test Execution)
+
+**Validation Checklist:**
+✓ All conditional logic captured
+✓ All defaults and limits documented
+✓ All UI specifications included
+✓ All persistence mechanisms defined
+✓ All data formats specified
+✓ All error handling described
+✓ All integration points identified
+
+**Next Steps for Development Team:**
+1. Review requirements document for completeness
+2. Create feature implementation checklist
+3. Design test plan matching requirements
+4. Begin implementation per feature priority
+5. Validate each feature against 4-section requirements
+6. Cross-reference with source code during development

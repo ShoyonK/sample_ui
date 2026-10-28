@@ -1,0 +1,53 @@
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import "../theme"
+
+// variants: primary (one per view), secondary (default), ghost, danger
+Button {
+    id: control
+    property string variant: "secondary"
+    property string iconName: ""
+    property bool small: false
+    property bool busy: false
+
+    readonly property color fg: variant === "primary" ? Theme.accentText
+                              : variant === "danger" ? Theme.dangerFg : Theme.textPrimary
+
+    hoverEnabled: true
+    implicitHeight: small ? 24 : 28
+    leftPadding: small ? 8 : 10
+    rightPadding: small ? 8 : 10
+    topPadding: 0
+    bottomPadding: 0
+    font.family: Theme.fontUi
+    font.pixelSize: small ? Theme.fontXs : Theme.fontSm
+    font.weight: Font.DemiBold
+    opacity: enabled ? 1 : 0.45
+
+    contentItem: Row {
+        spacing: 6
+        Icon {
+            visible: control.iconName !== "" || control.busy
+            name: control.busy ? "sync" : control.iconName
+            size: control.small ? 11 : 13
+            color: control.fg
+            anchors.verticalCenter: parent.verticalCenter
+        }
+        Text {
+            text: control.text
+            font: control.font
+            color: control.fg
+            anchors.verticalCenter: parent.verticalCenter
+        }
+    }
+
+    background: Rectangle {
+        radius: Theme.radiusSm
+        color: control.variant === "primary" ? (control.hovered ? Theme.accentHover : Theme.accent)
+             : control.variant === "ghost" ? (control.hovered ? Theme.select : "transparent")
+             : (control.hovered ? Theme.surface2 : Theme.surface)
+        border.width: control.variant === "ghost" ? 0 : 1
+        border.color: control.variant === "primary" ? Theme.accent
+                    : control.variant === "danger" ? Theme.dangerBg : Theme.borderStrong
+    }
+}

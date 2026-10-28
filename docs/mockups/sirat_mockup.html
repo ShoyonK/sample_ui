@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SiRAT Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+:root{
+  --canvas:#F6F6F4; --surface:#FFFFFF; --surface-2:#FAFAF8; --border:#E6E6E3; --border-strong:#D6D6D2;
+  --text:#1C1C1C; --muted:#8A8A86; --accent:#111111; --on-accent:#FFFFFF;
+  --info-bg:#EEF3FF; --info-fg:#3B5BDB; --ok-bg:#EAF7EE; --ok-fg:#2B8A3E;
+  --warn-bg:#FFF4E5; --warn-fg:#C76A00; --danger-bg:#FDECEC; --danger-fg:#C92A2A;
+  --split-bg:#F1EEFF; --split-fg:#6741D9; --changed:#FFF6BF; --note-bg:#FFFBEA;
+  --select:#F0F0EC;
+  --ui:"Inter","Segoe UI",sans-serif; --mono:"JetBrains Mono","Cascadia Mono",monospace;
+}
+[data-theme="dark"]{
+  --canvas:#111214; --surface:#1A1B1E; --surface-2:#1F2023; --border:#2A2C30; --border-strong:#3A3C41;
+  --text:#ECECEC; --muted:#9A9A9A; --accent:#FFFFFF; --on-accent:#111111;
+  --info-bg:#1C2540; --info-fg:#8EA6F5; --ok-bg:#16301F; --ok-fg:#6FCF8A;
+  --warn-bg:#3A2A12; --warn-fg:#F2B262; --danger-bg:#3A1A1A; --danger-fg:#F28B8B;
+  --split-bg:#272040; --split-fg:#B4A2F5; --changed:#3D3814; --note-bg:#2E2A16; --select:#26272B;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--canvas);color:var(--text);font:13px/1.4 var(--ui)}
+.app{display:grid;grid-template-rows:48px 1fr 26px;height:100vh;min-width:1280px}
+.top{display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--surface);border-bottom:1px solid var(--border)}
+.brand{font-weight:600;font-size:15px;letter-spacing:-.01em}
+.body{display:grid;grid-template-columns:56px 1fr;min-height:0}
+.rail{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:2px}
+.rail button{width:40px;height:40px;border:0;background:none;border-radius:8px;color:var(--muted);font-size:20px;cursor:pointer;display:grid;place-items:center}
+.rail button:hover{background:var(--select);color:var(--text)}
+.rail button.on{background:var(--select);color:var(--text)}
+.rail .sp{flex:1}
+.main{display:grid;grid-template-rows:1fr 6px 230px;min-height:0;padding:10px;gap:0}
+.handle{cursor:row-resize;display:grid;place-items:center}
+.handle::after{content:"";width:36px;height:3px;border-radius:2px;background:var(--border-strong)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;min-height:0;display:flex;flex-direction:column}
+.card-h{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border)}
+.card-h h3{margin:0;font-size:13px;font-weight:600}
+.meta{color:var(--muted);font-size:11.5px}
+.grow{flex:1}
+.btn{font:500 12.5px var(--ui);height:28px;padding:0 10px;border-radius:6px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.ghost{border-color:transparent;background:none}
+.btn.danger{color:var(--danger-fg);border-color:var(--danger-bg)}
+.btn.sm{height:24px;font-size:11.5px;padding:0 8px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.ib{width:26px;height:26px;border:0;background:none;border-radius:6px;color:var(--muted);cursor:pointer;display:inline-grid;place-items:center;font-size:15px}
+.ib:hover{background:var(--select);color:var(--text)}
+.chip{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px;border-radius:5px;font:500 11px var(--ui);white-space:nowrap}
+.c-info{background:var(--info-bg);color:var(--info-fg)} .c-ok{background:var(--ok-bg);color:var(--ok-fg)}
+.c-warn{background:var(--warn-bg);color:var(--warn-fg)} .c-danger{background:var(--danger-bg);color:var(--danger-fg)}
+.c-split{background:var(--split-bg);color:var(--split-fg)} .c-mute{background:var(--select);color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:13px;border:1px solid var(--border);font-weight:500;font-size:12px}
+.dot{width:7px;height:7px;border-radius:50%}
+.mono{font-family:var(--mono);font-size:12px}
+input.f,select.f{height:28px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);color:var(--text);padding:0 9px;font:12.5px var(--ui);outline:none}
+input.f:focus{border-color:var(--text)}
+input.f.mono{font-family:var(--mono)}
+.seg{display:inline-flex;border:1px solid var(--border-strong);border-radius:6px;overflow:hidden;height:28px}
+.seg button{border:0;background:var(--surface);color:var(--muted);font:500 12px var(--ui);padding:0 10px;cursor:pointer;border-right:1px solid var(--border)}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--select);color:var(--text)}
+.page{display:none;min-height:0}
+.page.on{display:grid}
+#p-registers{grid-template-columns:360px 190px 1fr;gap:10px}
+.search{position:relative;padding:10px 12px;border-bottom:1px solid var(--border)}
+.search i{position:absolute;left:21px;top:17px;color:var(--muted)}
+.search input{width:100%;padding-left:28px}
+.tree{overflow:auto;flex:1;padding:4px 0}
+.row{display:grid;grid-template-columns:1fr 84px 80px;align-items:center;height:26px;padding:0 12px;cursor:pointer;white-space:nowrap}
+.row:hover{background:var(--surface-2)}
+.row.sel{background:var(--select)}
+.row .n{display:flex;align-items:center;gap:6px;overflow:hidden;min-width:0;padding-right:8px}
+.row .a,.row .v{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.row .v{text-align:right}
+.row.reg .n{padding-left:18px}
+.acc{width:6px;height:6px;border-radius:2px;flex:none}
+.tree-h{display:grid;grid-template-columns:1fr 84px 80px;padding:6px 12px;color:var(--muted);font-size:11px;border-bottom:1px solid var(--border)}
+.tree-h span:last-child{text-align:right}
+.fav{padding:6px}
+.fav .it{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer}
+.fav .it:hover{background:var(--surface-2)}
+.fav .it i{color:var(--warn-fg)}
+.fav .it small{display:block;color:var(--muted);font-family:var(--mono);font-size:11px}
+.detail{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
+.dh{display:flex;align-items:center;gap:10px;padding:12px 14px}
+.dh .name{font:600 17px var(--mono);letter-spacing:-.01em}
+.chipinfo{margin-left:auto;text-align:right}
+.chipinfo b{display:block;font-size:20px;font-weight:600;letter-spacing:-.02em}
+.vbar{display:flex;align-items:center;gap:8px;padding:12px 14px}
+.vbar input{flex:1;font-size:14px;height:32px}
+.bits{display:flex;gap:16px;padding:12px 14px 14px;justify-content:space-between}
+.byte{flex:1}
+.byte .lbl{color:var(--muted);font-size:11px;margin-bottom:6px;display:flex;justify-content:space-between}
+.cells{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}
+.bit{height:30px;border-radius:5px;border:1px solid var(--border-strong);background:var(--surface-2);font:500 12px var(--mono);color:var(--muted);cursor:pointer;display:grid;place-items:center;position:relative}
+.bit.set{background:var(--text);color:var(--surface);border-color:var(--text)}
+.bit.field{box-shadow:inset 0 -2px 0 var(--info-fg)}
+.bitn{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin-top:3px}
+.bitn span{text-align:center;color:var(--muted);font:10.5px var(--mono)}
+table.t{width:100%;border-collapse:collapse}
+table.t th{font:500 11px var(--ui);color:var(--muted);text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--surface)}
+table.t td{white-space:nowrap;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+table.t tr:last-child td{border-bottom:0}
+table.t tr:hover td{background:var(--surface-2)}
+td.changed{background:var(--changed)!important}
+td.note{background:var(--note-bg)!important;color:var(--text)}
+.calc{color:var(--info-fg);font-family:var(--mono);font-size:12px}
+.enum{color:var(--ok-fg);font-family:var(--mono);font-size:12px}
+.desc{color:var(--muted);white-space:normal!important}
+.dock{display:grid;grid-template-columns:1.2fr 1.2fr 1fr;gap:10px;min-height:0}
+.list{overflow:auto;flex:1}
+.hrow{display:grid;grid-template-columns:78px 54px 1fr 96px;gap:8px;align-items:center;padding:6px 12px;border-bottom:1px solid var(--border);font-size:12px}
+.hrow .ts{color:var(--muted);font:11.5px var(--mono)}
+.arow{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);font-size:12.5px}
+.arow input{margin:0}
+.arow .ops{margin-left:auto;color:var(--muted);font-size:11.5px}
+.log{font:11.5px/1.6 var(--mono);padding:8px 12px;overflow:auto;flex:1}
+.log .e{color:var(--danger-fg)} .log .w{color:var(--warn-fg)} .log .i{color:var(--muted)} .log .s{color:var(--ok-fg)}
+.foot{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--border)}
+.status{display:flex;align-items:center;gap:14px;padding:0 14px;background:var(--surface);border-top:1px solid var(--border);color:var(--muted);font-size:11.5px}
+#p-watch{grid-template-columns:1fr 360px;gap:10px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px}
+.stat{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+.stat .k{color:var(--muted);font-size:11.5px}
+.stat .v{font-size:24px;font-weight:600;letter-spacing:-.02em;margin-top:2px}
+.spark{display:block;width:100%;height:46px}
+#p-sequences{grid-template-columns:280px 1fr;gap:10px}
+.seq{padding:8px 12px;border-bottom:1px solid var(--border);cursor:pointer}
+.seq.sel{background:var(--select)}
+.seq small{color:var(--muted)}
+.step{display:grid;grid-template-columns:28px 22px 1fr auto auto;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border)}
+.step .num{color:var(--muted);font:12px var(--mono)}
+.prog{height:6px;background:var(--select);border-radius:3px;overflow:hidden}
+.prog>div{height:100%;background:var(--text);width:58%}
+.overlay{position:fixed;inset:0;background:rgba(15,15,15,.35);display:none;align-items:center;justify-content:center;z-index:10}
+.overlay.on{display:flex}
+.dialog{width:480px;background:var(--surface);border-radius:12px;border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,.18)}
+.dialog .dh2{display:flex;gap:12px;padding:18px 20px 6px}
+.dialog .ico{width:36px;height:36px;border-radius:8px;display:grid;place-items:center;font-size:19px;flex:none}
+.dialog h2{margin:0;font-size:15px;font-weight:600}
+.dialog p{margin:4px 0 0;color:var(--muted)}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:6px 12px;margin:12px 20px;padding:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px}
+.kv span:nth-child(odd){color:var(--muted)}
+.dialog .warn{margin:0 20px;padding:10px 12px;border-radius:8px;background:var(--danger-bg);color:var(--danger-fg);font-size:12.5px}
+.dialog .act{display:flex;align-items:center;gap:8px;padding:16px 20px}
+.sheet{position:fixed;top:48px;right:0;bottom:26px;width:420px;background:var(--surface);border-left:1px solid var(--border);box-shadow:-20px 0 40px rgba(0,0,0,.08);display:none;flex-direction:column;z-index:9}
+.sheet.on{display:flex}
+.sheet .sb{padding:16px;display:flex;flex-direction:column;gap:12px;overflow:auto;flex:1}
+.sheet label{display:block;color:var(--muted);font-size:11.5px;margin-bottom:4px}
+.console{background:#141414;color:#D8D8D8;border-radius:8px;padding:10px 12px;font:11.5px/1.7 var(--mono);min-height:150px}
+.console .s{color:#7EE29A}.console .i{color:#8EC7FF}.console .w{color:#FFC66B}
+.demo{position:fixed;left:420px;bottom:2px;display:flex;gap:4px;z-index:20;align-items:center}.demo .btn{height:21px;font-size:11px}
+.demo span{color:var(--muted);font-size:11px;margin-right:4px}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <span class="brand">SiRAT</span>
+    <span class="chip c-mute mono" style="font-size:11px">EFR32XG29XFULL · revA0</span>
+    <span class="meta" style="margin-left:6px">DUT</span>
+    <div class="seg" id="posSeg"><button class="on">1</button><button>2</button><button>3</button><button>4</button></div>
+    <span class="pill" id="connPill"><span class="dot" style="background:var(--ok-fg)"></span>Connected</span>
+    <span class="chip c-info">PHY · BLE_1M</span>
+    <div class="grow"></div>
+    <button class="btn" style="width:280px;justify-content:flex-start;color:var(--muted)"><i class="ti ti-search"></i>Jump to register, page, or action<span class="grow"></span><span class="mono" style="font-size:11px">Ctrl K</span></button>
+    <button class="btn" onclick="openSheet()"><i class="ti ti-plug"></i>Connection</button>
+    <button class="ib" title="Theme" onclick="toggleTheme()"><i class="ti ti-moon"></i></button>
+  </header>
+
+  <div class="body">
+    <nav class="rail">
+      <button class="on" data-p="registers" title="Registers"><i class="ti ti-cpu"></i></button>
+      <button data-p="watch" title="Watch and logger"><i class="ti ti-activity"></i></button>
+      <button title="Actions"><i class="ti ti-bolt"></i></button>
+      <button data-p="sequences" title="Sequences"><i class="ti ti-list-numbers"></i></button>
+      <button title="Dumps"><i class="ti ti-git-compare"></i></button>
+      <button title="Radio"><i class="ti ti-antenna"></i></button>
+      <button title="Instruments"><i class="ti ti-wave-sine"></i></button>
+      <button title="Advanced"><i class="ti ti-terminal-2"></i></button>
+      <button title="Tests"><i class="ti ti-flask"></i></button>
+      <div class="sp"></div>
+      <button title="Settings"><i class="ti ti-settings"></i></button>
+    </nav>
+
+    <main class="main">
+      <!-- REGISTERS -->
+      <section class="page on" id="p-registers">
+        <div class="card">
+          <div class="search"><i class="ti ti-search"></i><input class="f" value="" placeholder="Filter peripherals, registers, fields"></div>
+          <div class="tree-h"><span>Name</span><span>Address</span><span>Value</span></div>
+          <div class="tree" id="tree"></div>
+          <div class="foot"><button class="btn sm ghost"><i class="ti ti-fold"></i>Collapse all</button><span class="grow"></span><span class="meta" style="align-self:center">200 peripherals</span></div>
+        </div>
+
+        <div class="card">
+          <div class="card-h"><h3>Favorites</h3><span class="grow"></span><span class="meta">4</span></div>
+          <div class="fav">
+            <div class="it"><i class="ti ti-star"></i><div>MODEM.CTRL<small>0x5A008004</small></div></div>
+            <div class="it"><i class="ti ti-star"></i><div>CMU.CLKEN0<small>0x40008064</small></div></div>
+            <div class="it"><i class="ti ti-star"></i><div>SYNTH.FREQ<small>0xA8018010</small></div></div>
+            <div class="it"><i class="ti ti-star"></i><div>BUFC.LPMODE<small>0xBA000008</small></div></div>
+          </div>
+        </div>
+
+        <div class="detail">
+          <div class="card">
+            <div class="dh">
+              <span class="name">BUFC.LPMODE</span>
+              <button class="ib" title="Remove from favorites" style="color:var(--warn-fg)"><i class="ti ti-star"></i></button>
+              <span class="chip c-ok">RW</span>
+              <span class="meta mono">0xBA000008 · 32-bit · reset 0x00000000</span>
+              <div class="chipinfo"><b>LION A0</b><span class="meta">Buffer controller</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="vbar">
+              <span class="meta" style="width:42px">Value</span>
+              <input class="f mono" id="valIn" value="0x00000003">
+              <div class="seg"><button class="on">Hex</button><button>Dec</button><button>Bin</button></div>
+              <button class="btn"><i class="ti ti-download"></i>Read</button>
+              <button class="btn primary" onclick="openConfirm()"><i class="ti ti-upload"></i>Write</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>Bit pattern</h3><span class="meta">click a bit to write it · underline marks a field</span><span class="grow"></span><span class="meta mono">0x00000003</span></div>
+            <div class="bits" id="bits"></div>
+          </div>
+          <div class="card" style="flex:1">
+            <div class="card-h"><h3>Fields</h3><span class="meta">double-click a value to edit · Enter writes</span><span class="grow"></span>
+              <span class="chip c-mute">2 fields</span></div>
+            <table class="t">
+              <thead><tr><th>Bits</th><th>Name</th><th>Access</th><th>Value</th><th>Enum</th><th>Calculated</th><th>Description</th><th style="width:96px"></th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">1</td><td class="mono" style="font-weight:500">LPENBYM33</td><td><span class="chip c-ok">RW</span></td>
+                  <td class="mono changed" title="Value changed: was 0x0, now 0x1">0x1</td><td class="enum">ENABLED</td><td class="calc">—</td>
+                  <td class="desc">Low power mode enable from M33</td>
+                  <td><button class="ib" title="Add to watch list"><i class="ti ti-eye"></i></button><button class="ib" title="Add to data logger"><i class="ti ti-chart-line"></i></button><button class="ib" title="Add formula"><i class="ti ti-math-function"></i></button></td>
+                  <td class="note">Set by sequencer on boot</td></tr>
+                <tr><td class="mono">0</td><td class="mono" style="font-weight:500">LPENBYSEQ</td><td><span class="chip c-ok">RW</span></td>
+                  <td class="mono">0x1</td><td class="enum">ENABLED</td><td class="calc">—</td>
+                  <td class="desc">Low power mode enable from M0p sequencer</td>
+                  <td><button class="ib"><i class="ti ti-eye"></i></button><button class="ib"><i class="ti ti-chart-line"></i></button><button class="ib"><i class="ti ti-math-function"></i></button></td>
+                  <td class="meta">Add a note</td></tr>
+              </tbody>
+            </table>
+            <div class="foot" style="margin-top:auto"><span class="grow"></span><button class="btn sm"><i class="ti ti-device-floppy"></i>Save register to actions</button></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- WATCH -->
+      <section class="page" id="p-watch">
+        <div class="card">
+          <div class="card-h"><h3>Watch list</h3><span class="meta">refresh every</span><input class="f mono" value="1.0 s" style="width:70px;height:24px">
+            <span class="grow"></span><span class="pill" style="height:24px"><span class="dot" style="background:var(--ok-fg)"></span>Live</span>
+            <button class="btn sm"><i class="ti ti-player-pause"></i>Pause</button><button class="btn sm"><i class="ti ti-refresh"></i>Refresh once</button><button class="btn sm primary"><i class="ti ti-chart-line"></i>Add all to logger</button></div>
+          <table class="t">
+            <thead><tr><th>Register / field</th><th>Value</th><th>Enum</th><th>Calculated</th><th>Changed</th><th>Trend</th><th></th></tr></thead>
+            <tbody id="watchRows"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;min-height:0">
+          <div class="card">
+            <div class="card-h"><h3>Data logger</h3><span class="grow"></span><span class="chip c-ok">Recording</span></div>
+            <div class="stats"><div class="stat"><div class="k">Fields</div><div class="v">3</div></div><div class="stat"><div class="k">Samples</div><div class="v">1,284</div></div><div class="stat"><div class="k">Rate</div><div class="v">0.5 s</div></div></div>
+            <div style="padding:0 12px 12px"><div class="meta" style="margin-bottom:4px">SYNTH.FREQ.FREQ · MHz</div><svg class="spark" viewBox="0 0 300 46" preserveAspectRatio="none"><polyline fill="none" stroke="var(--text)" stroke-width="1.5" points="0,30 20,28 40,31 60,25 80,26 100,20 120,22 140,18 160,21 180,14 200,16 220,12 240,15 260,10 280,12 300,9"/></svg>
+            <div class="meta" style="margin:8px 0 4px">AGC.RSSI.RSSI · dBm</div><svg class="spark" viewBox="0 0 300 46" preserveAspectRatio="none"><polyline fill="none" stroke="var(--info-fg)" stroke-width="1.5" points="0,20 20,24 40,18 60,26 80,22 100,30 120,19 140,25 160,21 180,28 200,17 220,24 240,22 260,27 280,20 300,23"/></svg></div>
+            <div class="foot"><button class="btn sm"><i class="ti ti-player-stop"></i>Stop</button><button class="btn sm ghost">Clear data</button><span class="grow"></span><button class="btn sm"><i class="ti ti-file-export"></i>Export CSV</button></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SEQUENCES -->
+      <section class="page" id="p-sequences">
+        <div class="card">
+          <div class="card-h"><h3>Sequences</h3><span class="grow"></span><button class="btn sm"><i class="ti ti-plus"></i>New</button></div>
+          <div class="list">
+            <div class="seq sel"><b>ble_rx_bringup</b><br><small>5 actions · last run 6:12 PM</small></div>
+            <div class="seq"><b>tx_power_sweep</b><br><small>12 actions</small></div>
+            <div class="seq"><b>lp_mode_check</b><br><small>3 actions</small></div>
+            <div class="seq"><b>recover_after_assert</b><br><small>2 actions</small></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h3 class="mono">ble_rx_bringup</h3><span class="chip c-info">Running · step 3 of 5</span><span class="grow"></span>
+            <button class="btn sm"><i class="ti ti-code"></i>Generate code</button><button class="btn sm danger"><i class="ti ti-player-stop"></i>Abort</button></div>
+          <div style="padding:12px 14px;border-bottom:1px solid var(--border)"><div class="prog"><div></div></div><div class="meta" style="margin-top:6px">Loading PHY BLE_1M on DUT 1…</div></div>
+          <div class="step"><span class="num">01</span><i class="ti ti-circle-check" style="color:var(--ok-fg)"></i><span>Reconnect RPC</span><span class="chip c-mute">dut_reconnect</span><span class="meta mono">0.4 s</span></div>
+          <div class="step"><span class="num">02</span><i class="ti ti-circle-check" style="color:var(--ok-fg)"></i><span>RF switch → RX_PATH (DUT 1)</span><span class="chip c-split">rf_switch</span><span class="meta mono">0.2 s</span></div>
+          <div class="step" style="background:var(--surface-2)"><span class="num">03</span><i class="ti ti-loader-2" style="color:var(--info-fg)"></i><span>Load PHY BLE_1M</span><span class="chip c-info">load_phy</span><span class="meta mono">…</span></div>
+          <div class="step"><span class="num">04</span><i class="ti ti-circle" style="color:var(--muted)"></i><span>MODEM.CTRL = 0x00000431</span><span class="chip c-ok">register_write</span><span class="meta mono">—</span></div>
+          <div class="step"><span class="num">05</span><i class="ti ti-circle" style="color:var(--muted)"></i><span>Siggen PacketSrw 2440 MHz · 0 dBm</span><span class="chip c-warn">signal_generator</span><span class="meta mono">—</span></div>
+        </div>
+      </section>
+
+      <div class="handle"></div>
+
+      <!-- BOTTOM DOCK -->
+      <section class="dock">
+        <div class="card">
+          <div class="card-h"><h3>History</h3><div class="seg" style="height:24px"><button class="on" style="font-size:11px">Read</button><button class="on" style="font-size:11px">Write</button></div><span class="grow"></span>
+            <button class="btn sm"><i class="ti ti-player-play"></i>Run</button><button class="btn sm"><i class="ti ti-bolt"></i>Create action</button><button class="ib" title="Copy"><i class="ti ti-copy"></i></button><button class="ib" title="Clear"><i class="ti ti-trash"></i></button></div>
+          <div class="list">
+            <div class="hrow"><span class="ts">18:42:07</span><span class="chip c-ok">WRITE</span><span class="mono">BUFC.LPMODE</span><span class="mono" style="text-align:right">0x00000003</span></div>
+            <div class="hrow"><span class="ts">18:41:55</span><span class="chip c-info">READ</span><span class="mono">BUFC.LPMODE</span><span class="mono" style="text-align:right">0x00000001</span></div>
+            <div class="hrow"><span class="ts">18:40:12</span><span class="chip c-ok">WRITE</span><span class="mono">MODEM.CTRL.OPMODE</span><span class="mono" style="text-align:right">0x2</span></div>
+            <div class="hrow"><span class="ts">18:39:48</span><span class="chip c-info">READ</span><span class="mono">SYNTH.FREQ</span><span class="mono" style="text-align:right">0x0004E200</span></div>
+            <div class="hrow"><span class="ts">18:39:30</span><span class="chip c-info">READ</span><span class="mono">CMU.CLKEN0</span><span class="mono" style="text-align:right">0x00000F07</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h3>Actions</h3><span class="meta">synced with Actions page</span><span class="grow"></span>
+            <button class="btn sm"><i class="ti ti-player-play"></i>Run</button><button class="btn sm primary"><i class="ti ti-player-track-next"></i>Run selected</button><button class="ib" title="Generate code"><i class="ti ti-code"></i></button></div>
+          <div class="list">
+            <div class="arow"><input type="checkbox" checked><span class="mono">lpmode_on</span><span class="ops">1 op</span></div>
+            <div class="arow"><input type="checkbox" checked><span class="mono">ble_1m_rx_setup</span><span class="ops">4 ops</span></div>
+            <div class="arow"><input type="checkbox"><span class="mono">siggen_2440_0dbm</span><span class="ops">1 op · signal_generator</span></div>
+            <div class="arow"><input type="checkbox"><span class="mono">reconnect_rpc</span><span class="ops">1 op · dut_reconnect</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h3>Log</h3><select class="f" style="height:24px;font-size:11.5px"><option>All levels</option></select><span class="grow"></span><button class="ib" title="Clear"><i class="ti ti-eraser"></i></button></div>
+          <div class="log">
+            <div class="i">18:17:45 SiRAT window initialized</div>
+            <div class="s">18:17:52 Connected to DUT 1 · EFR32XG29 revA0</div>
+            <div class="i">18:18:02 Peripheral tree loaded · 200 peripherals</div>
+            <div class="w">18:39:30 USART0 is read-sensitive · skipped in Read all</div>
+            <div class="s">18:42:07 Wrote BUFC.LPMODE = 0x3 · verified</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="status"><span class="mono">BUFC.LPMODE @ 0xBA000008 · read ok</span><span class="grow"></span><span>Fake backend · scenario happy</span><span>Service 1.2.0 · protocol 1</span><span>Activity idle</span></footer>
+</div>
+
+<!-- confirm critical write -->
+<div class="overlay" id="confirm">
+  <div class="dialog">
+    <div class="dh2"><div class="ico c-warn"><i class="ti ti-alert-triangle"></i></div><div><h2>Confirm write to critical register</h2><p>CMU is a critical peripheral. Check the value before writing.</p></div></div>
+    <div class="kv mono"><span>Register</span><span>CMU.CLKEN0</span><span>Address</span><span>0x40008064</span><span>Current</span><span>0x00000F07</span><span>New value</span><span style="font-weight:600">0x00000F0F</span></div>
+    <div class="warn">Writing an incorrect value can lock up the device or drop debug access.</div>
+    <div class="act"><label class="meta" style="display:flex;align-items:center;gap:6px"><input type="checkbox">Don't show this again</label><span class="grow"></span><button class="btn" onclick="closeAll()">Cancel</button><button class="btn primary" onclick="closeAll()">Write</button></div>
+  </div>
+</div>
+
+<!-- disconnect -->
+<div class="overlay" id="disc">
+  <div class="dialog">
+    <div class="dh2"><div class="ico c-danger"><i class="ti ti-plug-connected-x"></i></div><div><h2>DUT 1 connection lost</h2><p>Usually a power cycle, a J-Link disconnect, or a firmware assert.</p></div></div>
+    <div class="kv"><span>Cause</span><span>RPC connection lost</span><span>Detected by</span><span class="mono">registers.read</span><span>Cleared</span><span>PHY loaded, watch, radio config</span></div>
+    <div class="act"><button class="btn" onclick="closeAll()">Close</button><span class="grow"></span><button class="btn" disabled>Load LPW PHY</button><button class="btn" disabled>Load WiFi PHY</button><button class="btn primary"><i class="ti ti-refresh"></i>Reconnect</button></div>
+  </div>
+</div>
+
+<!-- connect sheet -->
+<aside class="sheet" id="sheet">
+  <div class="card-h"><h3>Connect to DUT</h3><span class="grow"></span><button class="ib" onclick="closeAll()"><i class="ti ti-x"></i></button></div>
+  <div class="sb">
+    <div><label>DUT position</label><div class="seg"><button class="on">1</button><button>2</button><button>3</button><button>4</button></div></div>
+    <div><label>Config type</label><div class="seg"><button>EFX</button><button class="on">EFR32</button></div></div>
+    <div><label>Config file</label><input class="f" style="width:100%" placeholder="Leave empty for the station default"></div>
+    <div><label>Output</label>
+      <div class="console"><div class="i">› dut.connect(position=1, config_type=EFR32)</div><div>Opening RPC on 127.0.0.1:47800…</div><div class="s">✓ RPC connected</div><div class="s">✓ Chip EFR32XG29XFULL revA0</div><div class="w">! No PHY loaded yet</div></div></div>
+  </div>
+  <div class="foot"><button class="btn danger">Disconnect</button><span class="grow"></span><button class="btn" onclick="closeAll()">Close</button><button class="btn primary">Connect</button></div>
+</aside>
+
+<div class="demo"><span>Mockup states</span>
+  <button class="btn sm" onclick="openConfirm()">Critical write</button>
+  <button class="btn sm" onclick="openDisc()">Disconnect</button>
+  <button class="btn sm" onclick="openSheet()">Connect sheet</button>
+</div>
+
+<script>
+const tree=[
+ ['p','ACMP0','0x5A008000',''],['p','AGC','0xB800C000',''],['p','AMUXCP0','0x5A020000',''],
+ ['p','BUFC','0xBA000000','',true],
+ ['r','IPVERSION','0xBA000000','0x00000003','ro'],['r','EN','0xBA000004','0x00000001','rw'],
+ ['r','LPMODE','0xBA000008','0x00000003','rw',true],['r','BUF0_CTRL','0xBA00000C','—','rw'],
+ ['r','BUF0_ADDR','0xBA000010','—','rw'],['r','BUF0_WRITEOFFSET','0xBA000014','—','rw'],
+ ['r','BUF0_READOFFSET','0xBA000018','—','ro'],['r','BUF0_CMD','0xBA00001C','—','wo'],
+ ['r','BUF0_STATUS','0xBA000020','—','ro'],['r','BUF0_THRESHOLDCTRL','0xBA000024','—','rw'],
+ ['p','CMU','0x40008000',''],['p','EMU','0x40004000',''],['p','FRC','0xA8004000',''],
+ ['p','GPIO','0x5003C000',''],['p','MODEM','0x5A008000',''],['p','RAC','0xA8020000',''],
+ ['p','SYNTH','0xA8018000',''],['p','USART0','0x5005C000','']];
+const acc={ro:'var(--info-fg)',rw:'var(--ok-fg)',wo:'var(--danger-fg)'};
+document.getElementById('tree').innerHTML=tree.map(t=>t[0]==='p'
+ ?`<div class="row"><span class="n"><i class="ti ti-chevron-${t[4]?'down':'right'}" style="color:var(--muted)"></i><i class="ti ti-box" style="color:var(--muted)"></i>${t[1]}</span><span class="a">${t[2]}</span><span class="v"></span></div>`
+ :`<div class="row reg ${t[5]?'sel':''}"><span class="n"><span class="acc" style="background:${acc[t[4]]}"></span><span style="overflow:hidden;text-overflow:ellipsis">${t[1]}</span></span><span class="a">${t[2]}</span><span class="v">${t[3]}</span></div>`).join('');
+let bh='';for(let b=3;b>=0;b--){let c='',n='';for(let i=7;i>=0;i--){const k=b*8+i;c+=`<div class="bit ${k<2?'set field':''}">${k<2?1:0}</div>`;n+=`<span>${k}</span>`}
+ bh+=`<div class="byte"><div class="lbl"><span>Byte ${b}</span><span class="mono">0x${b===0?'03':'00'}</span></div><div class="cells">${c}</div><div class="bitn">${n}</div></div>`}
+document.getElementById('bits').innerHTML=bh;
+document.querySelectorAll('.bit').forEach(e=>e.onclick=()=>{e.classList.toggle('set');e.textContent=e.classList.contains('set')?1:0});
+const w=[['MODEM.CTRL.OPMODE','0x2','RX','—',true],['SYNTH.FREQ.FREQ','0x4E200','—','2440.000 MHz',true],['AGC.RSSI.RSSI','0xFFB4','—','-76 dBm',true],['AGC.EN.EN','0x1','ENABLED','—',false],['RAC.STATUS.STATE','0x3','RXSEARCH','—',false],['FRC.STATUS.ACTIVE','0x1','—','—',false]];
+document.getElementById('watchRows').innerHTML=w.map(r=>`<tr><td class="mono">${r[0]}</td><td class="mono ${r[4]?'changed':''}">${r[1]}</td><td class="enum">${r[2]}</td><td class="calc">${r[3]}</td><td class="meta">${r[4]?'just now':'2 min ago'}</td><td style="width:120px"><svg viewBox="0 0 100 20" style="width:100px;height:20px"><polyline fill="none" stroke="var(--muted)" stroke-width="1.2" points="${Array.from({length:11},(_,i)=>i*10+','+(r[4]?10+Math.round(Math.sin(i+r[0].length)*7):10)).join(' ')}"/></svg></td><td><button class="ib"><i class="ti ti-pencil"></i></button><button class="ib"><i class="ti ti-x"></i></button></td></tr>`).join('');
+document.querySelectorAll('.rail button[data-p]').forEach(b=>b.onclick=()=>{
+ document.querySelectorAll('.rail button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+ document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.getElementById('p-'+b.dataset.p).classList.add('on')});
+function closeAll(){document.querySelectorAll('.overlay,.sheet').forEach(e=>e.classList.remove('on'))}
+function openConfirm(){closeAll();document.getElementById('confirm').classList.add('on')}
+function openDisc(){closeAll();document.getElementById('disc').classList.add('on');document.getElementById('connPill').innerHTML='<span class="dot" style="background:var(--danger-fg)"></span>Disconnected'}
+function openSheet(){closeAll();document.getElementById('sheet').classList.add('on')}
+function toggleTheme(){const r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'':'dark'}
+location.hash.slice(1).split(',').forEach(s=>{
+ if(s==='dark')toggleTheme();
+ if(s==='watch'||s==='sequences')document.querySelector(`.rail button[data-p="${s}"]`).click();
+ if(s==='confirm')openConfirm(); if(s==='disconnect')openDisc(); if(s==='connect')openSheet();
+ if(s==='clean')document.querySelector('.demo').style.display='none';
+});
+</script>
+</body>
+</html>

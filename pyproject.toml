@@ -1,0 +1,47 @@
+[project]
+name = "sirat-ui"
+version = "0.1.0"
+description = "SiRAT frontend: PyQt5 + QML, MVVM, runs against a fake Station API until the service exists"
+requires-python = "==3.10.5"
+dependencies = [
+    "pydantic>=2.9,<3",
+    "PyQt5==5.15.11",
+    "PyQt5-Qt5==5.15.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-qt>=4.4",
+    "hypothesis>=6.112",
+    "pyinstaller>=6.10",
+    "pyrefly>=1.4.0",
+]
+
+[project.scripts]
+sirat = "sirat_ui.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sirat_ui"]
+
+[tool.uv]
+package = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests"]
+qt_api = "pyqt5"
+markers = [
+    "req(id): links a test to a user requirement in sirat_requirements.txt",
+]
+
+# Strong typing at the boundaries, checked with pyrefly: uv run pyrefly check
+# (tests/unit/test_typing.py runs it too, so a type error fails the test suite)
+[tool.pyrefly]
+project-includes = ["src/sirat_ui"]
+search-path = ["src"]
+python-version = "3.10"
