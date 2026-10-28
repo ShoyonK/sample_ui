@@ -12,7 +12,7 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationEr
 from typing_extensions import Annotated
 
 from sirat_ui.core import wifi
-from sirat_ui.core.actions import op_kind
+from sirat_ui.core.ops import op_kind
 from sirat_ui.core.prs import channel_problem
 from sirat_ui.stores.schemas.common import NonEmpty, RegisterName, RegisterValue
 from sirat_ui.stores.schemas.report import Report, expect_dict, validate_entry

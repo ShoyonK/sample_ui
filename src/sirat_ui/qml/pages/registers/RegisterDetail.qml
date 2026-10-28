@@ -3,12 +3,13 @@ import "../../theme"
 
 RegisterDetailForm {
     readonly property var vm: app.detail
+    readonly property var shortcuts: app.registerShortcuts
 
     mode: vm.mode
     titleLabel.text: vm.title
     favoriteButton.iconName: vm.isFavorite ? "starFilled" : "star"
     favoriteButton.tip: vm.isFavorite ? "Remove from favorites" : "Add to favorites"
-    favoriteButton.onClicked: vm.toggleFavorite()
+    favoriteButton.onClicked: shortcuts.toggleFavorite()
     accessChip.text: vm.accessText
     accessChip.tone: Theme.accessTone(vm.accessKey)
     metaLabel.text: vm.metaText
@@ -23,6 +24,7 @@ RegisterDetailForm {
     readButton.enabled: vm.canRead && !vm.busy
     readButton.busy: vm.busy
     readButton.onClicked: vm.read()
+    readButton.tip: "Read the register · " + app.palette.shortcutMap["read"]
     writeButton.enabled: vm.canWrite && !vm.busy
     writeButton.onClicked: vm.write(valueField.text)
 
@@ -37,14 +39,14 @@ RegisterDetailForm {
     fieldsTable.showCalculated: vm.showCalculated
     fieldsTable.onValueEdited: vm.setFieldValue(row, text)
     fieldsTable.onNoteEdited: vm.setNote(row, text)
-    fieldsTable.onWatchClicked: vm.addToWatch(row)
-    fieldsTable.onLoggerClicked: vm.addToLogger(row)
-    fieldsTable.onFormulaClicked: vm.editFormula(row)
+    fieldsTable.onWatchClicked: shortcuts.addToWatch(vm.fields.get(row).fullName)
+    fieldsTable.onLoggerClicked: shortcuts.addToLogger(vm.fields.get(row).fullName)
+    fieldsTable.onFormulaClicked: shortcuts.editFormula(vm.fields.get(row).fullName)
     saveActionButton.enabled: vm.hasValue
-    saveActionButton.onClicked: vm.saveToActions()
+    saveActionButton.onClicked: shortcuts.saveToActions()
 
     peripheralTitle.text: vm.title
     peripheralBody.text: vm.description + " · " + vm.registerCount + " registers"
     readPeripheralButton.enabled: vm.canRead && !app.readAll.isOpen
-    readPeripheralButton.onClicked: vm.readPeripheral()
+    readPeripheralButton.onClicked: shortcuts.readPeripheral()
 }

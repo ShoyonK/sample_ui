@@ -3,9 +3,9 @@
 import json
 
 import pytest
+from support import Harness
 
 from sirat_ui.stores.schemas import CLEANERS, Report, clean_session, validate_operation
-from support import Harness
 
 
 def clean(name, raw):
@@ -128,7 +128,7 @@ def test_unreadable_json_falls_back_to_defaults_and_is_backed_up(qapp, tmp_path)
     (tmp_path / ".sirat").mkdir()
     (tmp_path / ".sirat" / "preferences.json").write_text("{ nope")
     h = Harness(tmp_path, seed=False)
-    assert h.state.preferences.dark_mode is False
+    assert h.prefs.value.dark_mode is False
     assert (tmp_path / ".sirat" / "preferences.json.bak").read_text() == "{ nope"
     assert h.ix.toasts[0][0] == "warning"
 

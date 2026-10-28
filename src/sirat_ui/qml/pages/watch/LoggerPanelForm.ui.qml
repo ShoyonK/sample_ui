@@ -10,8 +10,6 @@ Card {
     height: 760
 
     property alias statusChip: statusChip
-    property alias fieldsTile: fieldsTile
-    property alias samplesTile: samplesTile
     property alias rateField: rateField
     property alias statusLabel: statusLabel
     property alias modeLabel: modeLabel
@@ -30,43 +28,25 @@ Card {
         CardHeader {
             title: "Data logger"
             Layout.fillWidth: true
-            Chip { id: statusChip; text: "Recording"; tone: "ok" }
+            Text { text: "Every"; height: 24; verticalAlignment: Text.AlignVCenter; font.pixelSize: Theme.fontSm; color: Theme.textMuted }
+            AppTextField {
+                id: rateField
+                objectName: "loggerRateField"
+                Accessible.name: "Sample interval in seconds"
+                mono: true
+                selectOnFocus: true
+                width: 64
+                implicitHeight: 24
+                text: "0.5"
+            }
+            Text { text: "s"; height: 24; verticalAlignment: Text.AlignVCenter; font.pixelSize: Theme.fontSm; color: Theme.textMuted }
+            Chip { id: statusChip; text: "Recording"; tone: "ok"; y: 2 }
             IconButton { id: popOutButton; objectName: "loggerPopOutButton"; iconName: "export"; tip: "Open the data logger in its own window" }
         }
 
         RowLayout {
             Layout.fillWidth: true
-            Layout.margins: Theme.s3
-            spacing: 10
-            StatTile { id: fieldsTile; label: "Fields"; value: "2"; Layout.fillWidth: true }
-            StatTile { id: samplesTile; label: "Samples"; value: "1,284"; Layout.fillWidth: true }
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: 64
-                radius: Theme.radius
-                color: Theme.surface2
-                border.color: Theme.border
-                Column {
-                    anchors.left: parent.left
-                    anchors.leftMargin: Theme.s3
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 2
-                    Text { text: "Sample rate (s)"; font.pixelSize: Theme.fontXs; color: Theme.textMuted }
-                    AppTextField {
-                        id: rateField
-                        objectName: "loggerRateField"
-                        mono: true
-                        selectOnFocus: true
-                        width: 80
-                        implicitHeight: 26
-                        text: "0.5"
-                    }
-                }
-            }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
+            Layout.topMargin: Theme.s3
             Layout.leftMargin: Theme.s3
             Layout.rightMargin: Theme.s3
             spacing: Theme.s2
@@ -77,7 +57,7 @@ Card {
                     id: statusLabel
                     objectName: "loggerStatus"
                     text: "Recording · 1,284 samples · 10:42.0 elapsed"
-                    font.pixelSize: Theme.fontXs
+                    font.pixelSize: Theme.fontSm
                     color: Theme.textPrimary
                 }
                 Text {

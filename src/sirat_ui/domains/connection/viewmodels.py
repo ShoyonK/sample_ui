@@ -6,16 +6,16 @@ from typing import Any, Callable, Dict, Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
-from sirat_ui.domains.automation.actions import ActionService
+from sirat_ui.domains.automation.recorder import ActionRecorder
 from sirat_ui.domains.connection.service import ConnectionService
-from sirat_ui.domains.settings.hardware import HardwareConfigService
 from sirat_ui.domains.logs.service import LogService
 from sirat_ui.domains.radio.phy import WIFI_FAMILY
-from sirat_ui.gateway.models import LogLine
+from sirat_ui.domains.settings.hardware import HardwareConfigService
+from sirat_ui.models.station import LogLine, RpcAddress
 from sirat_ui.shared.interactions import InteractionService
-from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
-from sirat_ui.state.app_state import AppState
 from sirat_ui.shared.qt import pyqtProperty
+from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
+from sirat_ui.state.station import StationState
 
 CONFIG_TYPES = ["EFX", "EFR32"]
 
@@ -23,7 +23,7 @@ CONFIG_TYPES = ["EFX", "EFR32"]
 class ConnectionViewModel(BaseViewModel):
     changed = pyqtSignal()
 
-    def __init__(self, service: ConnectionService, state: AppState, log: LogService,
+    def __init__(self, service: ConnectionService, state: StationState, log: LogService,
                  hardware: Optional[HardwareConfigService] = None, interactions: Optional[InteractionService] = None,
                  parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
@@ -49,7 +49,11 @@ class ConnectionViewModel(BaseViewModel):
     rpcHost = qprop(str, "_rpc_host", changed)
     rpcPort = qprop(str, "_rpc_port", changed)
     position = qprop(int, "_position", changed)
-    configTypeIndex = pyqtProperty(int, lambda self: CONFIG_TYPES.index(self._config_type), notify=changed)
+
+    @pyqtProperty(int, notify=changed)
+    def configTypeIndex(self) -> int:  # noqa: N802
+        return CONFIG_TYPES.index(self._config_type)
+
     configFile = qprop(str, "_config_file", changed)
     busy = qprop(bool, "_busy", changed)
     connected = qprop(bool, "_connected", changed)
@@ -128,7 +132,8 @@ class ConnectionViewModel(BaseViewModel):
                                                            f"config_type={self._config_type}{address})"}])
         self._state.set_position(self._position)
         self._update(busy=True)
-        self._service.connect(self._position, self._config_type, self._config_file, host, port).then(
+        rpc = RpcAddress(host, port) if host and port else None
+        self._service.connect(self._position, self._config_type, self._config_file, rpc).then(
             lambda _: self._update(busy=False), lambda _: self._update(busy=False))
 
     @pyqtSlot()
@@ -139,7 +144,7 @@ class ConnectionViewModel(BaseViewModel):
 class DisconnectRecoveryViewModel(BaseViewModel):
     changed = pyqtSignal()
 
-    def __init__(self, service: ConnectionService, state: AppState, actions: ActionService,
+    def __init__(self, service: ConnectionService, state: StationState, actions: ActionRecorder,
                  interactions: InteractionService, open_radio_page: Callable[[], None] = lambda: None,
                  parent: Optional[QObject] = None) -> None:
         super().__init__(parent)

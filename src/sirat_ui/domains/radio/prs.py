@@ -9,17 +9,18 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from sirat_ui.core.observable import Event
-from sirat_ui.core.prs import DISABLE, FALLBACK_SIGNALS, Signal, channel_problem, fallback_signals, removal_ops
-from sirat_ui.core.actions import Action
-from sirat_ui.domains.automation.actions import ActionService
+from sirat_ui.core.prs import channel_problem, DISABLE, FALLBACK_SIGNALS, fallback_signals, removal_ops
+from sirat_ui.domains.automation.recorder import ActionRecorder
 from sirat_ui.domains.history.service import HistoryLog
 from sirat_ui.domains.logs.service import LogService
 from sirat_ui.gateway.call import Call
 from sirat_ui.gateway.errors import ApiError
-from sirat_ui.gateway.models import PrsRoute, PrsSignalCatalog
-from sirat_ui.gateway.port import StationGateway
+from sirat_ui.gateway.port import RfPort
+from sirat_ui.models.actions import Action
+from sirat_ui.models.radio import Signal
+from sirat_ui.models.station import PrsRoute, PrsSignalCatalog
 from sirat_ui.shared.error_presenter import ErrorPresenter
-from sirat_ui.state.app_state import AppState
+from sirat_ui.state.station import StationState
 
 _CATEGORY: Dict[str, str] = {name: cat for cat, names in FALLBACK_SIGNALS.items() for name in names}
 
@@ -30,7 +31,7 @@ def prs_op(route: PrsRoute) -> Dict[str, Any]:
 
 
 class PrsService:
-    def __init__(self, gateway: StationGateway, state: AppState, history: HistoryLog, actions: ActionService,
+    def __init__(self, gateway: RfPort, state: StationState, history: HistoryLog, actions: ActionRecorder,
                  errors: ErrorPresenter, log: LogService) -> None:
         self._gateway = gateway
         self._state = state
@@ -101,4 +102,4 @@ class PrsService:
 
     def add_action(self, route: PrsRoute) -> Action:
         name = f"prs_{route.signal.lower()}_{route.pin.lower()}"
-        return self._actions.add(self._actions.unique_name(name), [prs_op(route)])
+        return self._actions.add(name, [prs_op(route)])

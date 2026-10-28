@@ -5,8 +5,8 @@ from __future__ import annotations
 import random
 from typing import Dict, List, Optional
 
-from sirat_ui.core.registers import PeripheralDef, RegisterDef
 from sirat_ui.gateway.errors import ApiError, ErrorCode
+from sirat_ui.models.registers import PeripheralDef, RegisterDef
 
 _RAC_STATES = (1, 3, 3, 4, 3)
 

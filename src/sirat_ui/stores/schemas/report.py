@@ -13,17 +13,9 @@ from typing import Any, Dict, List, Optional, Type, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
+from sirat_ui.models.settings import Problem
+
 M = TypeVar("M", bound=BaseModel)
-
-
-@dataclass(frozen=True)
-class Problem:
-    source: str   # file name, e.g. ".sirat_actions.json"
-    where: str    # path inside it, e.g. "lpmode_on.operations.0.value"
-    message: str
-
-    def __str__(self) -> str:
-        return f"{self.source}: {self.where}: {self.message}" if self.where else f"{self.source}: {self.message}"
 
 
 @dataclass

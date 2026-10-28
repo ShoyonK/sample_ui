@@ -15,7 +15,9 @@ QtObject {
 
     // text
     readonly property color textPrimary: dark ? "#ECECEC" : "#1C1C1C"
-    readonly property color textMuted:   dark ? "#9A9A9A" : "#8A8A86"
+    // muted text carries data too (addresses, headers), so it keeps 4.5:1: about 5.3:1 on surface in light,
+    // 6.2:1 in dark
+    readonly property color textMuted:   dark ? "#9A9A9A" : "#6B6B67"
 
     // primary action
     readonly property color accent:      dark ? "#FFFFFF" : "#111111"
@@ -33,6 +35,7 @@ QtObject {
     readonly property color dangerFg: dark ? "#F28B8B" : "#C92A2A"
     readonly property color splitBg:  dark ? "#272040" : "#F1EEFF"
     readonly property color splitFg:  dark ? "#B4A2F5" : "#6741D9"
+    readonly property color focusRing: dark ? "#8EA6F5" : "#3B5BDB"   // keyboard focus, same hue as info
     readonly property color changed:  dark ? "#3D3814" : "#FFF6BF"   // changed-field highlight (req 5)
 
     // bit grid: set bits are a soft red tint with deep red digits, so the pattern reads without glare
@@ -41,10 +44,10 @@ QtObject {
     readonly property color bitOnText:   dark ? "#FFB4B4" : "#B42525"
     readonly property color bitHover:    dark ? "#2C1E1E" : "#FFF3F3"
 
-    // checked checkboxes use the same soft red as set bits
-    readonly property color checkOn:       bitOn
-    readonly property color checkOnBorder: bitOnBorder
-    readonly property color checkMark:     bitOnText
+    // checked checkboxes are solid ink, so "checked" never reads as an error or a set bit
+    readonly property color checkOn:       textPrimary
+    readonly property color checkOnBorder: textPrimary
+    readonly property color checkMark:     surface
     readonly property color noteBg:   dark ? "#2E2A16" : "#FFFBEA"   // field has a note (req 10)
 
     readonly property color consoleBg:   "#141414"

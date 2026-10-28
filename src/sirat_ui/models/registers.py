@@ -1,10 +1,10 @@
-"""Frontend register models. Wire models from the Station API are mapped into these by the gateway."""
+"""Register map types: access, enum values, fields, registers, peripherals, the chip, search results."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from enum import Enum
-from typing import Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from sirat_ui.core import bits
 
@@ -169,3 +169,13 @@ class ChipInfo:
     @property
     def short(self) -> str:
         return f"{self.family} {self.revision}"
+
+
+@dataclass
+class SearchResult:
+    peripherals: List[str] = field(default_factory=list)
+    # None means "show every register of this peripheral"
+    registers: Dict[str, Optional[List[str]]] = field(default_factory=dict)
+    expanded: Set[str] = field(default_factory=set)
+    auto_select: Optional[str] = None
+    is_empty_query: bool = True

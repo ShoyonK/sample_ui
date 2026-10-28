@@ -16,6 +16,7 @@ SettingsPageForm {
     importButton.onClicked: vm.importSettings()
     clearAllButton.onClicked: vm.clearAllSettings()
     aboutGrid.rows: vm.aboutRows
+    shortcutRepeater.model: app.palette.shortcutGuide
     saveSessionButton.onClicked: app.sessions.saveSession()
     loadSessionButton.onClicked: app.sessions.openBrowser()
     autosaveLabel.text: app.sessions.autosaveText

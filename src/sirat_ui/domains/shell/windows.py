@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
-from sirat_ui.domains.shell.viewmodels import PAGES
+from sirat_ui.domains.shell.pages import PAGES
 from sirat_ui.shared.qt import pyqtProperty
 from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel
 
@@ -31,8 +31,13 @@ class WindowsViewModel(BaseViewModel):
         self._model = DictListModel(["key", "kind", "arg", "title"], self)
         self._open: Dict[str, Dict[str, str]] = {}
 
-    model = pyqtProperty(QObject, lambda self: self._model, constant=True)
-    openKeys = pyqtProperty("QStringList", lambda self: list(self._open), notify=changed)
+    @pyqtProperty(QObject, constant=True)
+    def model(self) -> QObject:
+        return self._model
+
+    @pyqtProperty("QStringList", notify=changed)
+    def openKeys(self) -> List[str]:  # noqa: N802
+        return list(self._open)
 
     def _title(self, kind: str, arg: str) -> Optional[str]:
         if kind == PAGE:

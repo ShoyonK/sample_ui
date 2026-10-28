@@ -9,8 +9,6 @@ LoggerPanelForm {
 
     statusChip.text: vm.recording ? "Recording" : "Stopped"
     statusChip.tone: vm.recording ? "ok" : "mute"
-    fieldsTile.value: vm.fieldCount
-    samplesTile.value: vm.sampleCount.toLocaleString(Qt.locale(), "f", 0)
     rateField.text: vm.rateText
     // Applies on Enter or when focus leaves; a rejected value snaps back to the current rate.
     rateField.onEditingFinished: {

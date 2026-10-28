@@ -13,12 +13,12 @@ def run_diff(h, path=SAMPLE, uncheck=()):
     vm = h.shell.dumps
     h.ix.answer_open(str(path))
     vm.openRadioDiff()
-    names = [r["name"] for r in vm.peripherals.items]
+    names = [r["name"] for r in h.shell.dumpPicker.peripherals.items]
     for name in uncheck:
-        vm.togglePeripheral(names.index(name))
-    vm.startPicked()
+        h.shell.dumpPicker.togglePeripheral(names.index(name))
+    h.shell.dumpPicker.startPicked()
     h.scheduler.run_pending()
-    return vm
+    return h.shell.comparison
 
 
 def rows(vm):
@@ -30,10 +30,10 @@ def test_picker_shows_the_config_peripherals_with_field_counts_all_checked(harne
     vm = harness.shell.dumps
     harness.ix.answer_open(str(SAMPLE))
     vm.openRadioDiff()
-    assert vm.pickerOpen and vm.pickerTitle == "Select peripherals for comparison" and vm.pickerConfirm == "Compare"
-    labels = [r["label"] for r in vm.peripherals.items]
+    assert harness.shell.dumpPicker.pickerOpen and harness.shell.dumpPicker.pickerTitle == "Select peripherals for comparison" and harness.shell.dumpPicker.pickerConfirm == "Compare"
+    labels = [r["label"] for r in harness.shell.dumpPicker.peripherals.items]
     assert labels == ["MODEM (4 fields)", "SYNTH (2 fields)", "AGC (3 fields)", "FRC (1 field)", "USART0 (1 field)"]
-    assert vm.checkedCount == 5
+    assert harness.shell.dumpPicker.checkedCount == 5
 
 
 @pytest.mark.req("21.compare")
@@ -105,7 +105,7 @@ def test_a_config_without_assignments_is_rejected(harness, tmp_path):
     harness.ix.answer_open(str(empty))
     harness.shell.dumps.openRadioDiff()
     assert harness.ix.alerts[-1].title == "No fields in the config"
-    assert harness.shell.dumps.pickerOpen is False
+    assert harness.shell.dumpPicker.pickerOpen is False
 
 
 def test_needs_a_connection(qapp, tmp_path):

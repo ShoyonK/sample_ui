@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from typing_extensions import Annotated
 
 from sirat_ui.core.formula import validate as formula_problem
 from sirat_ui.stores.schemas.common import NonEmpty, RegisterName, RegisterOrField
@@ -168,6 +169,7 @@ class PreferencesModel(BaseModel):
     confirm_critical_writes: bool = True
     dark_mode: bool = False
     last_position: int = Field(1, ge=1, le=4)
+    watch_density: Literal["compact", "large"] = "compact"
 
 
 class HardwareConfigModel(BaseModel):
@@ -178,6 +180,43 @@ class HardwareConfigModel(BaseModel):
     rpc_timeout: int = Field(5, ge=1, le=300)
     dut_position: int = Field(1, ge=1, le=4)
     rpc_override: bool = False
+
+
+class SignalGeneratorModel(BaseModel):
+    """Req 25 "Persistence File" (~/.sirat/signal_generator.json)."""
+    model_config = ConfigDict(extra="ignore")
+    sg_type: NonEmpty = "PacketSrw"
+    input_config_name: str = "BLE_1M"
+    frequency_mhz: float = Field(2440.0, gt=0, le=6000)
+    power_dbm: float = Field(0.0, ge=-150, le=30)
+    overrides: Dict[str, Any] = {}
+
+
+class BlePacketModel(BaseModel):
+    """Req 26 "Persistence File" (~/.sirat/ble_packet.json)."""
+    model_config = ConfigDict(extra="ignore")
+    access_address: Annotated[str, Field(pattern=r"^(0[xX])?[0-9a-fA-F]{1,8}$")] = "0x8E89BED6"
+    crc_init: Annotated[str, Field(pattern=r"^(0[xX])?[0-9a-fA-F]{1,6}$")] = "0x555555"
+    whitening_init: int = Field(37, ge=0, le=127)
+    preamble: Annotated[str, Field(pattern=r"^(0[xX])?[0-9a-fA-F]{1,2}$")] = "0xAA"
+
+
+def clean_signal_generator(raw: Any, report: Report) -> Dict[str, Any]:
+    return validate_with_defaults(SignalGeneratorModel, raw, report).model_dump(mode="json")
+
+
+def clean_ble_packet(raw: Any, report: Report) -> Dict[str, Any]:
+    return validate_with_defaults(BlePacketModel, raw, report).model_dump(mode="json")
+
+
+class MemoryViewerModel(BaseModel):
+    """Req 19 "Persistence File" (~/.sirat/memory_viewer.json)."""
+    model_config = ConfigDict(extra="ignore")
+    last_address: Annotated[str, Field(pattern=r"^\s*((0[xX])?[0-9a-fA-F_]{1,10}|\d{1,10})\s*$")] = "0x20000000"
+
+
+def clean_memory_viewer(raw: Any, report: Report) -> Dict[str, Any]:
+    return validate_with_defaults(MemoryViewerModel, raw, report).model_dump(mode="json")
 
 
 def clean_preferences(raw: Any, report: Report) -> Dict[str, Any]:

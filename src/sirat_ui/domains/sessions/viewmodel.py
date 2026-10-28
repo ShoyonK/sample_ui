@@ -8,9 +8,10 @@ from typing import Any, Dict, List, Optional
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from sirat_ui.domains.sessions.service import SessionService, count
-from sirat_ui.shared.interactions import ConfirmRequest, InteractionService, PromptField, PromptRequest
-from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
+from sirat_ui.models.dialogs import ConfirmRequest, PromptField, PromptRequest
+from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
+from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
 
 
 def _when(iso: str) -> str:

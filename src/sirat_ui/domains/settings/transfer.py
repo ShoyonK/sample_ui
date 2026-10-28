@@ -27,6 +27,8 @@ def _named(stores: UserStores) -> Dict[str, JsonStore]:
         "data_logger": stores.data_logger, "custom_functions": stores.custom_functions,
         "sequences": stores.sequences, "field_formulas": stores.formulas, "field_notes": stores.notes,
         "preferences": stores.preferences, "hardware_config": stores.hardware_config,
+        "signal_generator": stores.signal_generator, "ble_packet": stores.ble_packet,
+        "memory_viewer": stores.memory_viewer,
     }
 
 

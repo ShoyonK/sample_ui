@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import List, Optional
 
 from sirat_ui.gateway.call import Call
-from sirat_ui.gateway.port import StationGateway
+from sirat_ui.gateway.port import RegistersPort
 from sirat_ui.shared.error_presenter import ErrorPresenter
-from sirat_ui.state.app_state import AppState
+from sirat_ui.state.station import StationState
 
 # registers.watch accepts interval_s from 0.1 to 60 (API doc, registers domain)
 WATCH_MIN_S = 0.1
@@ -15,7 +15,7 @@ WATCH_MAX_S = 60.0
 
 
 class WatchSubscription:
-    def __init__(self, gateway: StationGateway, state: AppState, errors: ErrorPresenter) -> None:
+    def __init__(self, gateway: RegistersPort, state: StationState, errors: ErrorPresenter) -> None:
         self._gateway = gateway
         self._state = state
         self._errors = errors

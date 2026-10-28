@@ -9,10 +9,10 @@ from typing import Dict, List, Optional
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from sirat_ui.domains.logs.service import LogService
-from sirat_ui.gateway.models import LogLine
+from sirat_ui.models.station import LogLine
 from sirat_ui.shared.interactions import InteractionService
-from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
 from sirat_ui.shared.qt import pyqtProperty
+from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
 
 LEVELS = ["debug", "info", "warning", "error"]
 LEVEL_LABELS = ["Debug", "Info", "Warning", "Error"]

@@ -42,6 +42,7 @@ Rectangle {
 
         AppCheckBox {
             objectName: "actionEnabled_" + model.name
+            accessibleName: "Include " + model.name + " in Run checked"
             checked: model.enabled
             onClicked: row.enabledToggled()
         }

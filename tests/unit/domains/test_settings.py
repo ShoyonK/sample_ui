@@ -7,6 +7,7 @@ import pytest
 
 from sirat_ui.domains.connection.system_info import copy_text
 from sirat_ui.gateway.errors import ErrorCode
+from sirat_ui.models.station import RpcAddress
 
 
 # ---- export / import / clear (req 2) ---------------------------------------------------------
@@ -27,7 +28,7 @@ def test_export_then_import_restores_settings_live(harness, tmp_path):
     harness.shell.settings.importSettings()
     assert "MODEM.CTRL" in [r["fullName"] for r in harness.shell.favorites.model.items]
     assert "lpmode_on" in [r["name"] for r in harness.shell.actions.model.items]
-    assert harness.ix.toasts[-1] == ("success", "Imported 10 settings files")
+    assert harness.ix.toasts[-1] == ("success", "Imported 13 settings files")
 
 
 def test_import_asks_first_and_can_be_declined(harness, tmp_path):
@@ -118,11 +119,20 @@ def test_test_connection_does_not_keep_a_new_connection(harness):
 
 
 def test_test_connection_reports_failures(harness):
-    harness.fake.fail_next("dut.connect", ErrorCode.TIMEOUT, "No answer from 10.0.0.9")
+    harness.fake.fail_next("dut.probe", ErrorCode.INVALID_PARAMS, "rpc.host must not be empty")
     hw = harness.shell.hardware
     hw.setField("position", "2")
     hw.testConnection()
-    assert hw.statusText == "Connection failed: No answer from 10.0.0.9" and hw.statusLevel == "danger"
+    assert hw.statusText == "Connection failed: rpc.host must not be empty" and hw.statusLevel == "danger"
+
+
+@pytest.mark.req("32.test")
+def test_testing_a_position_in_use_keeps_its_connection(harness):
+    """dut.probe never connects or disconnects, so testing DUT 1 while it's connected is safe."""
+    hw = harness.shell.hardware
+    hw.testConnection()
+    assert hw.statusText.startswith("Connection successful!") and harness.state.connected
+    assert harness.fake.calls_to("dut.disconnect") == [] and len(harness.fake.calls_to("dut.connect")) == 1
 
 
 # ---- System information (req 31) ----------------------------------------------------------------
@@ -156,7 +166,7 @@ def test_system_info_copy_all_uses_the_req_31_format(harness):
 
 
 
-# ---- RPC address override (docs/API_CHANGE_dut_connect_rpc_address.md) ---------------------------
+# ---- RPC address override (docs/API_DESIGN.md, dut.connect / dut.probe) ----------------------------
 
 @pytest.mark.req("32.address")
 def test_without_the_override_host_and_port_are_not_sent_or_checked(harness):
@@ -165,8 +175,8 @@ def test_without_the_override_host_and_port_are_not_sent_or_checked(harness):
     assert "port" not in hw.errors and hw.canSave  # unused fields don't block Save
     hw.setField("position", "2")
     hw.testConnection()
-    call = harness.fake.calls_to("dut.connect")[-1]
-    assert (call.params["rpc_host"], call.params["rpc_port"]) == (None, None)
+    call = harness.fake.calls_to("dut.probe")[-1]
+    assert call.params["rpc"] is None and call.params["pos"] == 2
 
 
 @pytest.mark.req("32.address")
@@ -177,9 +187,9 @@ def test_with_the_override_test_connection_uses_the_address(harness):
     hw.setField("port", "10005")
     hw.setField("position", "2")
     hw.testConnection()
-    call = harness.fake.calls_to("dut.connect")[-1]
-    assert (call.params["rpc_host"], call.params["rpc_port"]) == ("192.168.1.50", 10005)
-    assert "(192.168.1.50:10005)" in hw.statusText
+    call = harness.fake.calls_to("dut.probe")[-1]
+    assert call.params["rpc"] == RpcAddress("192.168.1.50", 10005)
+    assert "192.168.1.50:10005" in hw.statusText
 
 
 def test_an_unreachable_override_reports_a_timeout(harness):
@@ -188,7 +198,7 @@ def test_an_unreachable_override_reports_a_timeout(harness):
     hw.setField("host", "bench7.invalid")
     hw.setField("position", "2")
     hw.testConnection()
-    assert hw.statusText == "Connection failed: No answer from bench7.invalid:10001"
+    assert hw.statusText == "Connection failed: No answer from bench7.invalid:10001 within 5 s"
 
 
 @pytest.mark.req("3.address")
@@ -202,7 +212,7 @@ def test_connect_sheet_starts_from_settings_and_overrides_one_connection(disconn
     sheet.setRpcHost("192.168.1.88")  # this connection only
     sheet.connect()
     call = h.fake.calls_to("dut.connect")[-1]
-    assert (call.params["rpc_host"], call.params["rpc_port"]) == ("192.168.1.88", 10002)
+    assert call.params["rpc"] == RpcAddress("192.168.1.88", 10002)
     assert h.services.hardware.config.rpc_host == "192.168.1.77"  # Settings unchanged
     assert {r["key"]: r["value"] for r in h.shell.systemInfo.sections[2]["rows"]}["Host"] == "192.168.1.88"
 
@@ -213,7 +223,7 @@ def test_connect_sheet_without_override_uses_the_workspace_config(disconnected):
     assert sheet.override is False
     sheet.connect()
     call = disconnected.fake.calls_to("dut.connect")[-1]
-    assert (call.params["rpc_host"], call.params["rpc_port"]) == (None, None)
+    assert call.params["rpc"] is None
 
 
 def test_connect_sheet_rejects_a_bad_address_before_sending(disconnected):
@@ -226,7 +236,8 @@ def test_connect_sheet_rejects_a_bad_address_before_sending(disconnected):
     assert "between 1 and 65535" in disconnected.ix.toasts[-1][1]
 
 
-def test_reconnect_after_a_drop_reuses_the_override(disconnected):
+def test_reconnect_after_a_drop_is_rpc_only_and_keeps_the_address(disconnected):
+    """Req 3 recovery: dut.reconnect redoes only the RPC link, at the address the DUT was reached on."""
     sheet = disconnected.shell.connection
     sheet.openSheet()
     sheet.setOverride(True)
@@ -234,5 +245,6 @@ def test_reconnect_after_a_drop_reuses_the_override(disconnected):
     sheet.connect()
     disconnected.fake.drop_dut(1)
     disconnected.shell.recovery.reconnect()
-    call = disconnected.fake.calls_to("dut.connect")[-1]
-    assert call.params["rpc_host"] == "192.168.1.99"
+    assert len(disconnected.fake.calls_to("dut.connect")) == 1          # no second bench setup
+    assert len(disconnected.fake.calls_to("dut.reconnect")) == 1 and disconnected.state.connected
+    assert disconnected.fake.addresses[1] == ("192.168.1.99", 10001)

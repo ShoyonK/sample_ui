@@ -6,9 +6,9 @@ import json
 import pytest
 
 from sirat_ui.core import codegen
-from sirat_ui.core.actions import Action
 from sirat_ui.domains.logs.viewmodel import format_line
-from sirat_ui.gateway.models import LogLine
+from sirat_ui.models.actions import Action
+from sirat_ui.models.station import LogLine
 from sirat_ui.shared.dialogs import DialogsViewModel
 
 
@@ -210,3 +210,11 @@ def test_reads_and_writes_produce_debug_lines(harness):
 def test_log_pop_out_flag(harness):
     harness.shell.log.setPoppedOut(True)
     assert harness.shell.log.poppedOut
+
+
+def test_watch_density_is_remembered_across_restarts(harness):
+    watch = harness.shell.watch
+    assert watch.large is False
+    watch.setLarge(True)
+    assert watch.large and harness.prefs.value.watch_density == "large"
+    assert harness.restart().shell.watch.large  # saved in ~/.sirat/preferences.json

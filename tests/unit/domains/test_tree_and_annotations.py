@@ -91,7 +91,7 @@ def test_favorites_toggle_hide_when_empty_and_persist(harness):
         harness.services.favorites.remove(name)
     assert favorites.visible is False
     harness.select("GPIO.PA_DOUT")
-    harness.shell.detail.toggleFavorite()
+    harness.shell.registerShortcuts.toggleFavorite()
     assert favorites.visible is True and harness.shell.detail.isFavorite is True
     assert harness.restart().services.favorites.names == ["GPIO.PA_DOUT"]
 
@@ -120,7 +120,7 @@ def test_formula_adds_a_calculated_column(harness):
     harness.select("GPIO.PA_DOUT")
     detail = harness.shell.detail
     assert detail.showCalculated is False
-    detail.editFormula(0)
+    harness.shell.registerShortcuts.editFormula(detail.fields.get(0)["fullName"])
     editor = harness.shell.formulaEditor
     assert editor.isOpen and editor.fieldName == "GPIO.PA_DOUT.DOUT" and editor.hasExisting is False
     editor.setExpr("x * 2")
@@ -132,7 +132,7 @@ def test_formula_adds_a_calculated_column(harness):
 
 def test_invalid_formula_is_rejected_with_a_message(harness):
     harness.select("GPIO.PA_DOUT")
-    harness.shell.detail.editFormula(0)
+    harness.shell.registerShortcuts.editFormula(harness.shell.detail.fields.get(0)["fullName"])
     editor = harness.shell.formulaEditor
     editor.setExpr("import os")
     editor.save()
@@ -143,7 +143,7 @@ def test_invalid_formula_is_rejected_with_a_message(harness):
 @pytest.mark.req("11.test")
 def test_formula_test_button_evaluates_with_x_100(harness):
     harness.select("GPIO.PA_DOUT")
-    harness.shell.detail.editFormula(0)
+    harness.shell.registerShortcuts.editFormula(harness.shell.detail.fields.get(0)["fullName"])
     editor = harness.shell.formulaEditor
     editor.useExample(2)  # x * 3.3 / 4096, V
     assert (editor.expr, editor.unit) == ("x * 3.3 / 4096", "V")
@@ -157,7 +157,7 @@ def test_formula_test_button_evaluates_with_x_100(harness):
 @pytest.mark.req("11.remove")
 def test_remove_formula_asks_first(harness):
     harness.select("SYNTH.FREQ")
-    harness.shell.detail.editFormula(0)
+    harness.shell.registerShortcuts.editFormula(harness.shell.detail.fields.get(0)["fullName"])
     editor = harness.shell.formulaEditor
     assert editor.hasExisting and editor.expr == "x / 1000"
     harness.ix.answer_next(False)
@@ -172,7 +172,7 @@ def test_remove_formula_asks_first(harness):
 @pytest.mark.req("8.sorted")
 def test_favorites_are_listed_alphabetically(harness):
     harness.select("AGC.EN")
-    harness.shell.detail.toggleFavorite()
+    harness.shell.registerShortcuts.toggleFavorite()
     shown = [r["fullName"] for r in harness.shell.favorites.model.items]
     assert shown == sorted(shown) and shown[0] == "AGC.EN"
     assert harness.services.favorites.names[-1] == "AGC.EN"  # the saved order is untouched

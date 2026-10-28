@@ -12,11 +12,12 @@ from sirat_ui.domains.annotations.service import AnnotationService
 from sirat_ui.domains.monitoring.logger import DataLoggerService
 from sirat_ui.domains.monitoring.subscription import WATCH_MAX_S, WATCH_MIN_S
 from sirat_ui.domains.monitoring.watch import WatchService
-from sirat_ui.shared.interactions import InteractionService, PromptField, PromptRequest
+from sirat_ui.models.dialogs import PromptField, PromptRequest
+from sirat_ui.shared.interactions import InteractionService
+from sirat_ui.shared.qt import pyqtProperty
 from sirat_ui.shared.selection import RowSelection
 from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
-from sirat_ui.state.app_state import AppState
-from sirat_ui.shared.qt import pyqtProperty
+from sirat_ui.state.preferences import PreferencesState
 
 ROLES = ["name", "valueText", "enumName", "calcText", "changed", "changedText", "trend", "writable", "selected"]
 
@@ -36,9 +37,9 @@ class WatchListViewModel(BaseViewModel):
     changed = pyqtSignal()
 
     def __init__(self, watch: WatchService, logger: DataLoggerService, annotations: AnnotationService,
-                 interactions: InteractionService, state: AppState, parent: Optional[QObject] = None) -> None:
+                 interactions: InteractionService, prefs: PreferencesState, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
-        self._state = state
+        self._prefs = prefs
         self._watch = watch
         self._logger = logger
         self._annotations = annotations
@@ -49,11 +50,21 @@ class WatchListViewModel(BaseViewModel):
         self._interval_text = "1.0"
         watch.updated.connect(self._rebuild)
         annotations.changed.connect(self._rebuild)
-        state.preferences_changed.connect(lambda _: self._rebuild())  # req 18: format follows main window
+        prefs.changed.connect(lambda _: self._rebuild())  # req 18: format follows main window
         self._rebuild()
 
     live = qprop(bool, "_live", changed)
     intervalText = qprop(str, "_interval_text", changed)
+
+    @pyqtProperty(bool, notify=changed)
+    def large(self) -> bool:
+        """Large density: bigger values, for reading from a step back."""
+        return self._prefs.value.watch_density == "large"
+
+    @pyqtSlot(bool)
+    def setLarge(self, large: bool) -> None:  # noqa: N802
+        self._prefs.update(watch_density="large" if large else "compact")
+        self.changed.emit()
 
     @pyqtProperty(int, notify=changed)
     def selectedCount(self) -> int:  # noqa: N802
@@ -65,7 +76,7 @@ class WatchListViewModel(BaseViewModel):
 
     def _rebuild(self) -> None:
         now = time.time()
-        fmt = self._state.preferences.format
+        fmt = self._prefs.value.format
         self._selection.keep_only(i.name for i in self._watch.items)
         rows = []
         for item in self._watch.items:
@@ -135,7 +146,7 @@ class WatchListViewModel(BaseViewModel):
         if not item.get("writable"):
             self._interactions.toast("error", f"{name} is read-only")
             return
-        fmt = self._state.preferences.format
+        fmt = self._prefs.value.format
 
         def answered(values) -> None:
             if not values:

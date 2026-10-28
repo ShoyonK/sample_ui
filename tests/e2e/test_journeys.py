@@ -1,7 +1,7 @@
 """End-to-end user journeys through the real QML window (docs/FRONTEND_PLAN.md section 7.5)."""
 
 import pytest
-
+from PyQt5.QtCore import Qt
 from pages import Dialogs, RegistersPage, Ui
 
 PAGES = ["registers", "watch", "actions", "sequences", "dumps", "radio", "instruments", "advanced", "tests",
@@ -127,12 +127,17 @@ def test_recover_after_a_dut_power_cycle(running, qtbot):
 def test_start_the_watch_list(running, qtbot):
     ui = Ui(running.app, qtbot)
     ui.navigate("watch")
-    ui.wait_for(lambda: ui.exists("watchLiveButton"))
-    ui.click("watchLiveButton")
+    ui.wait_for(lambda: ui.exists("segment_Live"))
+    assert not ui.visible("watchAddSelectedButton")  # selection actions only while rows are selected
+    ui.click("segment_Live")
     running.h.scheduler.advance(2000)
     ui.settle()
-    assert ui.text("watchLiveButton") == "Pause"
+    assert running.h.shell.watch.live
     assert ui.exists("watchRow_SYNTH.FREQ.FREQ")
+    ui.click("segment_Live")  # already live: nothing changes
+    assert running.h.shell.watch.live
+    ui.click("segment_Paused")
+    ui.wait_for(lambda: not running.h.shell.watch.live)
 
 
 @pytest.mark.req("14.abort")
@@ -421,9 +426,11 @@ def test_radio_calculator_diff_from_the_dumps_page(running, qtbot):
     ui.click("dumpStartButton")
     ui.wait_for(lambda: ui.exists("radio_MODEM.CTRL.DEMODSEL")
                 and not ui.visible("dumpPicker") and not ui.visible("dumpProgressDialog"))
-    assert ui.text("comparisonSummary") == "\u2713 7 Matches | \u26A0 2 Mismatches | \u274C 1 Errors"
+    assert running.h.shell.comparison.resultSummary == "\u2713 7 Matches | \u26A0 2 Mismatches | \u274C 1 Errors"
+    assert [ui.text(n) for n in ("radioMatchCount", "radioMismatchCount", "radioErrorCount")] == \
+        ["7 matches", "2 mismatches", "1 error"]
     ui.click("radioSort_status")
-    ui.wait_for(lambda: running.h.shell.dumps.sortColumn == "status")
+    ui.wait_for(lambda: running.h.shell.comparison.sortColumn == "status")
     ui.click("comparisonHelp")  # click keeps the explanation open
     ui.wait_for(lambda: ui.visible("comparisonHelpPopup"))
     assert "Mismatch" in ui.find("comparisonHelpPopup").property("contentItem").property("text")
@@ -496,3 +503,101 @@ def test_pop_out_the_watch_list_the_logger_and_one_graph(running, qtbot):
     window.close()
     ui.wait_for(lambda: running.h.shell.windows.openKeys == ["watchList"])
     ui.wait_for(lambda: ui.visible("plot_SYNTH.FREQ.FREQ"))
+
+
+def test_hide_the_dock_to_a_strip_and_bring_it_back(running, qtbot):
+    ui = Ui(running.app, qtbot)
+    ui.wait_for(lambda: ui.visible("dockHideButton"))
+    ui.click("dockHideButton")
+    ui.wait_for(lambda: ui.visible("dockToggle") and not ui.visible("dockHideButton"))
+    ui.navigate("dumps")                       # other pages keep their own setting
+    ui.wait_for(lambda: ui.visible("dockHideButton"))
+    ui.navigate("watch")                       # Watch starts with the strip
+    ui.wait_for(lambda: ui.visible("dockLogSegment"))
+    ui.click("dockLogSegment")
+    ui.wait_for(lambda: ui.visible("dockHideButton"))
+    ui.navigate("registers")
+    ui.wait_for(lambda: ui.visible("dockToggle") and not ui.visible("dockHideButton"))
+    ui.click("dockToggle")
+    ui.wait_for(lambda: ui.visible("dockHideButton"))
+
+
+def test_instruments_apply_the_signal_generator_and_capture_on_the_eca(running, qtbot):
+    ui = Ui(running.app, qtbot)
+    ui.navigate("instruments")
+    ui.wait_for(lambda: ui.exists("sgApplyButton") and ui.enabled("sgApplyButton"))
+    ui.click("sgApplyButton")
+    ui.wait_for(lambda: ui.text("sgStatus") == "Configuration applied")
+    ui.click("segment_RF on")
+    ui.wait_for(lambda: running.h.fake.bench.rf_on)
+    ui.click("rfConnectButton")
+    ui.wait_for(lambda: ui.text("rfCurrent") == "DUT 1 is on TX_PATH")
+    flick = ui.find("page_instruments").property("item").property("contentItem")   # scroll down to the ECA card
+    flick.setProperty("contentY", max(0, flick.property("contentHeight") - flick.property("height")))
+    ui.settle(100)
+    ui.click("ecaCaptureButton")
+    running.h.scheduler.advance(2000)                  # the fake's capture steps run on test time
+    ui.wait_for(lambda: ui.exists("ecaPlot_PA_EN") and ui.exists("ecaMeasure_RX_EN"), timeout=8000)
+    assert not ui.visible("ecaEmpty")
+
+
+def test_instruments_chamber_shows_the_live_reading(running, qtbot):
+    ui = Ui(running.app, qtbot)
+    ui.navigate("instruments")
+    ui.wait_for(lambda: ui.exists("chActual") and ui.text("chActual") == "23.0 °C")
+    assert ui.text("chTrend") == "Stable"
+
+
+def _output(vm) -> str:
+    return "\n".join(r["text"] for r in vm.output.items)
+
+
+def test_advanced_console_and_custom_function_share_variables(running, qtbot):
+    ui = Ui(running.app, qtbot)
+    shell = running.h.shell
+    ui.navigate("advanced")
+    ui.wait_for(lambda: ui.visible("consoleInputArea"))
+    ui.type_text("consoleInputArea", "x = 6 * 7")
+    ui.type_text("consoleInputArea", "x")
+    ui.wait_for(lambda: "\n42" in _output(shell.pyConsole))
+    ui._key(Qt.Key_Up, "")                                  # history: back to the last command
+    ui.wait_for(lambda: ui.text("consoleInputArea") == "x")
+
+    running.h.services.functions.create("double_x")
+    running.h.services.functions.set_code("double_x", "return x * 2\n")
+    ui.click("segment_Custom functions")
+    ui.click("function_double_x")
+    ui.wait_for(lambda: ui.enabled("functionRunButton"))
+    ui.click("functionRunButton")
+    ui.wait_for(lambda: "84" in _output(shell.customFunctions))
+
+
+def test_advanced_dut_control_executes_a_method(running, qtbot):
+    ui = Ui(running.app, qtbot)
+    ui.navigate("advanced")
+    ui.click("segment_DUT control")
+    ui.wait_for(lambda: ui.exists("api_LPW"))
+    ui.click("api_LPW")
+    ui.click("api_lpw.radio")
+    ui.click("api_lpw.radio.SetPower")
+    ui.wait_for(lambda: ui.visible("param_power_dbm"))
+    ui.type_text("param_power_dbm", "5", enter=False)
+    ui.wait_for(lambda: ui.enabled("apiExecuteButton"))
+    ui.click("apiExecuteButton")
+    ui.wait_for(lambda: "Result (float): 5.0" in _output(running.h.shell.dutControl))
+
+
+def test_advanced_memory_read_and_confirmed_write(running, qtbot):
+    ui, dialogs = Ui(running.app, qtbot), Dialogs(running.app, qtbot)
+    ui.navigate("advanced")
+    ui.click("segment_Memory")
+    ui.wait_for(lambda: ui.enabled("memoryReadButton"))
+    ui.click("memoryReadButton")
+    ui.wait_for(lambda: running.h.shell.memory.rows.count == 16)
+    assert "SiRAT fake RAM" in running.h.shell.memory.rows.items[0]["ascii"]
+    ui.click("segment_DWords")
+    ui.type_text("memoryWriteValueField", "0x12345678", enter=False)
+    ui.click("memoryWriteButton")
+    ui.wait_for(dialogs.confirm_open)
+    dialogs.accept_confirm()
+    ui.wait_for(lambda: running.h.shell.memory.rows.items[0]["cells"][0] == {"t": "0x12345678", "c": True})

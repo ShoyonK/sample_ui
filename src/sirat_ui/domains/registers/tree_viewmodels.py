@@ -7,15 +7,17 @@ from typing import Any, Dict, List, Optional, Set
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal, pyqtSlot
 
 from sirat_ui.core.formatting import NOT_READ, format_value
-from sirat_ui.core.registers import PeripheralDef, RegisterDef
-from sirat_ui.core.search import SearchResult
 from sirat_ui.domains.annotations.service import FavoritesService
 from sirat_ui.domains.registers.catalog import RegisterCatalog
 from sirat_ui.domains.registers.read_all import ReadAllService
 from sirat_ui.domains.registers.service import RegisterService
-from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
-from sirat_ui.state.app_state import AppState
+from sirat_ui.models.registers import PeripheralDef, RegisterDef
+from sirat_ui.models.registers import SearchResult
 from sirat_ui.shared.qt import pyqtProperty
+from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
+from sirat_ui.state.preferences import PreferencesState
+from sirat_ui.state.selection import SelectionState
+from sirat_ui.state.station import StationState
 
 SEARCH_DEBOUNCE_MS = 300
 TREE_ROLES = ["key", "kind", "name", "fullName", "address", "valueText", "access", "depth", "expanded",
@@ -26,10 +28,13 @@ class PeripheralTreeViewModel(BaseViewModel):
     changed = pyqtSignal()
     searchFocusRequested = pyqtSignal()
 
-    def __init__(self, state: AppState, catalog: RegisterCatalog, registers: RegisterService,
+    def __init__(self, state: StationState, selection: SelectionState, prefs: PreferencesState,
+                 catalog: RegisterCatalog, registers: RegisterService,
                  read_all: ReadAllService, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._state = state
+        self._selection = selection
+        self._prefs = prefs
         self._catalog = catalog
         self._registers = registers
         self._read_all = read_all
@@ -45,8 +50,8 @@ class PeripheralTreeViewModel(BaseViewModel):
         self._timer.timeout.connect(self.flushSearch)
         catalog.loaded.connect(self._on_loaded)
         registers.value_changed.connect(lambda *_: self._rebuild())
-        state.selection_changed.connect(self._on_selection)
-        state.preferences_changed.connect(lambda _: self._on_loaded())
+        selection.changed.connect(self._on_selection)
+        prefs.changed.connect(lambda _: self._on_loaded())
 
     searchText = qprop(str, "_search_text", changed)
     peripheralCount = qprop(int, "_peripheral_count", changed)
@@ -76,7 +81,7 @@ class PeripheralTreeViewModel(BaseViewModel):
         if self._result.auto_select:
             reg = self._catalog.register(self._result.auto_select)
             if reg:
-                self._state.select(reg, by_user=False)
+                self._selection.select(reg, by_user=False)
         self._rebuild()
 
     def _on_selection(self, selection, by_user: bool) -> None:
@@ -94,8 +99,8 @@ class PeripheralTreeViewModel(BaseViewModel):
 
     def _rebuild(self) -> None:
         result = self._result or self._catalog.search(self._search_text)
-        fmt = self._state.preferences.format
-        selected = self._state.selection
+        fmt = self._prefs.value.format
+        selected = self._selection.current
         rows: List[Dict[str, Any]] = []
         for name in result.peripherals:
             periph = self._catalog.peripheral(name)
@@ -136,13 +141,13 @@ class PeripheralTreeViewModel(BaseViewModel):
         target = self._row_target(row)
         if isinstance(target, PeripheralDef):
             # First tap selects and expands; tapping the selected peripheral again toggles it.
-            if self._state.selection is target:
+            if self._selection.current is target:
                 self.toggleExpanded(row)
             else:
                 self._expanded.add(target.name)
-                self._state.select(target, by_user=True)
+                self._selection.select(target, by_user=True)
         elif isinstance(target, RegisterDef):
-            self._state.select(target, by_user=True)
+            self._selection.select(target, by_user=True)
 
     @pyqtSlot(int)
     def toggleExpanded(self, row: int) -> None:  # noqa: N802
@@ -173,10 +178,12 @@ class PeripheralTreeViewModel(BaseViewModel):
 class FavoritesViewModel(BaseViewModel):
     changed = pyqtSignal()
 
-    def __init__(self, state: AppState, catalog: RegisterCatalog, favorites: FavoritesService,
+    def __init__(self, state: StationState, selection: SelectionState, catalog: RegisterCatalog,
+                 favorites: FavoritesService,
                  parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._state = state
+        self._selection = selection
         self._catalog = catalog
         self._favorites = favorites
         self._model = DictListModel(["fullName", "address"], self)
@@ -203,7 +210,7 @@ class FavoritesViewModel(BaseViewModel):
     def activate(self, row: int) -> None:
         reg = self._catalog.register(self._model.get(row).get("fullName", ""))
         if reg:
-            self._state.select(reg, by_user=True)
+            self._selection.select(reg, by_user=True)
 
     @pyqtSlot(int)
     def remove(self, row: int) -> None:

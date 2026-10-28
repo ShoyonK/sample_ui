@@ -4,7 +4,7 @@ import "../components"
 
 Rectangle {
     id: root
-    implicitWidth: 56
+    implicitWidth: 68
     color: Theme.surface
 
     property alias pagesRepeater: pagesRepeater
@@ -30,6 +30,7 @@ Rectangle {
         objectName: "nav_settings"
         pageKey: "settings"
         iconName: "settings"
+        label: "Settings"
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 8
         anchors.horizontalCenter: parent.horizontalCenter

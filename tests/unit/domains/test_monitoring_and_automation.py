@@ -23,7 +23,7 @@ def test_watch_list_updates_live_and_highlights_changes(harness):
 @pytest.mark.req("18.add")
 def test_eye_button_adds_a_field_to_the_watch_list(harness):
     harness.select("GPIO.PA_DOUT")
-    harness.shell.detail.addToWatch(0)
+    harness.shell.registerShortcuts.addToWatch(harness.shell.detail.fields.get(0)["fullName"])
     assert "GPIO.PA_DOUT.DOUT" in by_name(harness.shell.watch.model)
     assert "GPIO.PA_DOUT.DOUT" in harness.restart().services.watch.saved_names
 
@@ -74,7 +74,8 @@ def test_run_checked_actions_executes_them_in_order(harness):
     actions.runSelected()
     harness.scheduler.run_pending()
     ops = harness.fake.calls_to("automation.seq.run")[-1].params["ops"]
-    assert ops[0] == {"register": "BUFC.LPMODE", "value": 3}
+    # reduced to the wire model and tagged with the action it came from (core/wire_ops.py)
+    assert ops[0] == {"type": "register_write", "register": "BUFC.LPMODE", "value": 3, "group": "lpmode_on"}
     assert harness.fake.memory.values["MODEM.CTRL"] & 0x3 == 2
 
 

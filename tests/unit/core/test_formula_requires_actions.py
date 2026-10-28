@@ -1,8 +1,10 @@
 import pytest
 
 from sirat_ui.core import codegen, formula
-from sirat_ui.core.actions import migrate_actions, op_kind, summarize_ops
-from sirat_ui.core.requires import PositionFacts, check_requires
+from sirat_ui.core.actions import migrate_actions, summarize_ops
+from sirat_ui.core.ops import op_kind
+from sirat_ui.core.requires import check_requires
+from sirat_ui.models.facts import InstrumentFacts, PositionFacts
 
 
 # ---- formulas (req 11) ---------------------------------------------------------------------
@@ -38,12 +40,19 @@ def test_format_result_uses_3_decimals_at_or_above_1_and_6_below():
     ("registers.read", PositionFacts(1), ["dut"]),
     ("registers.read", PositionFacts(1, dut_connected=True), []),
     ("registers.write", PositionFacts(1, dut_connected=True, activity="executing"), ["idle"]),
-    ("radio.start_rx", PositionFacts(1, dut_connected=True), ["phy", "radio_rx"]),
+    ("dut.load_phy", PositionFacts(1, activity="executing"), ["dut", "idle"]),
+    ("rf.connect", PositionFacts(1, dut_connected=True), ["instrument:rf_switch"]),
     ("automation.seq.run", PositionFacts(1, dut_connected=True, fault="hardware"), ["no_fault"]),
     ("sys.status", None, []),
 ])
 def test_requires_table(method, facts, missing):
     assert check_requires(method, facts) == missing
+
+
+def test_instrument_tags_need_a_connected_instrument_of_that_kind():
+    assert check_requires("rf.connect", PositionFacts(1), [InstrumentFacts("switch1", "rf_switch", True)]) == []
+    assert check_requires("rf.connect", PositionFacts(1), [InstrumentFacts("switch1", "rf_switch")]) == \
+        ["instrument:rf_switch"]
 
 
 # ---- actions (req 13) and code generation (req 16) ------------------------------------------

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-
 import platform
 import time
 from pathlib import Path
@@ -12,12 +11,15 @@ from typing import Callable, Dict, Optional
 from PyQt5.QtCore import PYQT_VERSION_STR, QT_VERSION_STR, QObject, QTimer, pyqtSignal, pyqtSlot
 
 from sirat_ui import __version__
-from sirat_ui.domains.settings.hardware import HardwareConfig, HardwareConfigService, validate
+from sirat_ui.domains.settings.hardware import HardwareConfigService, validate
 from sirat_ui.domains.settings.transfer import SettingsTransfer
-from sirat_ui.shared.interactions import ConfirmRequest, InteractionService
-from sirat_ui.shared.viewmodel import BaseViewModel, qprop
-from sirat_ui.state.app_state import AppState
+from sirat_ui.models.dialogs import ConfirmRequest
+from sirat_ui.models.settings import HardwareConfig
+from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
+from sirat_ui.shared.viewmodel import BaseViewModel, qprop
+from sirat_ui.state.preferences import PreferencesState
+from sirat_ui.state.station import StationState
 
 STATUS_RESET_MS = 3000
 
@@ -27,15 +29,16 @@ log = logging.getLogger("SiRAT.settings")
 class SettingsViewModel(BaseViewModel):
     changed = pyqtSignal()
 
-    def __init__(self, state: AppState, on_clear_cache: Callable[[], None], transfer: SettingsTransfer,
+    def __init__(self, state: StationState, prefs: PreferencesState, on_clear_cache: Callable[[], None], transfer: SettingsTransfer,
                  interactions: InteractionService, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._state = state
+        self._prefs = prefs
         self._on_clear_cache = on_clear_cache
         self._transfer = transfer
         self._interactions = interactions
         self._refresh()
-        state.preferences_changed.connect(lambda _: self._refresh())
+        prefs.changed.connect(lambda _: self._refresh())
         state.changed.connect(self._refresh)
 
     darkMode = qprop(bool, "_dark_mode", changed)
@@ -45,7 +48,7 @@ class SettingsViewModel(BaseViewModel):
     aboutRows = qprop("QVariantList", "_about_rows", changed)
 
     def _refresh(self) -> None:
-        p, s = self._state.preferences, self._state
+        p, s = self._prefs.value, self._state
         about = [
             {"key": "SiRAT", "value": __version__},
             {"key": "Station service", "value": s.release_id or "not connected"},
@@ -62,19 +65,19 @@ class SettingsViewModel(BaseViewModel):
 
     @pyqtSlot(bool)
     def setDarkMode(self, on: bool) -> None:  # noqa: N802
-        self._state.update_preferences(dark_mode=on)
+        self._prefs.update(dark_mode=on)
 
     @pyqtSlot(bool)
     def setAutoRead(self, on: bool) -> None:  # noqa: N802
-        self._state.update_preferences(auto_read_on_click=on)
+        self._prefs.update(auto_read_on_click=on)
 
     @pyqtSlot(bool)
     def setConfirmCritical(self, on: bool) -> None:  # noqa: N802
-        self._state.update_preferences(confirm_critical_writes=on)
+        self._prefs.update(confirm_critical_writes=on)
 
     @pyqtSlot(bool)
     def setShowSecure(self, on: bool) -> None:  # noqa: N802
-        self._state.update_preferences(show_secure_peripherals=on)
+        self._prefs.update(show_secure_peripherals=on)
 
     @pyqtSlot()
     def clearRegisterCache(self) -> None:  # noqa: N802

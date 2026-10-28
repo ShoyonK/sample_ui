@@ -39,6 +39,7 @@ Column {
             }
             IconButton {
                 id: closer
+                tip: "Dismiss"
                 anchors.right: parent.right
                 anchors.rightMargin: 6
                 anchors.verticalCenter: parent.verticalCenter

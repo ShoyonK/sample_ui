@@ -1,13 +1,14 @@
 """Radio and PHY page: Load LPW PHY and WiFi PHY (req 23), PRS signal routing (req 24)."""
 
 import pytest
+from support import Harness
 
 from sirat_ui.core import wifi
 from sirat_ui.core.prs import CONSTRAINT_TEXT, channel_problem, removal_ops
-from sirat_ui.core.registers import ChipInfo
-from sirat_ui.core.wifi import WifiPhyConfig, WifiSettings, packet_layout
-from sirat_ui.gateway.models import PrsRoute
-from support import Harness
+from sirat_ui.core.wifi import packet_layout, WifiSettings
+from sirat_ui.models.radio import WifiPhyConfig
+from sirat_ui.models.registers import ChipInfo
+from sirat_ui.models.station import PrsRoute
 
 EVEREST = ChipInfo("SIWG917M", "B0", "EVEREST")
 

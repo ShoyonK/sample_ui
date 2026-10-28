@@ -3,7 +3,9 @@
 It enforces the same requires rules (via core.requires) and returns the same error codes as the
 real service, so the UI can't depend on behaviour the real backend won't have.
 
-Test knobs: auto_resolve/release(), fail_next(), set_latency(), drop_dut(), emit_watch_tick(), calls.
+Test knobs: auto_resolve/release(), fail_next(), time_out_next(), set_latency(), drop_dut(), emit_watch_tick(),
+drop_instrument(), bench (the instruments' state, gateway/fake/instruments.py), calls, and the memory and
+console knobs on `advanced` (gateway/fake/advanced.py).
 """
 
 from __future__ import annotations
@@ -14,20 +16,24 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from typing import Any, Callable, Deque, Dict, List, Optional
 
-from sirat_ui.core.actions import op_kind
 from sirat_ui.core.observable import Event
+from sirat_ui.core.ops import op_kind
 from sirat_ui.core.prs import DISABLE, FALLBACK_SIGNALS, channel_problem
-from sirat_ui.core.registers import ChipInfo, PeripheralDef
-from sirat_ui.core.requires import PositionFacts, check_requires
+from sirat_ui.core.requires import check_requires
 from sirat_ui.gateway.call import Call
 from sirat_ui.gateway.errors import ApiError, ErrorCode
+from sirat_ui.gateway.fake.advanced import AdvancedMethods, FakeAdvanced
 from sirat_ui.gateway.fake.chip import CHIP_FAMILY, CHIP_PART, CHIP_REVISION, build_chip
+from sirat_ui.gateway.fake.instruments import FakeBench
 from sirat_ui.gateway.fake.register_memory import RegisterMemory
 from sirat_ui.gateway.fake.sequencer import FakeActivity, FakeSequencer
-from sirat_ui.gateway.models import (ConnectResult, DutDisconnected, DutInfo, LoadPhyResult, LogLine, PhySpec,
-                                     PrsRoute, PrsSignalCatalog, ReadManyItem, StationStatus, StatusChanged,
-                                     WatchValues, WifiPhy, WriteResult)
 from sirat_ui.gateway.scheduler import Handle, ManualScheduler, Scheduler
+from sirat_ui.models.facts import InstrumentFacts, PositionFacts
+from sirat_ui.models.registers import ChipInfo, PeripheralDef
+from sirat_ui.models.station import (CallLate, CapturePage, CaptureSpec, ChamberReading, ConnectResult,
+                                     DutDisconnected, DutInfo, EcaSources, LoadPhyResult, LogLine, PhySpec,
+                                     ProbeResult, PrsRoute, PrsSignalCatalog, ReadManyItem, RpcAddress, SiggenConfig,
+                                     StationStatus, StatusChanged, WatchValues, WifiPhy, WriteResult)
 
 RELEASE_ID = "fake-2026.10"
 WORKSPACE_ADDRESS = ("localhost", 10001)  # what the fake's "workspace config" says for every position
@@ -49,7 +55,7 @@ class _Watch:
     handle: Handle
 
 
-class FakeStationGateway:
+class FakeStationGateway(AdvancedMethods):
     def __init__(self, scheduler: Optional[Scheduler] = None, peripherals: Optional[List[PeripheralDef]] = None,
                  seed: int = 7, clock: Callable[[], float] = time.time) -> None:
         self.scheduler: Scheduler = scheduler or ManualScheduler()
@@ -65,6 +71,13 @@ class FakeStationGateway:
         self._latency: Dict[str, int] = {}
         self._held: Deque[Callable[[], None]] = deque()
         self._failures: Dict[str, Deque[ApiError]] = defaultdict(deque)
+        self._timeouts: Dict[str, Deque[int]] = defaultdict(deque)   # method -> ms until the late result
+        self._request_ids = itertools.count(1)
+        self.connected_once: set = set()   # positions that were connected; dut.reconnect needs one
+        self.bench = FakeBench(self.scheduler, self.events.emit,
+                               lambda level, text: self._log(level, text, "instrument"),
+                               self._emit_status, clock, lambda: self.chip.part)
+        self.instruments: Dict[str, InstrumentFacts] = self.bench.instruments
         self._watches: Dict[str, _Watch] = {}
         self._ids = itertools.count(1)
         self._reads = 0
@@ -75,6 +88,7 @@ class FakeStationGateway:
         self.addresses: Dict[int, tuple] = {p: WORKSPACE_ADDRESS for p in range(1, 5)}
         self.unreachable_hosts = {"10.255.255.1"}  # test knob: these hosts never answer
         self.sequencer = FakeSequencer(self.scheduler, self.events.emit, self._execute_op, self._activity_done)
+        self.advanced = FakeAdvanced(self._respond, self._log, self, self.peripherals, seed)
 
     # ---------------------------------------------------------------- test knobs
 
@@ -83,6 +97,13 @@ class FakeStationGateway:
 
     def fail_next(self, method: str, code: ErrorCode, message: str = "", data: Optional[Dict[str, Any]] = None) -> None:
         self._failures[method].append(ApiError(code, message or f"Simulated {code.value}", data))
+
+    def time_out_next(self, method: str, late_ms: int = 1500) -> None:
+        """The next call times out (data.still_running) but finishes late_ms later, announced by CallLate."""
+        self._timeouts[method].append(late_ms)
+
+    def drop_instrument(self, instrument_id: str) -> None:
+        self.bench.drop(instrument_id)
 
     def release(self, count: Optional[int] = None) -> None:
         """Resolves held calls when auto_resolve is False."""
@@ -109,17 +130,33 @@ class FakeStationGateway:
     def _respond(self, method: str, position: Optional[int], fn: Callable[[], Any], **params: Any) -> Call:
         self.calls.append(RecordedCall(method, position, params))
         call: Call = Call()
+        request_id = next(self._request_ids)
+
+        def checked() -> Any:
+            if self._failures[method]:
+                raise self._failures[method].popleft()
+            if position is not None:
+                missing = check_requires(method, self.facts.get(position), self.instruments.values())
+                if missing:
+                    raise ApiError(ErrorCode.WRONG_STATE, f"DUT {position} isn't ready for {method}",
+                                   {"missing": missing})
+            return fn()
+
+        def finish_late() -> None:
+            try:
+                self.events.emit(CallLate(request_id, True, checked()))
+            except ApiError as exc:
+                self.events.emit(CallLate(request_id, False, error=exc))
 
         def run() -> None:
+            if self._timeouts[method]:
+                # API doc "Timeouts": reply timeout now, keep going, announce the outcome with call.late
+                self.scheduler.later(self._timeouts[method].popleft(), finish_late)
+                call.reject(ApiError(ErrorCode.TIMEOUT, f"{method} didn't answer in time",
+                                     {"still_running": True, "request_id": request_id}))
+                return
             try:
-                if self._failures[method]:
-                    raise self._failures[method].popleft()
-                if position is not None:
-                    missing = check_requires(method, self.facts.get(position))
-                    if missing:
-                        raise ApiError(ErrorCode.WRONG_STATE, f"DUT {position} isn't ready for {method}",
-                                       {"missing": missing})
-                call.resolve(fn())
+                call.resolve(checked())
             except ApiError as exc:
                 call.reject(exc)
 
@@ -133,22 +170,36 @@ class FakeStationGateway:
                 run()
         return call
 
+    def _instrument_call(self, method: str, kind: str, instrument_id: Optional[str],
+                         fn: Callable[[InstrumentFacts], Any], **params: Any) -> Call:
+        """Calls with an instrument `id` (or rf.paths, by kind): NOT_FOUND, then the requires check for it."""
+        def run() -> Any:
+            instrument = self.bench.require(kind, instrument_id)
+            missing = check_requires(method, None, self.instruments.values(), instrument.id)
+            if missing:
+                raise ApiError(ErrorCode.WRONG_STATE, f"{instrument.id} isn't ready for {method}",
+                               {"missing": missing})
+            return fn(instrument)
+        return self._respond(method, None, run, id=instrument_id, **params)
+
     def status_snapshot(self) -> StationStatus:
-        return StationStatus(RELEASE_ID, [PositionFacts(**vars(f)) for f in self.facts.values()])
+        return StationStatus(RELEASE_ID, [PositionFacts(**vars(f)) for f in self.facts.values()],
+                             [InstrumentFacts(**vars(i)) for i in self.instruments.values()])
 
     def _emit_status(self) -> None:
         self.events.emit(StatusChanged(self.status_snapshot()))
 
-    def _log(self, level: str, text: str) -> None:
-        self.events.emit(LogLine(self.clock(), level, "station", text))
+    def _log(self, level: str, text: str, source: str = "station", position: Optional[int] = None) -> None:
+        self.events.emit(LogLine(self.clock(), level, source, text, position))
 
     def _clear_dut(self, position: int) -> None:
-        """Reset rules from the API doc: disconnect clears phy, radio config and watching."""
+        """Reset rules from the API doc: disconnect clears phy, watching and the RF path."""
         facts = self.facts[position]
         facts.dut_connected = False
         facts.phy = None
-        facts.rx_configured = facts.tx_configured = False
         facts.watching = False
+        facts.rf_path = None
+        self.advanced.end_sessions(position)
         for sub_id in [s for s, w in self._watches.items() if w.position == position]:
             self._watches.pop(sub_id).handle.cancel()
 
@@ -173,31 +224,57 @@ class FakeStationGateway:
     # ---------------------------------------------------------------- dut
 
     def connect_dut(self, position: int, config_type: str = "EFR32", config_file: str = "",
-                    rpc_host: Optional[str] = None, rpc_port: Optional[int] = None) -> Call:
+                    rpc: Optional[RpcAddress] = None) -> Call:
         def run() -> ConnectResult:
-            host, port = self._resolve_address(rpc_host, rpc_port)
+            step = lambda text: self._log("info", text, "dut.connect", position)  # noqa: E731 (progress lines)
+            step(f"DUT {position}: bench setup ({config_type})")
+            host, port = self._resolve_address(rpc)
+            step(f"DUT {position}: RPC connect to {host}:{port}")
             self.addresses[position] = (host, port)
             self.facts[position].dut_connected = True
-            where = f" at {host}:{port}" if rpc_host else ""
+            self.connected_once.add(position)
+            where = f" at {host}:{port}" if rpc else ""
             self._log("success", f"Connected to DUT {position} ({config_type}){where}")
             self._emit_status()
-            return ConnectResult(self.chip)
+            return ConnectResult(self.chip, RpcAddress(host, port))
         return self._respond("dut.connect", position, run, config_type=config_type, config_file=config_file,
-                             rpc_host=rpc_host, rpc_port=rpc_port)
+                             rpc=rpc)
 
-    def _resolve_address(self, rpc_host: Optional[str], rpc_port: Optional[int]):
+    def reconnect_dut(self, position: int) -> Call[None]:
+        def run() -> None:
+            if position not in self.connected_once:
+                raise ApiError(ErrorCode.NOT_FOUND, f"DUT {position} was never connected; connect it first")
+            host, port = self.addresses[position]
+            if host in self.unreachable_hosts:
+                raise ApiError(ErrorCode.TIMEOUT, f"No answer from {host}:{port}")
+            self.facts[position].dut_connected = True
+            self._log("success", f"Reconnected RPC to DUT {position}")
+            self._emit_status()
+        return self._respond("dut.reconnect", position, run)
+
+    def probe(self, position: int, rpc: Optional[RpcAddress], timeout_s: float) -> Call[ProbeResult]:
+        def run() -> ProbeResult:
+            try:
+                host, port = self._resolve_address(rpc)
+            except ApiError as exc:
+                if exc.code != ErrorCode.TIMEOUT:
+                    raise
+                return ProbeResult(False, 0.0, f"{exc.message} within {timeout_s:g} s")
+            return ProbeResult(True, 3.2, f"Reached the DUT {position} RPC server at {host}:{port}")
+        return self._respond("dut.probe", None, run, pos=position, rpc=rpc, timeout_s=timeout_s)
+
+    def _resolve_address(self, rpc: Optional[RpcAddress]):
         """No override: the workspace config. With one: validated, and unreachable hosts time out."""
-        if rpc_host is None and rpc_port is None:
+        if rpc is None:
             return WORKSPACE_ADDRESS
-        if not rpc_host or not str(rpc_host).strip():
-            raise ApiError(ErrorCode.INVALID_PARAMS, "rpc_host must not be empty")
-        port = WORKSPACE_ADDRESS[1] if rpc_port is None else int(rpc_port)
-        if not 1 <= port <= 65535:
-            raise ApiError(ErrorCode.INVALID_PARAMS, "rpc_port must be between 1 and 65535")
-        host = str(rpc_host).strip()
+        if not rpc.host or not str(rpc.host).strip():
+            raise ApiError(ErrorCode.INVALID_PARAMS, "rpc.host must not be empty")
+        if not 1 <= int(rpc.port) <= 65535:
+            raise ApiError(ErrorCode.INVALID_PARAMS, "rpc.port must be between 1 and 65535")
+        host = str(rpc.host).strip()
         if host in self.unreachable_hosts or host.endswith(".invalid"):
-            raise ApiError(ErrorCode.TIMEOUT, f"No answer from {host}:{port}")
-        return host, port
+            raise ApiError(ErrorCode.TIMEOUT, f"No answer from {host}:{rpc.port}")
+        return host, int(rpc.port)
 
     def disconnect_dut(self, position: int) -> Call:
         def run() -> None:
@@ -246,9 +323,7 @@ class FakeStationGateway:
                                   ("DCM", str(int(c.advanced.dcm))), ("BANDWIDTH", c.advanced.bandwidth)]
             else:
                 name, function, overrides = phy.name, "reset_and_download_lpw_phy", []
-            facts = self.facts[position]
-            facts.phy = name
-            facts.rx_configured = facts.tx_configured = False
+            self.facts[position].phy = name
             self._log("success", f"Loaded PHY {name} on DUT {position}")
             self._emit_status()
             return LoadPhyResult(name, function, tuple(overrides))
@@ -276,6 +351,84 @@ class FakeStationGateway:
                 self._log("info", f"PRS {route.signal} routed to {route.pin} on channel {route.channel}")
         return self._respond("rf.prs_route", position, run, route=route)
 
+    # ---------------------------------------------------------------- rf (RF switch, req 28)
+
+    def rf_paths(self) -> Call[List[str]]:
+        return self._instrument_call("rf.paths", "rf_switch", None, lambda _: list(self.bench.paths))
+
+    def rf_connect(self, position: int, path: str) -> Call[None]:
+        def run() -> None:
+            self.bench.rf_connect(path)
+            self.facts[position].rf_path = path
+            self._log("info", f"RF switch connected {path} to DUT {position}")
+            self._emit_status()
+        return self._respond("rf.connect", position, run, path=path)
+
+    def rf_disconnect(self, position: int) -> Call[None]:
+        def run() -> None:
+            self.facts[position].rf_path = None
+            self._log("info", f"RF switch disconnected DUT {position}")
+            self._emit_status()
+        return self._respond("rf.disconnect", position, run)
+
+    # ---------------------------------------------------------------- instruments (req 25-30)
+
+    def list_instruments(self) -> Call[List[InstrumentFacts]]:
+        return self._respond("instruments.list", None,
+                             lambda: [InstrumentFacts(**vars(i)) for i in self.instruments.values()])
+
+    def connect_instrument(self, instrument_id: str) -> Call[None]:
+        return self._respond("instruments.connect", None, lambda: self.bench.connect(instrument_id),
+                             id=instrument_id)
+
+    def siggen_get(self, instrument_id: str) -> Call[SiggenConfig]:
+        return self._instrument_call("instruments.siggen.get", "signal_generator", instrument_id,
+                                     lambda _: self.bench.siggen_get())
+
+    def siggen_set(self, instrument_id: str, config: SiggenConfig) -> Call[None]:
+        return self._instrument_call("instruments.siggen.set", "signal_generator", instrument_id,
+                                     lambda _: self.bench.siggen_set(config), config=config)
+
+    def siggen_waveforms(self, instrument_id: str, reload: bool = False) -> Call[List[str]]:
+        return self._instrument_call("instruments.siggen.waveforms", "signal_generator", instrument_id,
+                                     lambda _: self.bench.siggen_waveforms(reload), reload=reload)
+
+    def siggen_trigger(self, instrument_id: str, mode: str) -> Call[None]:
+        return self._instrument_call("instruments.siggen.trigger", "signal_generator", instrument_id,
+                                     lambda _: self.bench.siggen_trigger(mode), mode=mode)
+
+    def siggen_rf(self, instrument_id: str, on: bool) -> Call[None]:
+        return self._instrument_call("instruments.siggen.rf", "signal_generator", instrument_id,
+                                     lambda _: self.bench.siggen_rf(on), on=on)
+
+    def chamber_read(self, instrument_id: str) -> Call[ChamberReading]:
+        return self._instrument_call("instruments.chamber.read", "chamber", instrument_id,
+                                     lambda _: self.bench.chamber_read())
+
+    def chamber_set_temp(self, instrument_id: str, celsius: float) -> Call[None]:
+        return self._instrument_call("instruments.chamber.set_temp", "chamber", instrument_id,
+                                     lambda _: self.bench.chamber_set_temp(celsius), celsius=celsius)
+
+    def chamber_wait_stable(self, instrument_id: str, tolerance_c: float = 0.5, hold_s: float = 60,
+                            timeout_s: float = 3600) -> Call[str]:
+        return self._instrument_call(
+            "instruments.chamber.wait_stable", "chamber", instrument_id,
+            lambda i: self.bench.chamber_wait_stable(i.id, tolerance_c, hold_s, timeout_s),
+            tolerance_c=tolerance_c, hold_s=hold_s, timeout_s=timeout_s)
+
+    def eca_sources(self, instrument_id: str) -> Call[EcaSources]:
+        return self._instrument_call("instruments.eca.sources", "eca", instrument_id,
+                                     lambda _: self.bench.eca_sources())
+
+    def eca_capture(self, instrument_id: str, spec: CaptureSpec) -> Call[str]:
+        return self._instrument_call("instruments.eca.capture", "eca", instrument_id,
+                                     lambda i: self.bench.eca_capture(i.id, spec), spec=spec)
+
+    def eca_result(self, capture_id: str, offset: int = 0, count: int = 65536) -> Call[CapturePage]:
+        return self._respond("instruments.eca.result", None,
+                             lambda: self.bench.eca_result(capture_id, offset, count),
+                             capture_id=capture_id, offset=offset, count=count)
+
     # ---------------------------------------------------------------- registers
 
     def register_tree(self, position: int) -> Call:
@@ -291,12 +444,12 @@ class FakeStationGateway:
             return self.memory.read(name)
         return self._respond("registers.read", position, run, name=name)
 
-    def read_many(self, position: int, names: List[str]) -> Call:
+    def read_many(self, position: int, names: List[str], include_read_sensitive: bool = False) -> Call:
         def run() -> List[ReadManyItem]:
             items = []
             for name in names:
                 reg = self.memory.lookup(name)
-                if reg is not None and reg.read_sensitive:
+                if reg is not None and reg.read_sensitive and not include_read_sensitive:
                     items.append(ReadManyItem(name, error=ApiError(ErrorCode.READ_SENSITIVE, f"{name} is read-sensitive")))
                     continue
                 try:
@@ -304,7 +457,8 @@ class FakeStationGateway:
                 except ApiError as exc:
                     items.append(ReadManyItem(name, error=exc))
             return items
-        return self._respond("registers.read_many", position, run, names=list(names))
+        return self._respond("registers.read_many", position, run, names=list(names),
+                             include_read_sensitive=include_read_sensitive)
 
     def _checked_write(self, name: str, new_value: int, confirm: bool, verify: bool,
                        expect: Callable[[int], int], wanted: int) -> WriteResult:
@@ -312,10 +466,8 @@ class FakeStationGateway:
         if reg.critical and not confirm:
             raise ApiError(ErrorCode.CONFIRMATION_REQUIRED, f"{name} is in a critical peripheral", {"register": name})
         readback = self.memory.write(name, new_value)
-        if verify and reg.access.readable and expect(readback) != wanted:
-            raise ApiError(ErrorCode.VERIFY_FAILED, f"Read-back differs for {name}",
-                           {"written": new_value, "readback": readback})
-        return WriteResult(new_value, readback)
+        verified = not (verify and reg.access.readable and expect(readback) != wanted)
+        return WriteResult(new_value, readback, verified)
 
     def write_register(self, position: int, name: str, value: int, confirm: bool = False, verify: bool = True) -> Call:
         return self._respond("registers.write", position,
@@ -332,13 +484,14 @@ class FakeStationGateway:
         return self._respond("registers.write_field", position, run, name=name, field=field, value=value,
                              confirm=confirm)
 
-    def watch(self, position: int, names: List[str], interval_s: float) -> Call:
+    def watch(self, position: int, names: List[str], interval_s: float,
+              include_read_sensitive: bool = False) -> Call:
         def run() -> str:
             if not 0.1 <= interval_s <= 60:
                 raise ApiError(ErrorCode.INVALID_PARAMS, "interval_s must be between 0.1 and 60")
             for name in names:
                 reg = self.memory.get(name)
-                if reg.read_sensitive:
+                if reg.read_sensitive and not include_read_sensitive:
                     raise ApiError(ErrorCode.READ_SENSITIVE, f"{name} is read-sensitive", {"register": name})
             sub_id = f"w{next(self._ids)}"
             handle = self.scheduler.every(int(interval_s * 1000), lambda: self._tick(sub_id))
@@ -370,13 +523,21 @@ class FakeStationGateway:
             activity_id = f"a{next(self._ids)}"
             self.facts[position].activity = "executing"
             self._emit_status()
+            self.advanced.new_run_namespace(position)
             self.sequencer.start(FakeActivity(activity_id, position, list(ops), stop_on_error))
             return activity_id
         return self._respond("automation.seq.run", position, run, ops=list(ops))
 
-    def abort_sequence(self, activity_id: str) -> Call:
-        return self._respond("automation.seq.abort", None, lambda: self.sequencer.abort(activity_id),
-                             activity_id=activity_id)
+    def abort_activity(self, activity_id: str) -> Call:
+        def run() -> None:
+            if not self.bench.abort(activity_id):
+                self.sequencer.abort(activity_id)
+        return self._respond("activity.abort", None, run, activity_id=activity_id)
+
+    def _op_instrument(self, kind: str, instrument_id: Optional[str]) -> None:
+        instrument = self.bench.require(kind, instrument_id)
+        if not instrument.connected:
+            raise ApiError(ErrorCode.INSTRUMENT_ERROR, f"{instrument.id} isn't connected")
 
     def _activity_done(self, activity: FakeActivity) -> None:
         self.facts[activity.position].activity = "idle"
@@ -396,5 +557,16 @@ class FakeStationGateway:
             self.facts[position].phy = (op.get("config") or {}).get("phy_name")
         elif kind == "prs_route":
             self.prs_routes[position][int(op["channel"])] = PrsRoute(op["signal"], op["pin"], int(op["channel"]))
+        elif kind == "rf_switch":
+            self._op_instrument("rf_switch", None)
+            self.bench.rf_connect(str(op.get("path")))
+            self.facts[position].rf_path = op.get("path")
+        elif kind == "signal_generator":
+            self._op_instrument("signal_generator", op.get("instrument_id"))
+            self.bench.siggen_set(SiggenConfig(**op.get("config", {})))
+        elif kind in ("custom_function", "dut_control_method"):
+            return self.advanced.run_op(position, kind, op)
+        elif kind == "sequence":
+            raise ApiError(ErrorCode.INVALID_PARAMS, "sequence ops are expanded by the client, never sent")
         self._log("info", f"Executed {kind.replace('_', ' ')}")
         return None

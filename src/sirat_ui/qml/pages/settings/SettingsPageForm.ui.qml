@@ -26,6 +26,7 @@ ScrollView {
     property alias saveSessionButton: saveSessionButton
     property alias loadSessionButton: loadSessionButton
     property alias autosaveLabel: autosaveLabel
+    property alias shortcutRepeater: shortcutRepeater
 
     RowLayout {
         width: root.availableWidth
@@ -116,6 +117,60 @@ ScrollView {
                                 font.pixelSize: Theme.fontXs
                                 color: Theme.textMuted
                                 Layout.leftMargin: 6
+                            }
+                        }
+                    }
+                }
+            }
+
+            Card {
+                Layout.fillWidth: true
+                implicitHeight: shortcutGrid.implicitHeight + Theme.headerHeight + 32
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
+                    CardHeader { title: "Keyboard shortcuts"; meta: "also shown in Ctrl+K and in button tooltips"; Layout.fillWidth: true }
+                    GridLayout {
+                        id: shortcutGrid
+                        objectName: "shortcutGuide"
+                        columns: 2
+                        columnSpacing: Theme.s3
+                        rowSpacing: 6
+                        Layout.fillWidth: true
+                        Layout.margins: Theme.s4
+                        Repeater {
+                            id: shortcutRepeater
+                            model: [{ keys: "Ctrl+K", title: "Open the command palette" }]
+                            delegate: Item {
+                                Layout.columnSpan: 1
+                                Layout.fillWidth: true
+                                implicitHeight: 24
+                                Rectangle {
+                                    id: keyChip
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: 64
+                                    height: 20
+                                    radius: Theme.radiusSm
+                                    color: Theme.surface2
+                                    border.color: Theme.borderStrong
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: modelData.keys
+                                        font.family: Theme.fontMono
+                                        font.pixelSize: Theme.fontXs
+                                        color: Theme.textPrimary
+                                    }
+                                }
+                                Text {
+                                    anchors.left: keyChip.right
+                                    anchors.leftMargin: Theme.s2
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: modelData.title
+                                    elide: Text.ElideRight
+                                    font.pixelSize: Theme.fontSm
+                                    color: Theme.textPrimary
+                                }
                             }
                         }
                     }

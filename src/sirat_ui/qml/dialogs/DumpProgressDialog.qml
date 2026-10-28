@@ -7,7 +7,7 @@ import "../components"
 ModalDialog {
     id: dialog
     objectName: "dumpProgressDialog"
-    readonly property var vm: app.dumps
+    readonly property var vm: app.dumpProgress
 
     visible: vm.progressOpen
     dialogWidth: 460

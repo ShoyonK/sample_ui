@@ -16,11 +16,12 @@ from sirat_ui.core import wifi
 from sirat_ui.core.wifi import WifiSettings
 from sirat_ui.domains.radio.phy import KNOWN_LPW_PHYS, PhyService
 from sirat_ui.gateway.errors import ApiError
-from sirat_ui.gateway.models import LoadPhyResult
-from sirat_ui.shared.interactions import ConfirmRequest, InteractionService
-from sirat_ui.shared.viewmodel import BaseViewModel, qprop
-from sirat_ui.state.app_state import AppState
+from sirat_ui.models.dialogs import ConfirmRequest
+from sirat_ui.models.station import LoadPhyResult
+from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
+from sirat_ui.shared.viewmodel import BaseViewModel, qprop
+from sirat_ui.state.station import StationState
 
 PHY_FILE_FILTER = "PHY files (*.cfg *.json *.py);;All files (*)"
 
@@ -28,7 +29,7 @@ PHY_FILE_FILTER = "PHY files (*.cfg *.json *.py);;All files (*)"
 class LpwPhyViewModel(BaseViewModel):
     changed = pyqtSignal()
 
-    def __init__(self, service: PhyService, state: AppState, interactions: InteractionService,
+    def __init__(self, service: PhyService, state: StationState, interactions: InteractionService,
                  parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._service = service
@@ -45,7 +46,10 @@ class LpwPhyViewModel(BaseViewModel):
     busy = qprop(bool, "_busy", changed)
     currentPhy = qprop(str, "_current_phy", changed)
     canLoad = qprop(bool, "_can_load", changed)
-    knownPhys = pyqtProperty("QStringList", lambda self: KNOWN_LPW_PHYS, constant=True)
+
+    @pyqtProperty("QStringList", constant=True)
+    def knownPhys(self) -> List[str]:  # noqa: N802
+        return KNOWN_LPW_PHYS
 
     def _refresh(self, *_: object) -> None:
         self._update(current_phy=self._state.facts.phy or "", can_load=self._service.can_load and not self._busy)
@@ -98,7 +102,7 @@ class LpwPhyViewModel(BaseViewModel):
 class WifiPhyViewModel(BaseViewModel):
     changed = pyqtSignal()
 
-    def __init__(self, service: PhyService, state: AppState, interactions: InteractionService,
+    def __init__(self, service: PhyService, state: StationState, interactions: InteractionService,
                  parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._service = service
@@ -115,34 +119,107 @@ class WifiPhyViewModel(BaseViewModel):
 
     # ---- what QML shows ------------------------------------------------------------------------------
 
-    available = pyqtProperty(bool, lambda self: self._service.wifi_supported, notify=changed)
-    mode = pyqtProperty(str, lambda self: self._s.mode, notify=changed)
-    standard = pyqtProperty(str, lambda self: self._s.standard, notify=changed)
-    channel = pyqtProperty(str, lambda self: str(self._s.channel), notify=changed)
-    powerMode = pyqtProperty(str, lambda self: self._s.power_mode, notify=changed)
-    rate = pyqtProperty(str, lambda self: self._s.rate, notify=changed)
-    pktLength = pyqtProperty(str, lambda self: str(self._s.pkt_length), notify=changed)
-    numPkts = pyqtProperty(str, lambda self: str(self._s.num_pkts), notify=changed)
-    transmitMode = pyqtProperty(str, lambda self: self._s.transmit_mode, notify=changed)
-    aggrEnable = pyqtProperty(bool, lambda self: self._s.aggr_enable, notify=changed)
-    advancedAvailable = pyqtProperty(bool, lambda self: wifi.is_advanced(self._s.standard), notify=changed)
-    advancedEnabled = pyqtProperty(bool, lambda self: self._s.advanced_enabled, notify=changed)
-    ppduType = pyqtProperty(str, lambda self: self._s.ppdu_type, notify=changed)
-    giLtf = pyqtProperty(str, lambda self: self._s.gi_ltf, notify=changed)
-    dcm = pyqtProperty(bool, lambda self: self._s.dcm, notify=changed)
-    bandwidth = pyqtProperty(str, lambda self: self._s.bandwidth, notify=changed)
-    phyName = pyqtProperty(str, lambda self: self._s.config().phy_name, notify=changed)
+    @pyqtProperty(bool, notify=changed)
+    def available(self) -> bool:
+        return self._service.wifi_supported
+
+    @pyqtProperty(str, notify=changed)
+    def mode(self) -> str:
+        return self._s.mode
+
+    @pyqtProperty(str, notify=changed)
+    def standard(self) -> str:
+        return self._s.standard
+
+    @pyqtProperty(str, notify=changed)
+    def channel(self) -> str:
+        return str(self._s.channel)
+
+    @pyqtProperty(str, notify=changed)
+    def powerMode(self) -> str:  # noqa: N802
+        return self._s.power_mode
+
+    @pyqtProperty(str, notify=changed)
+    def rate(self) -> str:
+        return self._s.rate
+
+    @pyqtProperty(str, notify=changed)
+    def pktLength(self) -> str:  # noqa: N802
+        return str(self._s.pkt_length)
+
+    @pyqtProperty(str, notify=changed)
+    def numPkts(self) -> str:  # noqa: N802
+        return str(self._s.num_pkts)
+
+    @pyqtProperty(str, notify=changed)
+    def transmitMode(self) -> str:  # noqa: N802
+        return self._s.transmit_mode
+
+    @pyqtProperty(bool, notify=changed)
+    def aggrEnable(self) -> bool:  # noqa: N802
+        return self._s.aggr_enable
+
+    @pyqtProperty(bool, notify=changed)
+    def advancedAvailable(self) -> bool:  # noqa: N802
+        return wifi.is_advanced(self._s.standard)
+
+    @pyqtProperty(bool, notify=changed)
+    def advancedEnabled(self) -> bool:  # noqa: N802
+        return self._s.advanced_enabled
+
+    @pyqtProperty(str, notify=changed)
+    def ppduType(self) -> str:  # noqa: N802
+        return self._s.ppdu_type
+
+    @pyqtProperty(str, notify=changed)
+    def giLtf(self) -> str:  # noqa: N802
+        return self._s.gi_ltf
+
+    @pyqtProperty(bool, notify=changed)
+    def dcm(self) -> bool:
+        return self._s.dcm
+
+    @pyqtProperty(str, notify=changed)
+    def bandwidth(self) -> str:
+        return self._s.bandwidth
+
+    @pyqtProperty(str, notify=changed)
+    def phyName(self) -> str:  # noqa: N802
+        return self._s.config().phy_name
+
     busy = qprop(bool, "_busy", changed)
 
-    standards = pyqtProperty("QStringList", lambda self: wifi.STANDARDS, constant=True)
-    transmitModes = pyqtProperty("QStringList", lambda self: wifi.TRANSMIT_MODES, constant=True)
-    giLtfOptions = pyqtProperty("QStringList", lambda self: wifi.GI_LTF, constant=True)
-    channelOptions = pyqtProperty("QStringList", lambda self: [str(c) for c in wifi.channels(self._s.standard)],
-                                  notify=changed)
-    powerModes = pyqtProperty("QStringList", lambda self: wifi.power_modes(self._s.standard), notify=changed)
-    rateOptions = pyqtProperty("QStringList", lambda self: wifi.rates(self._s.standard), notify=changed)
-    ppduTypes = pyqtProperty("QStringList", lambda self: wifi.PPDU_TYPES.get(self._s.standard, []), notify=changed)
-    bandwidths = pyqtProperty("QStringList", lambda self: wifi.bandwidths(self._s.channel), notify=changed)
+    @pyqtProperty("QStringList", constant=True)
+    def standards(self) -> List[str]:
+        return wifi.STANDARDS
+
+    @pyqtProperty("QStringList", constant=True)
+    def transmitModes(self) -> List[str]:  # noqa: N802
+        return wifi.TRANSMIT_MODES
+
+    @pyqtProperty("QStringList", constant=True)
+    def giLtfOptions(self) -> List[str]:  # noqa: N802
+        return wifi.GI_LTF
+
+    @pyqtProperty("QStringList", notify=changed)
+    def channelOptions(self) -> List[str]:  # noqa: N802
+        return [str(c) for c in wifi.channels(self._s.standard)]
+
+    @pyqtProperty("QStringList", notify=changed)
+    def powerModes(self) -> List[str]:  # noqa: N802
+        return wifi.power_modes(self._s.standard)
+
+    @pyqtProperty("QStringList", notify=changed)
+    def rateOptions(self) -> List[str]:  # noqa: N802
+        return wifi.rates(self._s.standard)
+
+    @pyqtProperty("QStringList", notify=changed)
+    def ppduTypes(self) -> List[str]:  # noqa: N802
+        return wifi.PPDU_TYPES.get(self._s.standard, [])
+
+    @pyqtProperty("QStringList", notify=changed)
+    def bandwidths(self) -> List[str]:
+        return wifi.bandwidths(self._s.channel)
 
     @pyqtProperty(str, notify=changed)
     def unavailableText(self) -> str:  # noqa: N802

@@ -27,6 +27,10 @@ RowLayout {
     property alias summaryBanner: summaryBanner
     property alias summaryLabel: summaryLabel
     property alias summaryHelp: summaryHelp
+    property alias radioCounts: radioCounts
+    property alias matchCountLabel: matchCountLabel
+    property alias mismatchCountLabel: mismatchCountLabel
+    property alias errorCountLabel: errorCountLabel
     property alias columnHeader: columnHeader
     property alias beforeHeader: beforeHeader
     property alias afterHeader: afterHeader
@@ -100,23 +104,42 @@ RowLayout {
                 implicitHeight: 36
                 radius: Theme.radiusSm
                 color: Theme.infoBg
-                Text {
-                    id: summaryLabel
-                    objectName: "comparisonSummary"
+                RowLayout {
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
                     anchors.leftMargin: Theme.s3
-                    text: "3 registers differ · 120 compared"
-                    font.pixelSize: Theme.fontSm
-                    font.weight: Font.Bold
-                    color: Theme.infoFg
-                }
-                HelpTip {
-                    id: summaryHelp
-                    objectName: "comparisonHelp"
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.left: summaryLabel.right
-                    anchors.leftMargin: 10
+                    spacing: 10
+                    Text {
+                        id: summaryLabel
+                        objectName: "comparisonSummary"
+                        text: "3 registers differ · 120 compared"
+                        font.pixelSize: Theme.fontSm
+                        font.weight: Font.Bold
+                        color: Theme.infoFg
+                    }
+                    Row {
+                        id: radioCounts
+                        spacing: Theme.s4
+                        Row {
+                            spacing: 5
+                            Icon { name: "check"; size: 12; color: Theme.okFg; anchors.verticalCenter: parent.verticalCenter }
+                            Text { id: matchCountLabel; objectName: "radioMatchCount"; text: "7 matches"; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold; color: Theme.okFg }
+                        }
+                        Row {
+                            spacing: 5
+                            Icon { name: "warning"; size: 12; color: Theme.dangerFg; anchors.verticalCenter: parent.verticalCenter }
+                            Text { id: mismatchCountLabel; objectName: "radioMismatchCount"; text: "2 mismatches"; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold; color: Theme.dangerFg }
+                        }
+                        Row {
+                            spacing: 5
+                            Icon { name: "close"; size: 12; color: Theme.warnFg; anchors.verticalCenter: parent.verticalCenter }
+                            Text { id: errorCountLabel; objectName: "radioErrorCount"; text: "1 error"; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold; color: Theme.warnFg }
+                        }
+                    }
+                    HelpTip {
+                        id: summaryHelp
+                        objectName: "comparisonHelp"
+                    }
                 }
             }
             Rectangle {

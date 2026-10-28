@@ -2,7 +2,6 @@ import QtQuick 2.15
 import QtQuick.Window 2.15
 import "../theme"
 import "../pages/watch"
-import "PageSources.js" as PageSources
 
 // A page, the watch list, the data logger or one graph in its own window (one per row of app.windows.model).
 // Closing it brings the content back to the main window.
@@ -36,7 +35,7 @@ Window {
 
     Component {
         id: pageContent
-        Loader { source: PageSources.sourceFor(win.arg) }
+        Loader { source: Qt.resolvedUrl(app.pageSource(win.arg)) }
     }
     Component {
         id: watchContent

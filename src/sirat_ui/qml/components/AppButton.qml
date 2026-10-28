@@ -9,6 +9,7 @@ Button {
     property string iconName: ""
     property bool small: false
     property bool busy: false
+    property string tip: ""
 
     readonly property color fg: variant === "primary" ? Theme.accentText
                               : variant === "danger" ? Theme.dangerFg : Theme.textPrimary
@@ -23,6 +24,13 @@ Button {
     font.pixelSize: small ? Theme.fontXs : Theme.fontSm
     font.weight: Font.DemiBold
     opacity: enabled ? 1 : 0.45
+    focusPolicy: Qt.StrongFocus
+    Accessible.role: Accessible.Button
+    Accessible.name: text
+    Accessible.description: tip
+    ToolTip.visible: hovered && tip !== ""
+    ToolTip.text: tip
+    ToolTip.delay: 500
 
     contentItem: Row {
         spacing: 6
@@ -49,5 +57,17 @@ Button {
         border.width: control.variant === "ghost" ? 0 : 1
         border.color: control.variant === "primary" ? Theme.accent
                     : control.variant === "danger" ? Theme.dangerBg : Theme.borderStrong
+    }
+
+    // keyboard focus ring: only when focus came from the keyboard, never on mouse clicks
+    Rectangle {
+        z: 10
+        anchors.fill: parent
+        anchors.margins: -3
+        radius: Theme.radiusSm + 3
+        color: "transparent"
+        border.width: 2
+        border.color: Theme.focusRing
+        visible: control.visualFocus
     }
 }

@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import Optional
 
 from sirat_ui.app.container import ServiceContainer
-from sirat_ui.core.registers import ChipInfo
 from sirat_ui.gateway.fake import FakeStationGateway
 from sirat_ui.gateway.scheduler import ManualScheduler
+from sirat_ui.models.registers import ChipInfo
 from sirat_ui.shared.interactions import ScriptedInteractions
 from sirat_ui.stores.demo_data import seed_demo_data
 from sirat_ui.stores.json_store import UserStores
@@ -31,6 +31,8 @@ class Harness:
         self.container = ServiceContainer(self.fake, home, self.scheduler, "test", None if real_dialogs else self.ix)
         self.shell = self.container.shell
         self.state = self.container.state
+        self.prefs = self.container.prefs
+        self.selection = self.container.selection
         self.services = self.container.services
         self.container.start(autoconnect=connect)
 
@@ -41,7 +43,7 @@ class Harness:
 
     def select(self, name: str, by_user: bool = True):
         reg = self.register(name)
-        self.state.select(reg, by_user=by_user)
+        self.selection.select(reg, by_user=by_user)
         return reg
 
     def restart(self) -> "Harness":

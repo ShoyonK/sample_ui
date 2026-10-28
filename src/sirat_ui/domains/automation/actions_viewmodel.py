@@ -10,10 +10,11 @@ from sirat_ui.core.actions import main_kind, summarize_ops
 from sirat_ui.domains.automation.action_editor import ActionEditorViewModel
 from sirat_ui.domains.automation.actions import ActionService
 from sirat_ui.domains.automation.sequences import SequenceService
-from sirat_ui.shared.interactions import ConfirmRequest, InteractionService, PromptField, PromptRequest
-from sirat_ui.shared.viewmodel import BaseViewModel, ConsoleModel, DictListModel, qprop
-from sirat_ui.state.app_state import AppState
+from sirat_ui.models.dialogs import ConfirmRequest, PromptField, PromptRequest
+from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
+from sirat_ui.shared.viewmodel import BaseViewModel, ConsoleModel, DictListModel, qprop
+from sirat_ui.state.station import StationState
 
 NEW_SEQUENCE = "New sequence…"
 
@@ -26,7 +27,7 @@ class ActionsViewModel(BaseViewModel):
     changed = pyqtSignal()
 
     def __init__(self, actions: ActionService, sequences: SequenceService, editor: ActionEditorViewModel,
-                 state: AppState, interactions: InteractionService, parent: Optional[QObject] = None) -> None:
+                 state: StationState, interactions: InteractionService, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._actions = actions
         self._sequences = sequences

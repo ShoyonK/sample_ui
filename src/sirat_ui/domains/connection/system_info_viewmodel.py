@@ -6,22 +6,22 @@ from typing import Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
+from sirat_ui.domains.connection.service import ConnectionService
 from sirat_ui.domains.connection.system_info import copy_text, sections
-from sirat_ui.gateway.models import DutInfo
-from sirat_ui.gateway.port import StationGateway
+from sirat_ui.models.station import DutInfo
 from sirat_ui.shared.interactions import InteractionService
-from sirat_ui.shared.viewmodel import BaseViewModel, copy_to_clipboard, qprop
-from sirat_ui.state.app_state import AppState
 from sirat_ui.shared.qt import pyqtProperty
+from sirat_ui.shared.viewmodel import BaseViewModel, copy_to_clipboard, qprop
+from sirat_ui.state.station import StationState
 
 
 class SystemInfoViewModel(BaseViewModel):
     changed = pyqtSignal()
 
-    def __init__(self, gateway: StationGateway, state: AppState, interactions: InteractionService,
+    def __init__(self, connection: ConnectionService, state: StationState, interactions: InteractionService,
                  parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
-        self._gateway = gateway
+        self._connection = connection
         self._state = state
         self._interactions = interactions
         self._info: Optional[DutInfo] = None
@@ -73,7 +73,7 @@ class SystemInfoViewModel(BaseViewModel):
         def failed(error) -> None:
             self._update(busy=False, status=f"Couldn't read DUT information: {error.message}")
 
-        self._gateway.dut_info(self._state.position).then(ok, failed)
+        self._connection.dut_info().then(ok, failed)
 
     @pyqtSlot(int)
     def setTabIndex(self, index: int) -> None:  # noqa: N802

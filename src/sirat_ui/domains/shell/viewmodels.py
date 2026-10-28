@@ -6,35 +6,29 @@ from typing import Any, Dict, List, Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
-from sirat_ui.shared.viewmodel import BaseViewModel, qprop
-from sirat_ui.state.app_state import AppState
+from sirat_ui.domains.shell.pages import PAGES, page_source
 from sirat_ui.shared.qt import pyqtProperty
+from sirat_ui.shared.viewmodel import BaseViewModel, qprop
+from sirat_ui.state.preferences import PreferencesState
+from sirat_ui.state.station import StationState
+from sirat_ui.state.status import StatusLine
 
-PAGES: List[Dict[str, Any]] = [
-    {"key": "registers", "title": "Registers", "icon": "cpu", "ready": True},
-    {"key": "watch", "title": "Watch and logger", "icon": "pulse", "ready": True},
-    {"key": "actions", "title": "Actions", "icon": "bolt", "ready": True},
-    {"key": "sequences", "title": "Sequences", "icon": "list", "ready": True},
-    {"key": "dumps", "title": "Dumps and diffs", "icon": "compare", "ready": True},
-    {"key": "radio", "title": "Radio and PHY", "icon": "antenna", "ready": True},
-    {"key": "instruments", "title": "Instruments", "icon": "wave", "ready": False},
-    {"key": "advanced", "title": "Advanced", "icon": "terminal", "ready": False},
-    {"key": "tests", "title": "Tests", "icon": "flask", "ready": False},
-    {"key": "settings", "title": "Settings", "icon": "settings", "ready": True},
-]
 
 
 class StateViewModel(BaseViewModel):
-    """Read-only mirror of AppState for QML."""
+    """Read-only mirror of StationState for QML."""
 
     changed = pyqtSignal()
 
-    def __init__(self, state: AppState, parent: Optional[QObject] = None) -> None:
+    def __init__(self, state: StationState, prefs: PreferencesState, status: StatusLine, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._state = state
+        self._prefs = prefs
+        self._status = status
         self._refresh()
         state.changed.connect(self._refresh)
-        state.preferences_changed.connect(lambda _: self._refresh())
+        prefs.changed.connect(lambda _: self._refresh())
+        status.changed.connect(self._refresh)
 
     position = qprop(int, "_position", changed)
     connected = qprop(bool, "_connected", changed)
@@ -64,7 +58,7 @@ class StateViewModel(BaseViewModel):
             chip_label=s.chip.label if s.chip else "No chip", chip_short=s.chip.short if s.chip else "",
             phy_text=f"PHY · {facts.phy}" if facts.phy else "", activity_text=f"Activity {facts.activity}",
             release_text=f"Service {s.release_id}" if s.release_id else "Service offline",
-            backend_text=s.backend_label, status_message=s.status_message, dark_mode=s.preferences.dark_mode,
+            backend_text=s.backend_label, status_message=self._status.text, dark_mode=self._prefs.value.dark_mode,
         )
 
     @pyqtSlot(int)
@@ -73,11 +67,15 @@ class StateViewModel(BaseViewModel):
 
     @pyqtSlot()
     def toggleDarkMode(self) -> None:  # noqa: N802
-        self._state.update_preferences(dark_mode=not self._state.preferences.dark_mode)
+        self._prefs.update(dark_mode=not self._prefs.value.dark_mode)
 
 
 class ShellViewModel(BaseViewModel):
-    """The root VM, exposed to QML as the `app` context property. Child VMs are constant properties."""
+    """The root VM, exposed to QML as the `app` context property.
+
+    Build it with with_children(): each child ViewModel becomes a constant property of the same name
+    (app.detail, app.dumps ...), so registering a ViewModel in the container is all QML needs.
+    """
 
     changed = pyqtSignal()
 
@@ -87,6 +85,7 @@ class ShellViewModel(BaseViewModel):
         for child in children.values():
             child.setParent(self)
         self._current_page = "registers"
+        self._dock_follow(self._current_page)
 
     currentPage = qprop(str, "_current_page", changed)
 
@@ -94,37 +93,34 @@ class ShellViewModel(BaseViewModel):
     def pages(self) -> List[Dict[str, Any]]:
         return PAGES
 
+    @pyqtSlot(str, result="QString")
+    def pageSource(self, key: str) -> str:  # noqa: N802
+        """The page's QML file, relative to qml/shell/ (domains/shell/pages.py)."""
+        return page_source(key)
+
     @pyqtSlot(str)
     def navigate(self, key: str) -> None:
         if any(p["key"] == key for p in PAGES):
             self._update(current_page=key)
+            self._dock_follow(key)
+
+    def _dock_follow(self, key: str) -> None:
+        """The dock remembers open/collapsed per page."""
+        dock = self._children.get("dock")
+        if dock is not None:
+            getattr(dock, "setPage")(key)
 
     def child(self, name: str) -> QObject:
         return self._children[name]
 
-    state = pyqtProperty(QObject, lambda self: self._children["state"], constant=True)
-    settings = pyqtProperty(QObject, lambda self: self._children["settings"], constant=True)
-    dialogs = pyqtProperty(QObject, lambda self: self._children["dialogs"], constant=True)
-    connection = pyqtProperty(QObject, lambda self: self._children["connection"], constant=True)
-    recovery = pyqtProperty(QObject, lambda self: self._children["recovery"], constant=True)
-    tree = pyqtProperty(QObject, lambda self: self._children["tree"], constant=True)
-    favorites = pyqtProperty(QObject, lambda self: self._children["favorites"], constant=True)
-    detail = pyqtProperty(QObject, lambda self: self._children["detail"], constant=True)
-    history = pyqtProperty(QObject, lambda self: self._children["history"], constant=True)
-    actions = pyqtProperty(QObject, lambda self: self._children["actions"], constant=True)
-    actionEditor = pyqtProperty(QObject, lambda self: self._children["actionEditor"], constant=True)
-    formulaEditor = pyqtProperty(QObject, lambda self: self._children["formulaEditor"], constant=True)
-    readAll = pyqtProperty(QObject, lambda self: self._children["readAll"], constant=True)
-    palette = pyqtProperty(QObject, lambda self: self._children["palette"], constant=True)
-    hardware = pyqtProperty(QObject, lambda self: self._children["hardware"], constant=True)
-    systemInfo = pyqtProperty(QObject, lambda self: self._children["systemInfo"], constant=True)
-    sessions = pyqtProperty(QObject, lambda self: self._children["sessions"], constant=True)
-    dumps = pyqtProperty(QObject, lambda self: self._children["dumps"], constant=True)
-    lpwPhy = pyqtProperty(QObject, lambda self: self._children["lpwPhy"], constant=True)
-    wifiPhy = pyqtProperty(QObject, lambda self: self._children["wifiPhy"], constant=True)
-    prs = pyqtProperty(QObject, lambda self: self._children["prs"], constant=True)
-    windows = pyqtProperty(QObject, lambda self: self._children["windows"], constant=True)
-    log = pyqtProperty(QObject, lambda self: self._children["log"], constant=True)
-    watch = pyqtProperty(QObject, lambda self: self._children["watch"], constant=True)
-    logger = pyqtProperty(QObject, lambda self: self._children["logger"], constant=True)
-    sequences = pyqtProperty(QObject, lambda self: self._children["sequences"], constant=True)
+
+def _child_property(name: str) -> pyqtProperty:
+    def get(self: ShellViewModel) -> QObject:
+        return self.child(name)
+    return pyqtProperty(QObject, get, constant=True)
+
+
+def with_children(children: Dict[str, QObject]) -> ShellViewModel:
+    """A ShellViewModel whose class has one constant QObject property per child (Qt needs them on the class)."""
+    cls = type("ShellViewModel", (ShellViewModel,), {name: _child_property(name) for name in children})
+    return cls(children)

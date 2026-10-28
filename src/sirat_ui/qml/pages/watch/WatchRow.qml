@@ -10,11 +10,13 @@ Rectangle {
     signal clicked(string mode)
     signal writeRequested()
     signal loggerRequested()
+    property bool large: false   // bench density: values big enough to read from a step back
+    readonly property int valueSize: large ? Theme.fontXl : Theme.fontSm
     readonly property real unit: (ListView.view ? ListView.view.width : 1100) - 80
 
     objectName: "watchRow_" + model.name
     width: ListView.view ? ListView.view.width : 1100
-    height: 38
+    height: large ? 64 : 38
     color: model.selected ? Theme.select : (area.containsMouse ? Theme.surface2 : "transparent")
 
     MouseArea {
@@ -49,7 +51,7 @@ Rectangle {
             text: model.name
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
-            font.family: Theme.fontMono; font.pixelSize: Theme.fontSm; color: Theme.textPrimary
+            font.family: Theme.fontMono; font.pixelSize: row.large ? Theme.fontMd : Theme.fontSm; color: Theme.textPrimary
         }
         Rectangle {
             width: row.unit * 0.12; height: parent.height
@@ -59,7 +61,8 @@ Rectangle {
                 anchors.leftMargin: 6
                 text: model.valueText
                 verticalAlignment: Text.AlignVCenter
-                font.family: Theme.fontMono; font.pixelSize: Theme.fontSm; color: Theme.textPrimary
+                font.family: Theme.fontMono; font.pixelSize: row.valueSize; color: Theme.textPrimary
+                font.weight: row.large ? Font.DemiBold : Font.Normal
             }
         }
         Text {
@@ -74,7 +77,8 @@ Rectangle {
             width: row.unit * 0.15; height: parent.height
             text: model.calcText || "—"
             verticalAlignment: Text.AlignVCenter
-            font.family: Theme.fontMono; font.pixelSize: Theme.fontSm
+            font.family: Theme.fontMono; font.pixelSize: row.valueSize
+            font.weight: row.large ? Font.DemiBold : Font.Normal
             color: model.calcText ? Theme.infoFg : Theme.borderStrong
         }
         Text {
@@ -88,7 +92,7 @@ Rectangle {
             Sparkline {
                 anchors.verticalCenter: parent.verticalCenter
                 width: Math.min(parent.width - 12, 110)
-                height: 20
+                height: row.large ? 34 : 20
                 points: model.trend
                 lineColor: Theme.textMuted
                 lineWidth: 1.2

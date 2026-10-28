@@ -25,3 +25,7 @@ def toggle(value: int, bit: int) -> int:
 def bit_list(value: int, width: int = 32) -> list:
     """Index i holds bit i."""
     return [bool((value >> i) & 1) for i in range(width)]
+
+
+def bit_reverse(value: int, bits: int) -> int:
+    return int(format(value, f"0{bits}b")[::-1], 2)

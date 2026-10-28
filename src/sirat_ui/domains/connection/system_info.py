@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Dict, List, Optional, Tuple
 
-from sirat_ui.gateway.models import DutInfo
+from sirat_ui.models.station import DutInfo
 
 Section = Tuple[str, List[Tuple[str, str]]]
 

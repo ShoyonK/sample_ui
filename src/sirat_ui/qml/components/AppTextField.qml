@@ -25,6 +25,7 @@ TextField {
     selectedTextColor: "#FFFFFF"
     selectByMouse: true
 
+    Accessible.name: placeholderText
     background: Rectangle {
         radius: Theme.radiusSm
         color: control.enabled ? Theme.surface : Theme.surface2

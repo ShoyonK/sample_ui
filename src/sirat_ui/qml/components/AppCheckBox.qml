@@ -6,6 +6,8 @@ CheckBox {
     id: control
     spacing: 8
     hoverEnabled: true
+    property string accessibleName: ""   // for boxes with no visible text (the action rows)
+    Accessible.name: text !== "" ? text : accessibleName
     padding: 0
     font.family: Theme.fontUi
     font.pixelSize: Theme.fontSm
@@ -17,7 +19,9 @@ CheckBox {
         y: (control.height - height) / 2
         radius: 4
         color: control.checked ? Theme.checkOn : (control.hovered ? Theme.bitHover : Theme.surface)
-        border.color: control.checked || control.hovered ? Theme.checkOnBorder : Theme.borderStrong
+        border.color: control.visualFocus ? Theme.focusRing
+                    : control.checked || control.hovered ? Theme.checkOnBorder : Theme.borderStrong
+        border.width: control.visualFocus ? 2 : 1
         Behavior on color { ColorAnimation { duration: 120 } }
         Icon {
             anchors.centerIn: parent

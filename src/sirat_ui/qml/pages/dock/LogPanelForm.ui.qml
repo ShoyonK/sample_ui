@@ -19,6 +19,7 @@ Card {
     property alias saveButton: saveButton
     property alias clearButton: clearButton
     property alias popOutButton: popOutButton
+    property alias hideButton: hideButton
     property alias list: list
 
     ColumnLayout {
@@ -32,6 +33,7 @@ Card {
             IconButton { id: saveButton; objectName: "logSaveButton"; iconName: "save"; tip: "Save log…" }
             IconButton { id: clearButton; objectName: "logClearButton"; iconName: "erase"; tip: "Clear log" }
             IconButton { id: popOutButton; objectName: "logPopOutButton"; iconName: "export"; tip: "Open in its own window" }
+            IconButton { id: hideButton; objectName: "dockHideButton"; iconName: "down"; tip: "Hide panels" }
         }
 
         RowLayout {

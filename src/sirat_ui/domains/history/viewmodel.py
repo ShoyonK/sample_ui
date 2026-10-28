@@ -9,21 +9,22 @@ from typing import Any, Dict, List, Optional
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from sirat_ui.core import codegen
-from sirat_ui.domains.automation.actions import ActionService
+from sirat_ui.domains.automation.recorder import ActionRecorder
 from sirat_ui.domains.history.service import HistoryEntry, HistoryLog
 from sirat_ui.domains.registers.catalog import RegisterCatalog
 from sirat_ui.domains.registers.service import RegisterService
-from sirat_ui.shared.interactions import InteractionService, PromptField, PromptRequest
+from sirat_ui.models.dialogs import PromptField, PromptRequest
+from sirat_ui.shared.interactions import InteractionService
+from sirat_ui.shared.qt import pyqtProperty
 from sirat_ui.shared.selection import RowSelection
 from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, clock_text, copy_to_clipboard, qprop
-from sirat_ui.shared.qt import pyqtProperty
 
 
 class HistoryViewModel(BaseViewModel):
     changed = pyqtSignal()
 
     def __init__(self, history: HistoryLog, catalog: RegisterCatalog, registers: RegisterService,
-                 actions: ActionService, interactions: InteractionService, parent: Optional[QObject] = None) -> None:
+                 actions: ActionRecorder, interactions: InteractionService, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._history = history
         self._catalog = catalog

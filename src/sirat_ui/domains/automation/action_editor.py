@@ -12,15 +12,15 @@ from typing import Any, Dict, List, Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
-from sirat_ui.core.actions import CODE_KINDS, EDITABLE_KINDS, describe_op, op_kind
 from sirat_ui.core.formatting import ValueFormat, parse_value
 from sirat_ui.core.highlight import highlight_python
+from sirat_ui.core.ops import carries_code, describe_op, editable, op_kind
 from sirat_ui.domains.automation.actions import ActionService
 from sirat_ui.domains.registers.catalog import RegisterCatalog
 from sirat_ui.shared.interactions import InteractionService
-from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
-from sirat_ui.state.app_state import AppState
 from sirat_ui.shared.qt import pyqtProperty
+from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
+from sirat_ui.state.preferences import PreferencesState
 
 EDIT_ROLES = ["index", "kind", "description", "editable", "valueText", "info"]
 
@@ -33,12 +33,12 @@ def _value_text(op: Dict[str, Any]) -> str:
 class ActionEditorViewModel(BaseViewModel):
     changed = pyqtSignal()
 
-    def __init__(self, actions: ActionService, catalog: RegisterCatalog, state: AppState,
+    def __init__(self, actions: ActionService, catalog: RegisterCatalog, prefs: PreferencesState,
                  interactions: InteractionService, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._actions = actions
         self._catalog = catalog
-        self._state = state
+        self._prefs = prefs
         self._interactions = interactions
         self._view_open = False
         self._view_title = ""
@@ -65,14 +65,14 @@ class ActionEditorViewModel(BaseViewModel):
         action = self._actions.get(name)
         if action is None:
             return
-        dark = self._state.preferences.dark_mode
+        dark = self._prefs.value.dark_mode
         parts: List[str] = []
         for i, op in enumerate(action.operations, 1):
             kind = op_kind(op)
             parts.append(f"<p style='margin:10px 0 4px 0;'><b>{i}. {html.escape(kind.replace('_', ' '))}</b>"
                          f" &nbsp; {html.escape(describe_op(op))}</p>")
             code = op.get("code")
-            if kind in CODE_KINDS and code:
+            if carries_code(kind) and code:
                 parts.append(highlight_python(str(code), dark))
         if not parts:
             parts.append("<p>This action has no operations.</p>")
@@ -93,12 +93,12 @@ class ActionEditorViewModel(BaseViewModel):
         rows = []
         for i, op in enumerate(action.operations):
             kind = op_kind(op)
-            editable = kind in EDITABLE_KINDS
-            target = op["register"] + (f".{op['field']}" if kind == "field_write" else "") if editable else ""
+            can_edit = editable(kind)
+            target = op["register"] + (f".{op['field']}" if kind == "field_write" else "") if can_edit else ""
             rows.append({
-                "index": i, "kind": kind, "description": target if editable else describe_op(op),
-                "editable": editable, "valueText": _value_text(op) if editable else "",
-                "info": "" if editable else "Not editable here. Re-create it from its tool page.",
+                "index": i, "kind": kind, "description": target if can_edit else describe_op(op),
+                "editable": can_edit, "valueText": _value_text(op) if can_edit else "",
+                "info": "" if can_edit else "Not editable here. Re-create it from its tool page.",
             })
         self._edit_name = name
         self._pending = {}

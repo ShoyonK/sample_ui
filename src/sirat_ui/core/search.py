@@ -2,20 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Iterable, List
 
-from sirat_ui.core.registers import PeripheralDef
-
-
-@dataclass
-class SearchResult:
-    peripherals: List[str] = field(default_factory=list)
-    # None means "show every register of this peripheral"
-    registers: Dict[str, Optional[List[str]]] = field(default_factory=dict)
-    expanded: Set[str] = field(default_factory=set)
-    auto_select: Optional[str] = None
-    is_empty_query: bool = True
+from sirat_ui.models.registers import PeripheralDef
+from sirat_ui.models.registers import SearchResult
 
 
 def visible_peripherals(peripherals: Iterable[PeripheralDef], show_secure: bool) -> List[PeripheralDef]:

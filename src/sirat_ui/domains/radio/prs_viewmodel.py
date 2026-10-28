@@ -8,17 +8,18 @@ from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from sirat_ui.core.prs import CHANNELS, CONSTRAINT_TEXT, DISABLE, PINS, allowed_channels, channel_problem
 from sirat_ui.domains.radio.prs import PrsService
-from sirat_ui.gateway.models import PrsRoute
-from sirat_ui.shared.interactions import Alert, InteractionService
-from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
-from sirat_ui.state.app_state import AppState
+from sirat_ui.models.dialogs import Alert
+from sirat_ui.models.station import PrsRoute
+from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
+from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
+from sirat_ui.state.station import StationState
 
 
 class PrsViewModel(BaseViewModel):
     changed = pyqtSignal()
 
-    def __init__(self, service: PrsService, state: AppState, interactions: InteractionService,
+    def __init__(self, service: PrsService, state: StationState, interactions: InteractionService,
                  parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._service = service
@@ -33,14 +34,35 @@ class PrsViewModel(BaseViewModel):
         state.changed.connect(lambda *_: self.changed.emit())
         self._refresh()
 
-    routes = pyqtProperty(QObject, lambda self: self._routes, constant=True)
-    pins = pyqtProperty("QStringList", lambda self: PINS, constant=True)
-    channels = pyqtProperty("QStringList", lambda self: [str(c) for c in CHANNELS], constant=True)
-    constraintText = pyqtProperty(str, lambda self: CONSTRAINT_TEXT, constant=True)
-    signalLabels = pyqtProperty("QStringList", lambda self: [s.label for s in self._signals()], notify=changed)
-    sourceText = pyqtProperty(str, lambda self: self._service.source_text, notify=changed)
-    pinIndex = pyqtProperty(int, lambda self: PINS.index(self._pin), notify=changed)
-    channelIndex = pyqtProperty(int, lambda self: self._channel, notify=changed)
+    @pyqtProperty(QObject, constant=True)
+    def routes(self) -> QObject:
+        return self._routes
+
+    @pyqtProperty("QStringList", constant=True)
+    def pins(self) -> List[str]:
+        return PINS
+
+    @pyqtProperty("QStringList", constant=True)
+    def channels(self) -> List[str]:
+        return [str(c) for c in CHANNELS]
+
+    @pyqtProperty(str, constant=True)
+    def constraintText(self) -> str:  # noqa: N802
+        return CONSTRAINT_TEXT
+
+    @pyqtProperty("QStringList", notify=changed)
+    def signalLabels(self) -> List[str]:  # noqa: N802
+        return [s.label for s in self._signals()]
+
+    @pyqtProperty(str, notify=changed)
+    def sourceText(self) -> str:  # noqa: N802
+        return self._service.source_text
+
+    @pyqtProperty(int, notify=changed)
+    def pinIndex(self) -> int:  # noqa: N802
+        return PINS.index(self._pin)
+
+    channelIndex = qprop(int, "_channel", changed)
     busy = qprop(bool, "_busy", changed)
 
     @pyqtProperty(int, notify=changed)

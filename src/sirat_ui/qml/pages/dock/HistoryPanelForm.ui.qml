@@ -24,6 +24,7 @@ Card {
         CardHeader {
             title: "History"
             Layout.fillWidth: true
+            Text { text: "Show"; height: 24; verticalAlignment: Text.AlignVCenter; font.pixelSize: Theme.fontSm; color: Theme.textMuted }
             SegmentedControl {
                 id: filterControl
                 objectName: "historyFilter"
@@ -32,9 +33,10 @@ Card {
                 small: true
                 checkedStates: [true, true]
             }
+            Rectangle { width: 1; height: 18; y: 3; color: Theme.border }
             AppButton { id: runButton; objectName: "historyRunButton"; text: "Run"; iconName: "play"; small: true }
             AppButton { id: createActionButton; objectName: "createActionButton"; text: "Create action"; iconName: "bolt"; small: true }
-            IconButton { id: codeButton; objectName: "historyCodeButton"; iconName: "code"; tip: "Generate code (selected, or all)" }
+            AppButton { id: codeButton; objectName: "historyCodeButton"; text: "Code"; iconName: "code"; small: true }
             IconButton { id: copyButton; objectName: "historyCopyButton"; iconName: "copy"; tip: "Copy history" }
             IconButton { id: clearButton; objectName: "historyClearButton"; iconName: "delete"; tip: "Clear history" }
         }

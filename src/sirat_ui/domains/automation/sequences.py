@@ -13,15 +13,18 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from sirat_ui.core.actions import main_kind, summarize_ops
+from sirat_ui.core.naming import unique_name
 from sirat_ui.core.observable import Event
+from sirat_ui.core.ops import WireError
 from sirat_ui.domains.automation.actions import ActionService
 from sirat_ui.domains.logs.service import LogService
+from sirat_ui.gateway.activities import ActivityTracker
 from sirat_ui.gateway.call import Call
 from sirat_ui.gateway.errors import ApiError, ErrorCode
-from sirat_ui.gateway.models import ActivityFinished, ActivityProgress
-from sirat_ui.gateway.port import StationGateway
+from sirat_ui.gateway.port import AutomationPort
+from sirat_ui.models.station import ActivityFinished, ActivityProgress
 from sirat_ui.shared.error_presenter import ErrorPresenter
-from sirat_ui.state.app_state import AppState
+from sirat_ui.state.station import StationState
 from sirat_ui.stores.formats import SequenceRecord, read_sequences, write_sequences
 from sirat_ui.stores.json_store import JsonStore
 
@@ -59,12 +62,14 @@ class SequenceRun:
 
 
 class SequenceService:
-    def __init__(self, store: JsonStore, actions: ActionService, gateway: StationGateway, state: AppState,
-                 errors: ErrorPresenter, log: LogService, clock: Callable[[], float] = time.time) -> None:
+    def __init__(self, store: JsonStore, actions: ActionService, gateway: AutomationPort, state: StationState,
+                 activities: ActivityTracker, errors: ErrorPresenter, log: LogService,
+                 clock: Callable[[], float] = time.time) -> None:
         self._store = store
         self._actions = actions
         self._gateway = gateway
         self._state = state
+        self._activities = activities
         self._errors = errors
         self._log = log
         self._clock = clock
@@ -77,7 +82,6 @@ class SequenceService:
         self.changed = Event()
         self.progress = Event()
         self.console = Event()  # (level, text): run output for the Sequences console (req 14)
-        gateway.events.connect(self._on_event)
 
     # ---- editing ---------------------------------------------------------------------------------
 
@@ -91,9 +95,7 @@ class SequenceService:
         return record.description if record else ""
 
     def create(self, name: str, action_names: List[str]) -> str:
-        base, candidate, n = name.strip() or "sequence", name.strip() or "sequence", 2
-        while candidate in self.sequences:
-            candidate, n = f"{base}_{n}", n + 1
+        candidate = unique_name(name, self.sequences, "sequence")
         self.sequences[candidate] = list(action_names)
         self._save()
         return candidate
@@ -141,8 +143,9 @@ class SequenceService:
 
     # ---- running ---------------------------------------------------------------------------------
 
-    def plan(self, name: str) -> Tuple[List[Step], List[Dict[str, Any]]]:
-        """Steps (one per action) and the operations to send, with req 14's skip rules applied."""
+    def plan(self, name: str, wire: bool = False) -> Tuple[List[Step], List[Dict[str, Any]]]:
+        """Steps (one per action) and the operations, with req 14's skip rules applied. wire=True gives the ops as
+        sent (core/wire_ops.py: tagged with the action, custom-function code copied in) and may raise WireError."""
         steps: List[Step] = []
         ops: List[Dict[str, Any]] = []
         for action_name in self.sequences.get(name, []):
@@ -153,16 +156,23 @@ class SequenceService:
                 steps.append(Step(action_name, main_kind(action.operations),
                                   "Disabled · skipped", "skipped"))
             else:
+                action_ops = self._actions.wire_ops(action_name) if wire else action.operations
                 steps.append(Step(action_name, main_kind(action.operations), summarize_ops(action.operations),
-                                  first_op=len(ops), op_count=len(action.operations)))
-                ops.extend(action.operations)
+                                  first_op=len(ops), op_count=len(action_ops)))
+                ops.extend(action_ops)
         return steps, ops
 
     def preview(self, name: str) -> List[Step]:
         return self.plan(name)[0]
 
     def run(self, name: str) -> Call:
-        steps, ops = self.plan(name)
+        try:
+            steps, ops = self.plan(name, wire=True)
+        except WireError as exc:
+            error = ApiError(ErrorCode.INVALID_PARAMS, str(exc))
+            self.console.emit("error", f"✗ {exc}")
+            self._errors.present(error, f"Sequence {name}")
+            return Call.failed(error)
         self.console.emit("info", f"▶ Sequence {name}")
         for step in steps:
             if step.state == "missing":
@@ -183,6 +193,7 @@ class SequenceService:
         def started(activity_id: str) -> None:
             if self.current:
                 self.current.activity_id = activity_id
+                self._activities.follow(activity_id, self._progress, self._finished)
 
         def failed(error: ApiError) -> None:
             if self.current:
@@ -196,46 +207,56 @@ class SequenceService:
     def abort(self) -> None:
         if self.current and self.current.activity_id and self.current.running:
             self.current.message = "Aborting…"
-            self._gateway.abort_sequence(self.current.activity_id)
+            self._gateway.abort_activity(self.current.activity_id)
             self.progress.emit()
 
     def generate_code(self, name: str) -> str:
         enabled = [n for n in self.sequences.get(name, []) if (a := self._actions.get(n)) and a.enabled]
         return self._actions.generate_code(enabled)
 
-    def _on_event(self, event: object) -> None:
+    def _progress(self, event: ActivityProgress) -> None:
+        """Progress is per operation; the step that owns the operation becomes the running one."""
         run = self.current
-        if run is None or getattr(event, "activity_id", None) != run.activity_id:
+        if run is None:
+            return
+        now, op_index = self._clock(), event.step - 1
+        for step in run.steps:
+            if step.owns(op_index):
+                if step.state != "running":
+                    step.state, step.started = "running", now
+                    self.console.emit("info", f"  → {step.title}")
+                run.message = f"{step.title}: {event.message}…"
+            elif step.runnable and step.first_op + step.op_count <= op_index and step.state == "running":
+                step.state, step.duration = "done", now - (step.started or now)
+        self.progress.emit()
+
+    def _finished(self, event: ActivityFinished) -> None:
+        run = self.current
+        if run is None:
             return
         now = self._clock()
-        if isinstance(event, ActivityProgress):
-            op_index = event.step - 1
-            for step in run.steps:
-                if step.owns(op_index):
-                    if step.state != "running":
-                        step.state, step.started = "running", now
-                        self.console.emit("info", f"  → {step.title}")
-                    run.message = f"{step.title}: {event.message}…"
-                elif step.runnable and step.first_op + step.op_count <= op_index and step.state == "running":
-                    step.state, step.duration = "done", now - (step.started or now)
-        elif isinstance(event, ActivityFinished):
-            for step in run.steps:
-                if step.state == "running":
-                    step.state = "done" if event.ok else "failed"
-                    step.duration = now - (step.started or now)
-            run.running, run.ok = False, event.ok
-            ran = sum(1 for s in run.steps if s.state == "done")
-            skipped = sum(1 for s in run.steps if s.state in ("skipped", "missing"))
-            summary = f"{ran} action(s) done" + (f", {skipped} skipped" if skipped else "")
-            run.message = f"Finished · {summary}" if event.ok else (event.error.message if event.error else "Failed")
-            self.last_run[run.name] = now
-            if not event.ok and event.error:
-                self.console.emit("error", f"✗ {run.name}: {event.error.message}")
-                self._errors.present(event.error, f"Sequence {run.name}")
-            else:
-                self.console.emit("success", f"✓ {run.name} finished · {summary}")
-                self._log.success(f"Sequence {run.name} finished · {summary}")
+        for step in run.steps:
+            if step.state == "running":
+                step.state = "done" if event.ok else "failed"
+                step.duration = now - (step.started or now)
+        run.running, run.ok = False, event.ok
+        self.last_run[run.name] = now
+        summary = self._summary(run)
+        if not event.ok and event.error:
+            run.message = event.error.message
+            self.console.emit("error", f"✗ {run.name}: {event.error.message}")
+            self._errors.present(event.error, f"Sequence {run.name}")
+        else:
+            run.message = f"Finished · {summary}" if event.ok else "Failed"
+            self.console.emit("success", f"✓ {run.name} finished · {summary}")
+            self._log.success(f"Sequence {run.name} finished · {summary}")
         self.progress.emit()
+
+    @staticmethod
+    def _summary(run: SequenceRun) -> str:
+        ran = sum(1 for s in run.steps if s.state == "done")
+        skipped = sum(1 for s in run.steps if s.state in ("skipped", "missing"))
+        return f"{ran} action(s) done" + (f", {skipped} skipped" if skipped else "")
 
     def _save(self) -> None:
         self._records = OrderedDict(

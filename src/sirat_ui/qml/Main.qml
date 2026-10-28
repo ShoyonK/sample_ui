@@ -52,6 +52,18 @@ ApplicationWindow {
         onActivated: Qt.quit()
     }
 
+    // F5 read, Ctrl+R run checked, Ctrl+1..9 pages and the rest: one table in Python, also shown in the palette
+    Repeater {
+        model: app.palette.shortcuts
+        delegate: Item {
+            Shortcut {
+                sequence: modelData.sequence
+                context: Qt.ApplicationShortcut
+                onActivated: app.palette.trigger(modelData.kind, modelData.key)
+            }
+        }
+    }
+
     Shortcut {
         sequence: "Ctrl+K"
         context: Qt.ApplicationShortcut

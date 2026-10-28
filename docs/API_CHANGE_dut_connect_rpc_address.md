@@ -1,5 +1,7 @@
 # API change proposal: per-connection RPC address on `dut.connect`
 
+> **Superseded** by [API_DESIGN.md](API_DESIGN.md) (revision 2), which folds this proposal in. Kept for the reasoning.
+
 **For:** SiRAT Station API: Design Document (section "API by domain → dut")
 **Status:** Proposed. The SiRAT frontend and its fake backend already implement it.
 **Date:** 2026-10-27

@@ -10,16 +10,16 @@ WatchListPanelForm {
         vm.setIntervalText(intervalField.text)
         intervalField.text = Qt.binding(function () { return vm.intervalText })
     }
-    livePill.text: vm.live ? "Live" : "Paused"
-    livePill.level: vm.live ? "ok" : "warn"
-    liveButton.text: vm.live ? "Pause" : "Start"
-    liveButton.iconName: vm.live ? "pause" : "play"
-    liveButton.onClicked: vm.toggleLive()
+    // one control for one state: the lit segment is the current state, clicking the other switches
+    liveToggle.currentIndex: vm.live ? 0 : 1
+    liveToggle.onActivated: if ((index === 0) !== vm.live) vm.toggleLive()
     refreshButton.onClicked: vm.refreshOnce()
+    densityToggle.active: vm.large
+    densityToggle.onClicked: vm.setLarge(!vm.large)
     addAllButton.onClicked: vm.addAllToLogger()
-    addSelectedButton.enabled: vm.selectedCount > 0
+    selectionGroup.visible: vm.selectedCount > 0
+    selectionLabel.text: vm.selectedCount + " selected"
     addSelectedButton.onClicked: vm.addSelectedToLogger()
-    deleteSelectedButton.enabled: vm.selectedCount > 0
     deleteSelectedButton.onClicked: vm.removeSelected()
     clearButton.onClicked: vm.clearAll()
     popOutButton.visible: !inWindow
@@ -27,6 +27,7 @@ WatchListPanelForm {
     emptyState.visible: list.count === 0
     list.model: vm.model
     list.delegate: WatchRow {
+        large: vm.large
         onRemoveRequested: vm.remove(index)
         onClicked: vm.select(index, mode)
         onWriteRequested: vm.writeValue(index)

@@ -80,17 +80,16 @@ Item {
                         anchors.right: parent.right
                         text: "LION A0"
                         font.family: Theme.fontUi
-                        font.pixelSize: Theme.fontDisplay
-                        font.weight: Font.Bold
-                        color: Theme.textPrimary
+                        font.pixelSize: Theme.fontXs
+                        color: Theme.textMuted
                     }
                     Text {
                         id: descriptionLabel
                         anchors.right: parent.right
                         text: "Low power mode"
                         font.family: Theme.fontUi
-                        font.pixelSize: Theme.fontXs
-                        color: Theme.textMuted
+                        font.pixelSize: Theme.fontMd
+                        color: Theme.textPrimary
                     }
                 }
             }

@@ -84,6 +84,9 @@ class UserStores:
     notes: JsonStore
     preferences: JsonStore
     hardware_config: JsonStore
+    signal_generator: JsonStore
+    ble_packet: JsonStore
+    memory_viewer: JsonStore
 
     @classmethod
     def in_home(cls, home: Path) -> "UserStores":
@@ -104,11 +107,20 @@ class UserStores:
             hardware_config=JsonStore(sirat / "hardware_config.json",
                                       {"rpc_host": "localhost", "rpc_port": 10001, "rpc_timeout": 5,
                                        "dut_position": 1, "rpc_override": False}, CLEANERS["hardware_config"]),
+            signal_generator=JsonStore(sirat / "signal_generator.json",
+                                       {"sg_type": "PacketSrw", "input_config_name": "BLE_1M", "frequency_mhz": 2440.0,
+                                        "power_dbm": 0.0, "overrides": {}}, CLEANERS["signal_generator"]),
+            ble_packet=JsonStore(sirat / "ble_packet.json",
+                                 {"access_address": "0x8E89BED6", "crc_init": "0x555555", "whitening_init": 37,
+                                  "preamble": "0xAA"}, CLEANERS["ble_packet"]),
+            memory_viewer=JsonStore(sirat / "memory_viewer.json", {"last_address": "0x20000000"},
+                                    CLEANERS["memory_viewer"]),
         )
 
     def all(self) -> List[JsonStore]:
         return [self.favorites, self.actions, self.watch_list, self.data_logger, self.custom_functions,
-                self.sequences, self.formulas, self.notes, self.preferences, self.hardware_config]
+                self.sequences, self.formulas, self.notes, self.preferences, self.hardware_config,
+                self.signal_generator, self.ble_packet, self.memory_viewer]
 
     def problems(self) -> List[Problem]:
         """What the last load of every file skipped."""

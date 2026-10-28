@@ -8,9 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
-from sirat_ui.core.registers import ChipInfo
-
 from sirat_ui.gateway.fake.fake_station import FakeStationGateway
+from sirat_ui.models.registers import ChipInfo
 
 _NORMAL_LATENCY = {
     "dut.connect": 700,

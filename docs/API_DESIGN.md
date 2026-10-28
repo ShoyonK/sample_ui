@@ -6,9 +6,26 @@ proposals (`API_CHANGE_phy_and_prs.md`, `API_CHANGE_dut_connect_rpc_address.md`)
 The requirements were read for what the user needs to get done, not as a list of library calls to copy.
 Where this design differs from how the original GUI worked, the reason is given.
 
-Items marked **[decide]** are recommendations waiting for a decision. They're collected in the last section.
+Decisions taken on 2026-10-28 are recorded in section 11. One item is still open and marked **[open]**:
+how read-sensitive registers are handled (section 12).
 
 ---
+
+## Frontend status
+
+The SiRAT frontend and its fake backend implement this revision for every feature that exists today:
+`RpcAddress` on `dut.connect`, `dut.reconnect`, `dut.probe`, `WriteRes.verified`, `include_read_sensitive`,
+`activity.abort`, instrument facts in `sys.status`, timeouts with `still_running` and `call.late`, and the
+wire ops for `automation.seq.run` (`src/sirat_ui/core/wire_ops.py`). The Instruments page uses `rf.paths`,
+`rf.connect`, `rf.disconnect`, `instruments.connect` and every `instruments.siggen/chamber/eca` method, with
+chamber waits and ECA captures as instrument activities (`instrument_id`, `ActivityFinished.result`). Two
+frontend choices to confirm: ECA pages carry int16 little-endian samples in mV, and a capture holds at most
+1,000,000 samples per channel. The Advanced page uses `memory.read/write`, every `advanced.console`
+method, `advanced.custom_function` (with the console's `session_id`, so the two share variables) and
+`advanced.dut_control.describe/invoke`. Frontend choices to confirm: the GUI rejects a memory write that
+crosses a 4-byte word; `ApiParam` leaves out the injected `dut` parameter; a console or function error
+whose session has ended (`not_found` with `data.session_id`) makes the GUI open a new session and retry
+once. Every method in this document now has a frontend user except the deferred `tests.*`.
 
 ## 1. What stays the same
 
@@ -47,12 +64,12 @@ Items marked **[decide]** are recommendations waiting for a decision. They're co
 | Signal generator | `set(freq, level, role)`, `trigger(role)` | `get`, `set(SiggenConfig)`, `waveforms`, `trigger(mode)`, `rf(on)` | Load current config, pick a waveform, reload waveforms |
 | Chamber | `set_temp(wait_stable)` | `read`, `set_temp`, `wait_stable` (activity) | Live temperature; waiting is optional and can be aborted |
 | ECA | `capture(CaptureSpec)` | Plus `eca.sources` and `eca.result` (paged); `CaptureSpec` defined | The captured data has to come back |
-| Tests | — | `tests.list`, `tests.run` | Test execution |
+| Tests | — | Not in v1 (deferred) | The Tests page is set aside for now (11.4) |
 | Abort/status | `automation.seq.abort/status` | `activity.abort/status` | Every activity type aborts the same way |
 | Activities | One per position, `pos` required | `pos` or `instrument_id` | Chamber waits and captures have no DUT position |
 | Instrument tag | `instrument:<id>` and `instrument:rf_switch` mixed | `instrument:<kind>` | One form |
-| `radio.*` | RX/TX configure/start/stop, RSSI, stats | Removed from v1 **[decide]** | No SiRAT screen uses it. PHY load plus DUT control covers RX/TX today |
-| `automation.actions.list` | Actions "from the station" | Removed **[decide]** | Actions are the user's saved macros in the GUI (see 11.1) |
+| `radio.*` | RX/TX configure/start/stop, RSSI, stats | Removed from v1 | Not in the requirements; PHY load plus DUT control covers RX/TX (11.2) |
+| `automation.actions.list` | Actions "from the station" | Removed | Actions are the user's saved macros in the GUI (11.1) |
 | `dut.reset` | Present | Removed | Nothing uses it; DUT control can reset |
 
 ---
@@ -194,7 +211,7 @@ Each entry lists the method, its input and output, and what it requires. `pos` i
 | `dut.connect(pos, config_type: EFX\|EFR32, config_file?: str, rpc?: RpcAddress)` | `ConnectRes: chip: ChipInfo, rpc: RpcAddress` | `no_fault` |
 | `dut.reconnect(pos)` | `Empty`. RPC only (`rpc_io.Connect()`); `not_found` if the position was never connected | `no_fault` |
 | `dut.disconnect(pos)` | `Empty` | — |
-| `dut.probe(rpc: RpcAddress, timeout_s)` | `ProbeRes: ok, latency_ms, detail`. Touches no position | — |
+| `dut.probe(pos, rpc?: RpcAddress, timeout_s)` | `ProbeRes: ok, latency_ms, detail`. Never connects or disconnects; `rpc` omitted probes the workspace address for `pos` | — |
 | `dut.info(pos)` | `DutInfo: chip, revision, hw{}, rta{host, port, timeout_s}, app{name, version, build_time}?` | `dut` |
 | `dut.load_phy(pos, phy: PhySpec)` | `LoadPhyRes: name, function, overrides: [[key, value]]` | `dut, idle` |
 | `dut.set_rpc_timeout(seconds 1..300)` | `Empty`. Station-wide: every DUT, and the default `timeout_ms` | — |
@@ -258,7 +275,7 @@ class WriteRes(Model): value_written: int; value_readback: int | None; verified:
   read-back value. `value_readback` is None when the register can't be read back.
 - Read-sensitive registers: a single `registers.read` is allowed, because the user asked for exactly that
   register. `read_many` and `watch` return `read_sensitive` for them unless the caller opts in
-  **[decide]**.
+  **[open]**: this rule is a placeholder until section 12 is settled.
 - If `tree` is ever bigger than one frame, it moves to the paging pattern in 6.9.
 
 ### memory (new)
@@ -410,17 +427,11 @@ class InvokeRes(Model): result_text: str; result_json: JsonValue | None; result_
   `data.cause: rpc_timeout | rpc_transport | rail_assert | other` and a traceback. The GUI words the hint
   for each cause.
 
-### tests (new)
+### tests (deferred, not in v1)
 
-| Method | Result | Requires |
-|---|---|---|
-| `tests.list()` | `TestInfo[]: id, name, group, doc` | — |
-| `tests.run(pos, ids[], stop_on_fail=false)` | `ActivityRef` | `dut, idle, no_fault` |
-
-- Progress comes through `activity.progress` with `message` set to the test name.
-- `activity.finished.results` has one entry per test: `{id, ok, started_at, duration_s, output, error?}`.
-- Exporting results is done by the GUI.
-- Where the test list comes from is open **[decide]**.
+The Tests page (req 33) is set aside for now (11.4). When it comes back, the sketch was `tests.list()` and
+`tests.run(pos, ids[]) -> ActivityRef` with per-test results in `activity.finished`, and the first question
+is where the list of tests comes from.
 
 ---
 
@@ -487,7 +498,7 @@ Library exceptions are mapped to these codes at the domain-service boundary. `ha
 | Custom functions | `advanced.custom_function` | The functions file, editor |
 | Python console | `advanced.console.*` | History, colors |
 | DUT control explorer | `advanced.dut_control.*` | Parameter parsing from text |
-| Test execution | `tests.*`, `activity.*` | Results table, export |
+| Test execution | Deferred (not in v1) | — |
 | Sessions, settings import/export, logs | — | All |
 
 ## 10. Open questions carried over
@@ -500,20 +511,31 @@ Library exceptions are mapped to these codes at the domain-service boundary. `ha
    shared station?
 5. **dut_control argument types.** JSON only, or do some methods need typed objects?
 
-## 11. Decisions needed
+## 11. Decisions (2026-10-28)
 
-1. **Actions belong to the GUI.** Recommended: remove `automation.actions.list`. Actions and sequences are
-   each user's saved macros, kept in their own files and edited in SiRAT. The service only *runs* ops it's
-   given.
+The requirements were written from a demo a validation engineer built, so they're read for what users need
+to get done, not as a spec to copy.
 
-   Station-owned actions would only matter if something other than SiRAT (a test, or the hub later)
-   needed to run them by name. If that comes up, add a station-side library then, as its own domain.
-2. **Drop `radio.*` from v1.** Recommended: yes. No SiRAT screen configures RX/TX through it; users load a
-   PHY and then use DUT control or custom functions. Add it back when a screen needs it, with its facts and
-   tags.
-3. **Read-sensitive registers.** Recommended: an explicit single read is allowed, and bulk reads and watches
-   need `include_read_sensitive=true`. The alternatives are "always refuse" (the Oct 27 draft) or
-   "never refuse, just log" (the original GUI).
-4. **Where tests come from.** Test classes discovered in the workspace? A configured list? Which of them
-   can run against a DUT SiRAT already connected? This decides `TestInfo` and whether `tests.run` reuses
-   the connection.
+1. **Actions belong to the GUI.** Decided. `automation.actions.list` is removed. Actions and sequences are
+   each user's saved macros, kept in their own files and edited in SiRAT; the service only *runs* the ops
+   it's given. If something other than SiRAT (a test, or the hub later) ever needs to run actions by name,
+   a station-side library can be added then, as its own domain.
+2. **`radio.*` is not in v1.** Decided. The requirements have no RX/TX setup screen: "RX or TX" only
+   appears as the mode inside the WiFi PHY form (req 23, sent with `dut.load_phy`), and RSSI only appears
+   in a custom-function example (req 15). The `rx_configured` / `tx_configured` facts and the
+   `radio_rx` / `radio_tx` tags go with it. Add them back when a screen needs them.
+3. **Read-sensitive registers.** Not decided; deferred to a later discussion. See section 12.
+4. **The Tests page is out of v1.** Decided. `tests.*` is removed for now; req 33 is set aside, and the
+   frontend's Tests nav entry stays a "planned" placeholder.
+
+## 12. Open items (come back to these)
+
+1. **Read-sensitive registers (USART, I2C, SPI).** Reading them has side effects, such as emptying a
+   receive buffer. Options:
+   - a single explicit read is allowed, and bulk reads (dumps, Read All) and watches need
+     `include_read_sensitive=true` (the current placeholder in 6, and what the frontend does today: dumps
+     and Read All skip them);
+   - bulk reads and watches always refuse them (the Oct 27 draft);
+   - never refuse, only log a note (the original GUI).
+
+   Raised 2026-10-28; to be discussed with the validation engineers.

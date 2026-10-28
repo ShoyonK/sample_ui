@@ -7,21 +7,25 @@ from typing import Optional
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from sirat_ui.domains.registers.read_all import ReadAllJob, ReadAllService
+from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.viewmodel import BaseViewModel, qprop
 
 
 class ReadAllViewModel(BaseViewModel):
     changed = pyqtSignal()
 
-    def __init__(self, service: ReadAllService, parent: Optional[QObject] = None) -> None:
+    def __init__(self, service: ReadAllService, interactions: InteractionService,
+                 parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._service = service
+        self._interactions = interactions
         self._open = False
         self._label = ""
         self._count_text = ""
         self._progress = 0.0
         self._cancelling = False
         service.progress.connect(self._on_progress)
+        service.refused.connect(lambda: interactions.toast("error", "A read-all is already running"))
 
     isOpen = qprop(bool, "_open", changed)
     label = qprop(str, "_label", changed)
@@ -32,6 +36,7 @@ class ReadAllViewModel(BaseViewModel):
     def _on_progress(self, job: ReadAllJob) -> None:
         if job.finished:
             self._update(open=False, cancelling=False)
+            self._interactions.toast("error" if job.stopped_reason else "info", job.summary)
             return
         self._update(open=True, label=f"Reading {job.current}…",
                      count_text=f"{job.index + 1} of {job.total}",

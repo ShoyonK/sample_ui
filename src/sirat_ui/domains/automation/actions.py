@@ -6,33 +6,38 @@ from collections import OrderedDict
 from typing import Any, Dict, List, Optional
 
 from sirat_ui.core import codegen
-from sirat_ui.core.actions import Action, actions_to_json, migrate_actions
+from sirat_ui.core.actions import actions_to_json, migrate_actions
+from sirat_ui.core.naming import unique_name
 from sirat_ui.core.observable import Event
+from sirat_ui.core.ops import WireError
+from sirat_ui.core.wire_ops import action_ops
 from sirat_ui.domains.logs.service import LogService
+from sirat_ui.gateway.activities import ActivityTracker
 from sirat_ui.gateway.call import Call
-from sirat_ui.gateway.models import ActivityFinished, ActivityProgress
-from sirat_ui.gateway.port import StationGateway
+from sirat_ui.gateway.errors import ApiError, ErrorCode
+from sirat_ui.gateway.port import AutomationPort
+from sirat_ui.models.actions import Action
+from sirat_ui.models.station import ActivityFinished, ActivityProgress
 from sirat_ui.shared.error_presenter import ErrorPresenter
-from sirat_ui.state.app_state import AppState
+from sirat_ui.state.station import StationState
 from sirat_ui.stores.formats import read_custom_functions
 from sirat_ui.stores.json_store import JsonStore
 
 
 class ActionService:
-    def __init__(self, store: JsonStore, gateway: StationGateway, state: AppState,
+    def __init__(self, store: JsonStore, gateway: AutomationPort, state: StationState, activities: ActivityTracker,
                  errors: ErrorPresenter, log: LogService, custom_functions: Optional[JsonStore] = None) -> None:
         self._store = store
         self._custom_functions = custom_functions
         self._gateway = gateway
         self._state = state
+        self._activities = activities
         self._errors = errors
         self._log = log
         self.actions: "OrderedDict[str, Action]" = migrate_actions(store.load())
         self.changed = Event()
         self.run_finished = Event()  # (ok: bool)
         self.console = Event()       # (level, text): run output for the Actions console (req 13)
-        self._runs: Dict[str, str] = {}
-        gateway.events.connect(self._on_event)
 
     def reload(self) -> None:
         self.actions = migrate_actions(self._store.load())
@@ -46,10 +51,7 @@ class ActionService:
         return self.actions.get(name)
 
     def unique_name(self, name: str) -> str:
-        base, candidate, n = name.strip() or "action", name.strip() or "action", 2
-        while candidate in self.actions:
-            candidate, n = f"{base}_{n}", n + 1
-        return candidate
+        return unique_name(name, self.actions, "action")
 
     def add(self, name: str, ops: List[Dict[str, Any]], enabled: bool = True) -> Action:
         action = Action(self.unique_name(name), list(ops), enabled)
@@ -93,15 +95,28 @@ class ActionService:
         self.actions = OrderedDict((n, self.actions[n]) for n in names)
         self._save()
 
+    def _functions(self) -> Dict[str, str]:
+        return read_custom_functions(self._custom_functions.load()) if self._custom_functions else {}
+
+    def wire_ops(self, name: str) -> List[Dict[str, Any]]:
+        """The ops automation.seq.run gets for one action (core/wire_ops.py). Raises WireError."""
+        return action_ops(self.actions[name], self.actions.get, self._functions())
+
     def ops_for(self, names: List[str]) -> List[Dict[str, Any]]:
-        return [op for n in names if n in self.actions for op in self.actions[n].operations]
+        return [op for n in names if n in self.actions for op in self.wire_ops(n)]
 
     def run(self, names: List[str]) -> Call:
-        ops = self.ops_for(names)
         label = ", ".join(names)
+        try:
+            ops = self.ops_for(names)
+        except WireError as exc:
+            error = ApiError(ErrorCode.INVALID_PARAMS, str(exc))
+            self.console.emit("error", f"✗ {label}: {exc}")
+            self._errors.present(error, f"Run {label}")
+            return Call.failed(error)
 
         def started(activity_id: str) -> None:
-            self._runs[activity_id] = label
+            self._activities.follow(activity_id, self._progress, lambda event: self._finished(label, event))
             self._log.info(f"Running {label} ({len(ops)} ops)…")
             self.console.emit("info", f"▶ {label} ({len(ops)} ops)")
 
@@ -117,21 +132,19 @@ class ActionService:
         return self.run([a.name for a in self.actions.values() if a.enabled])
 
     def generate_code(self, names: List[str]) -> str:
-        functions = read_custom_functions(self._custom_functions.load()) if self._custom_functions else {}
-        return codegen.generate([self.actions[n] for n in names if n in self.actions], functions)
+        return codegen.generate([self.actions[n] for n in names if n in self.actions], self._functions())
 
-    def _on_event(self, event: object) -> None:
-        if isinstance(event, ActivityProgress) and event.activity_id in self._runs:
-            self.console.emit("info", f"  {event.step}/{event.total}  {event.message}")
-        elif isinstance(event, ActivityFinished) and event.activity_id in self._runs:
-            label = self._runs.pop(event.activity_id)
-            if event.ok:
-                self._log.success(f"Finished {label}")
-                self.console.emit("success", f"✓ {label} finished")
-            elif event.error:
-                self.console.emit("error", f"✗ {label}: {event.error.message}")
-                self._errors.present(event.error, f"Run {label}")
-            self.run_finished.emit(event.ok)
+    def _progress(self, event: ActivityProgress) -> None:
+        self.console.emit("info", f"  {event.step}/{event.total}  {event.message}")
+
+    def _finished(self, label: str, event: ActivityFinished) -> None:
+        if event.ok:
+            self._log.success(f"Finished {label}")
+            self.console.emit("success", f"✓ {label} finished")
+        elif event.error:
+            self.console.emit("error", f"✗ {label}: {event.error.message}")
+            self._errors.present(event.error, f"Run {label}")
+        self.run_finished.emit(event.ok)
 
     def _save(self) -> None:
         self._store.save(actions_to_json(self.actions))

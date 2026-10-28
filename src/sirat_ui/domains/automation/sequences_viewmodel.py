@@ -10,16 +10,17 @@ from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 from sirat_ui.domains.automation.actions import ActionService
 from sirat_ui.domains.automation.actions_viewmodel import show_code
 from sirat_ui.domains.automation.sequences import SequenceService
-from sirat_ui.shared.interactions import ConfirmRequest, InteractionService, PromptField, PromptRequest
-from sirat_ui.shared.viewmodel import BaseViewModel, ConsoleModel, DictListModel, qprop
-from sirat_ui.state.app_state import AppState
+from sirat_ui.models.dialogs import ConfirmRequest, PromptField, PromptRequest
+from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
+from sirat_ui.shared.viewmodel import BaseViewModel, ConsoleModel, DictListModel, qprop
+from sirat_ui.state.station import StationState
 
 
 class SequencesViewModel(BaseViewModel):
     changed = pyqtSignal()
 
-    def __init__(self, sequences: SequenceService, actions: ActionService, state: AppState,
+    def __init__(self, sequences: SequenceService, actions: ActionService, state: StationState,
                  interactions: InteractionService, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._sequences = sequences

@@ -2,27 +2,33 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Protocol, Tuple
 
+from sirat_ui.domains.logs.service import LogService
+from sirat_ui.domains.registers.catalog import RegisterCatalog
 from sirat_ui.gateway.call import Call
 from sirat_ui.gateway.errors import ApiError
-from sirat_ui.gateway.models import ConnectResult, DutDisconnected, LoadPhyResult, LpwPhy, PhySpec, StatusChanged
-from sirat_ui.gateway.port import StationGateway
-from sirat_ui.domains.registers.catalog import RegisterCatalog
+from sirat_ui.gateway.errors import ErrorCode
+from sirat_ui.gateway.port import DutPort, SystemPort
+from sirat_ui.models.station import (ConnectResult, DutDisconnected, LoadPhyResult, LpwPhy, PhySpec, RpcAddress,
+                                     StatusChanged)
 from sirat_ui.shared.error_presenter import ErrorPresenter
-from sirat_ui.domains.logs.service import LogService
-from sirat_ui.state.app_state import AppState
+from sirat_ui.state.station import StationState
+
+
+class ConnectionGateway(SystemPort, DutPort, Protocol):
+    """Connecting needs the station handshake (sys.*) and the DUT calls (dut.*)."""
 
 
 class ConnectionService:
-    def __init__(self, gateway: StationGateway, state: AppState, catalog: RegisterCatalog,
+    def __init__(self, gateway: ConnectionGateway, state: StationState, catalog: RegisterCatalog,
                  errors: ErrorPresenter, log: LogService) -> None:
         self._gateway = gateway
         self._state = state
         self._catalog = catalog
         self._errors = errors
         self._log = log
-        self._last_config: Dict[int, Tuple[str, str, Optional[str], Optional[int]]] = {}
+        self._last_config: Dict[int, Tuple[str, str, Optional[RpcAddress]]] = {}
         gateway.events.connect(self._on_event)
 
     def start(self) -> Call:
@@ -40,15 +46,15 @@ class ConnectionService:
         return self._gateway.status().then(self._state.apply_status)
 
     def connect(self, position: int, config_type: str = "EFR32", config_file: str = "",
-                rpc_host: Optional[str] = None, rpc_port: Optional[int] = None) -> Call:
-        """rpc_host/rpc_port override the workspace config for this connection only; None uses it."""
+                rpc: Optional[RpcAddress] = None) -> Call:
+        """rpc overrides the workspace config's address for this connection only; None uses it."""
         out: Call = Call()
         self._state.set_connecting(True)
-        where = f" at {rpc_host}:{rpc_port}" if rpc_host else ""
+        where = f" at {rpc.host}:{rpc.port}" if rpc else ""
         self._log.info(f"Connecting to DUT {position} ({config_type}){where}…")
 
         def connected(result: ConnectResult) -> None:
-            self._last_config[position] = (config_type, config_file, rpc_host, rpc_port)
+            self._last_config[position] = (config_type, config_file, rpc)
             self._state.set_chip(position, result.chip)
             self._log.success(f"Connected to DUT {position} · {result.chip.part} rev{result.chip.revision}")
             self.refresh_status()
@@ -64,13 +70,33 @@ class ConnectionService:
             self._errors.present(error, f"Connect DUT {position}")
             out.reject(error)
 
-        self._gateway.connect_dut(position, config_type, config_file, rpc_host, rpc_port).then(connected, failed)
+        self._gateway.connect_dut(position, config_type, config_file, rpc).then(connected, failed)
         return out
 
     def reconnect(self, position: int) -> Call:
-        """Same settings as the last successful connect, including an address override (req 3 recovery)."""
-        config_type, config_file, host, port = self._last_config.get(position, ("EFR32", "", None, None))
-        return self.connect(position, config_type, config_file, host, port)
+        """Req 3 recovery: RPC only (dut.reconnect), so the bench setup isn't redone. A position the service has
+        never connected falls back to a full connect with the last settings."""
+        out: Call = Call()
+        self._log.info(f"Reconnecting RPC to DUT {position}…")
+
+        def done(_: None) -> None:
+            self.refresh_status()
+            out.resolve(None)
+
+        def failed(error: ApiError) -> None:
+            if error.code == ErrorCode.NOT_FOUND:
+                config_type, config_file, rpc = self._last_config.get(position, ("EFR32", "", None))
+                self.connect(position, config_type, config_file, rpc).then(out.resolve, out.reject)
+                return
+            self._errors.present(error, f"Reconnect DUT {position}")
+            out.reject(error)
+
+        self._gateway.reconnect_dut(position).then(done, failed)
+        return out
+
+    def dut_info(self) -> Call:
+        """Req 31 system information for the selected position (DutInfo). The caller shows failures inline."""
+        return self._gateway.dut_info(self._state.position)
 
     def disconnect(self, position: int) -> Call:
         def done(_: object) -> None:

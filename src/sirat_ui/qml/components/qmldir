@@ -10,7 +10,6 @@ SegmentedControl 1.0 SegmentedControl.qml
 AppCheckBox 1.0 AppCheckBox.qml
 AppComboBox 1.0 AppComboBox.qml
 EmptyState 1.0 EmptyState.qml
-StatTile 1.0 StatTile.qml
 Sparkline 1.0 Sparkline.qml
 ModalDialog 1.0 ModalDialog.qml
 AppScrollBar 1.0 AppScrollBar.qml
@@ -20,3 +19,6 @@ HelpTip 1.0 HelpTip.qml
 PoppedOutPlaceholder 1.0 PoppedOutPlaceholder.qml
 AppMenu 1.0 AppMenu.qml
 AppMenuItem 1.0 AppMenuItem.qml
+OutputView 1.0 OutputView.qml
+CodeEditor 1.0 CodeEditor.qml
+ConsoleInput 1.0 ConsoleInput.qml

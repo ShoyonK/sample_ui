@@ -7,15 +7,14 @@ Reads one register at a time so the progress dialog can show "Reading {periph}.{
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Optional
 
 from sirat_ui.core.observable import Event
-from sirat_ui.core.registers import PeripheralDef, RegisterDef
 from sirat_ui.domains.logs.service import LogService
 from sirat_ui.domains.registers.service import RegisterService
 from sirat_ui.gateway.errors import ApiError, ErrorCode
-from sirat_ui.shared.interactions import InteractionService
+from sirat_ui.models.registers import PeripheralDef, RegisterDef
 
 _STOP_CODES = (ErrorCode.DUT_DISCONNECTED, ErrorCode.WRONG_STATE)
 
@@ -32,6 +31,7 @@ class ReadAllJob:
     cancelled: bool = False
     stopped_reason: str = ""
     finished: bool = False
+    summary: str = ""
 
     @property
     def total(self) -> int:
@@ -39,12 +39,12 @@ class ReadAllJob:
 
 
 class ReadAllService:
-    def __init__(self, registers: RegisterService, interactions: InteractionService, log: LogService) -> None:
+    def __init__(self, registers: RegisterService, log: LogService) -> None:
         self._registers = registers
-        self._interactions = interactions
         self._log = log
         self.job: Optional[ReadAllJob] = None
-        self.progress = Event()  # (job)
+        self.progress = Event()  # (job); a finished job carries its summary
+        self.refused = Event()   # start() while a read-all is already running
 
     @property
     def running(self) -> bool:
@@ -52,7 +52,7 @@ class ReadAllService:
 
     def start(self, periph: PeripheralDef) -> bool:
         if self.running:
-            self._interactions.toast("error", "A read-all is already running")
+            self.refused.emit()
             return False
         readable = [r for r in periph.registers if r.access.readable]
         targets = [r for r in readable if not r.read_sensitive]
@@ -105,6 +105,6 @@ class ReadAllService:
             summary += " (cancelled)"
         if job.stopped_reason:
             summary += f" (stopped: {job.stopped_reason})"
+        job.summary = summary
         self._log.info(summary)
-        self._interactions.toast("error" if job.stopped_reason else "info", summary)
         self.progress.emit(job)

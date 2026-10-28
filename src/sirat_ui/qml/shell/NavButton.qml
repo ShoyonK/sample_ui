@@ -8,6 +8,7 @@ AbstractButton {
     id: control
     property string pageKey: ""
     property string iconName: "cpu"
+    property string label: ""
     property string tip: ""
     property bool current: false
     property bool ready: true
@@ -17,19 +18,41 @@ AbstractButton {
     signal dockRequested()
 
     objectName: "nav_" + pageKey
-    implicitWidth: 40
-    implicitHeight: 40
+    implicitWidth: 60
+    implicitHeight: 48
     hoverEnabled: true
+    focusPolicy: Qt.StrongFocus
+    Accessible.role: Accessible.PageTab
+    Accessible.name: label
+    Accessible.description: tip
 
-    contentItem: Icon {
-        name: control.iconName
-        size: 18
-        color: control.current || control.hovered ? Theme.textPrimary : Theme.textMuted
+    // icon over a short label, so pages are recognized without hovering
+    contentItem: Item {
         opacity: control.ready ? 1 : 0.55
+        Column {
+            anchors.centerIn: parent
+            spacing: 3
+            Icon {
+                anchors.horizontalCenter: parent.horizontalCenter
+                name: control.iconName
+                size: 18
+                color: control.current || control.hovered ? Theme.textPrimary : Theme.textMuted
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: control.label
+                font.family: Theme.fontUi
+                font.pixelSize: Theme.fontXs
+                font.weight: control.current ? Font.DemiBold : Font.Normal
+                color: control.current || control.hovered ? Theme.textPrimary : Theme.textMuted
+            }
+        }
     }
     background: Rectangle {
         radius: Theme.radius
         color: control.current || control.hovered ? Theme.select : "transparent"
+        border.width: control.visualFocus ? 2 : 0
+        border.color: Theme.focusRing
     }
 
     // Badge: this page is in its own window

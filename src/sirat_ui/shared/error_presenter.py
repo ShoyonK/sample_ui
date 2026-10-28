@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from sirat_ui.core.requires import describe_missing
-from sirat_ui.gateway.errors import ApiError, ErrorCode
-from sirat_ui.shared.interactions import Alert, InteractionService
 from sirat_ui.domains.logs.service import LogService
+from sirat_ui.gateway.errors import ApiError, ErrorCode
+from sirat_ui.models.dialogs import Alert
+from sirat_ui.shared.interactions import InteractionService
 
 _MESSAGES = {
     ErrorCode.TIMEOUT: "The station didn't answer in time.",
@@ -31,6 +32,9 @@ class ErrorPresenter:
         self._log = log
 
     def message_for(self, error: ApiError) -> str:
+        if error.code == ErrorCode.TIMEOUT and error.data.get("still_running"):
+            return ("The station didn't answer in time. The call is still running there; "
+                    "the log will say how it ended.")
         if error.code == ErrorCode.WRONG_STATE:
             missing = error.data.get("missing") or []
             return f"That needs {describe_missing(missing)} first." if missing else error.message
@@ -42,12 +46,13 @@ class ErrorPresenter:
         self._log.error(prefix + error.message)
         if error.code == ErrorCode.ABORTED:
             return
-        if error.code == ErrorCode.VERIFY_FAILED:
-            written, readback = error.data.get("written", 0), error.data.get("readback", 0)
-            self._interactions.alert(Alert(
-                "Write verification failed",
-                f"Written value: 0x{written:08X}\nRead-back value: 0x{readback:08X}\n\n"
-                "This may be normal if the register has read-only bits or hardware overrides.",
-            ))
-            return
         self._interactions.toast("error", prefix + self.message_for(error))
+
+    def verify_mismatch(self, target: str, written: int, readback: int) -> None:
+        """Req 7: the write happened but the read-back differs. A warning, not an error (WriteResult.verified)."""
+        self._log.warning(f"Write {target}: read-back 0x{readback:X} differs from 0x{written:X}")
+        self._interactions.alert(Alert(
+            "Write verification failed",
+            f"Written value: 0x{written:08X}\nRead-back value: 0x{readback:08X}\n\n"
+            "This may be normal if the register has read-only bits or hardware overrides.",
+        ))

@@ -5,7 +5,8 @@ import json
 
 import pytest
 
-from sirat_ui.core.dumps import RegisterDump, compare, read_csv, to_csv, write_csv
+from sirat_ui.core.dumps import compare, read_csv, to_csv, write_csv
+from sirat_ui.models.dumps import RegisterDump
 
 
 def dumps_dir(h):
@@ -15,12 +16,12 @@ def dumps_dir(h):
 def take(h, peripherals, name="before", description=""):
     vm = h.shell.dumps
     vm.openPicker()
-    vm.selectNone()
-    names = [r["name"] for r in vm.peripherals.items]
+    h.shell.dumpPicker.selectNone()
+    names = [r["name"] for r in h.shell.dumpPicker.peripherals.items]
     for p in peripherals:
-        vm.togglePeripheral(names.index(p))
+        h.shell.dumpPicker.togglePeripheral(names.index(p))
     h.ix.answer_next({"name": name, "description": description})
-    vm.startPicked()
+    h.shell.dumpPicker.startPicked()
     h.scheduler.run_pending()
 
 
@@ -50,12 +51,12 @@ def test_take_a_dump_reads_the_checked_peripherals_and_saves_a_csv(harness):
 def test_picker_lists_peripherals_with_register_counts_and_select_all(harness):
     vm = harness.shell.dumps
     vm.openPicker()
-    labels = [r["label"] for r in vm.peripherals.items]
+    labels = [r["label"] for r in harness.shell.dumpPicker.peripherals.items]
     assert any(label.startswith("BUFC (") and label.endswith("registers)") for label in labels)
-    vm.selectAll()
-    assert vm.checkedCount == len(labels)
-    vm.selectNone()
-    assert vm.checkedCount == 0
+    harness.shell.dumpPicker.selectAll()
+    assert harness.shell.dumpPicker.checkedCount == len(labels)
+    harness.shell.dumpPicker.selectNone()
+    assert harness.shell.dumpPicker.checkedCount == 0
 
 
 def test_read_sensitive_and_write_only_registers_are_left_out(harness):
@@ -63,7 +64,7 @@ def test_read_sensitive_and_write_only_registers_are_left_out(harness):
                  if r.read_sensitive or not r.access.readable]
     assert sensitive, "the fake chip should have some"
     harness.shell.dumps.openPicker()
-    listed = {r["name"] for r in harness.shell.dumps.peripherals.items}
+    listed = {r["name"] for r in harness.shell.dumpPicker.peripherals.items}
     assert "USART0" not in listed  # nothing readable in it, so it isn't offered
     take(harness, sorted({n.split(".")[0] for n in sensitive} & listed))
     dump = read_csv(next(dumps_dir(harness).glob("*.csv")))
@@ -73,9 +74,9 @@ def test_read_sensitive_and_write_only_registers_are_left_out(harness):
 def test_cancelling_the_name_prompt_discards_the_dump(harness):
     vm = harness.shell.dumps
     vm.openPicker()
-    vm.togglePeripheral(0)
+    harness.shell.dumpPicker.togglePeripheral(0)
     harness.ix.answer_next(None)
-    vm.startPicked()
+    harness.shell.dumpPicker.startPicked()
     harness.scheduler.run_pending()
     assert file_names(harness) == []
     assert ("info", "Dump discarded") in harness.ix.toasts
@@ -85,7 +86,7 @@ def test_taking_a_dump_needs_a_connection(qapp, tmp_path):
     from support import Harness
     h = Harness(tmp_path, connect=False)
     h.shell.dumps.openPicker()
-    assert h.shell.dumps.pickerOpen is False
+    assert h.shell.dumpPicker.pickerOpen is False
     assert ("error", "Connect to a DUT to take a dump") in h.ix.toasts
 
 
@@ -98,11 +99,11 @@ def test_diff_vs_live_shows_changed_registers_with_field_changes(harness):
     vm.select(0)
     vm.diffLive()
     harness.scheduler.run_pending()
-    assert vm.hasResult and vm.resultTitle == "Live vs before" and vm.afterLabel == "Live"
-    row = next(r for r in vm.rows.items if r["register"] == "BUFC.LPMODE")
+    assert harness.shell.comparison.hasResult and harness.shell.comparison.resultTitle == "Live vs before" and harness.shell.comparison.afterLabel == "Live"
+    row = next(r for r in harness.shell.comparison.rows.items if r["register"] == "BUFC.LPMODE")
     assert (row["before"], row["after"]) == ("0x00000000", "0x00000003")
     assert "→" in row["change"]
-    assert vm.resultSummary.startswith("1 register differs")
+    assert harness.shell.comparison.resultSummary.startswith("1 register differs")
 
 
 @pytest.mark.req("12.compare")
@@ -115,13 +116,13 @@ def test_compare_with_another_saved_dump_puts_the_older_one_first(harness):
     vm = harness.shell.dumps
     vm.select(file_names(harness).index("second"))
     vm.compareWith()  # cancelled: only to see the choices
-    assert vm.hasResult is False
+    assert harness.shell.comparison.hasResult is False
     options = harness.ix.prompts[-1].fields[0].options
     assert len(options) == 1 and options[0].startswith("first · ")
     harness.ix.answer_next({"other": options[0]})
     vm.compareWith()
-    assert vm.resultTitle == "first vs second"
-    assert [r["register"] for r in vm.rows.items] == ["BUFC.LPMODE"]
+    assert harness.shell.comparison.resultTitle == "first vs second"
+    assert [r["register"] for r in harness.shell.comparison.rows.items] == ["BUFC.LPMODE"]
 
 
 def test_compare_files_uses_two_file_dialogs_and_saves_a_report(harness, tmp_path):
@@ -131,11 +132,11 @@ def test_compare_files_uses_two_file_dialogs_and_saves_a_report(harness, tmp_pat
     harness.ix.answer_open(str(b))
     harness.ix.answer_open(str(a))
     vm.compareFiles()
-    assert vm.resultTitle == "a vs b"  # older first, whatever order they were picked in
-    assert vm.resultSummary == "1 register differs · 1 compared"  # CMU and AGC aren't in both
+    assert harness.shell.comparison.resultTitle == "a vs b"  # older first, whatever order they were picked in
+    assert harness.shell.comparison.resultSummary == "1 register differs · 1 compared"  # CMU and AGC aren't in both
     report = tmp_path / "report.csv"
     harness.ix.answer_save(str(report))
-    vm.saveReport()
+    harness.shell.comparison.saveReport()
     text = report.read_text(encoding="utf-8-sig")
     assert "Register,a (09:00:00),b (10:00:00),Change" in text and "MODEM.CTRL,0x00000001,0x00000002" in text
 
@@ -147,7 +148,7 @@ def test_a_file_that_isnt_a_dump_shows_an_error(harness, tmp_path):
     harness.ix.answer_open(str(bad))
     harness.shell.dumps.compareFiles()
     assert harness.ix.alerts[-1].title == "Couldn't compare the dumps"
-    assert harness.shell.dumps.hasResult is False
+    assert harness.shell.comparison.hasResult is False
 
 
 def test_delete_asks_first(harness):

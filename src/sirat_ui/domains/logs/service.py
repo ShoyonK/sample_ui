@@ -7,7 +7,7 @@ import time
 from typing import Callable, List
 
 from sirat_ui.core.observable import Event
-from sirat_ui.gateway.models import LogLine
+from sirat_ui.models.station import CallLate, LogLine
 
 _PY_LEVELS = {"debug": logging.DEBUG, "info": logging.INFO, "success": logging.INFO,
               "warning": logging.WARNING, "error": logging.ERROR}
@@ -52,3 +52,11 @@ class LogService:
     def on_gateway_event(self, event: object) -> None:
         if isinstance(event, LogLine):
             self.add(event.level, event.text, event.source)
+        elif isinstance(event, CallLate):  # the outcome of a call that timed out earlier
+            if event.ok:
+                self.add("warning", f"A call that timed out (request {event.request_id}) finished after all",
+                         "station")
+            else:
+                reason = event.error.message if event.error else "unknown error"
+                self.add("error", f"A call that timed out (request {event.request_id}) failed: {reason}",
+                         "station")

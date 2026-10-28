@@ -14,6 +14,8 @@ Item {
     property string yLabel: ""
     property color lineColor: Theme.infoFg
     property real lineWidth: 2
+    property var markers: []     // x positions of vertical marker lines (ECA trigger and markers A/B)
+    property real minXStep: 1    // smallest x tick step; sample numbers are whole, ms aren't
     signal zoomRequested(real from, real to)
     signal resetRequested()
 
@@ -43,7 +45,8 @@ Item {
     function label(v, step) {
         if (Math.abs(v) < step * 1e-6) return "0"
         if (Math.abs(v) >= 1e7) return v.toExponential(2)
-        var decimals = step >= 1 ? 0 : Math.min(6, Math.ceil(-Math.log(step) / Math.LN10 - 1e-9))
+        var decimals = 0
+        while (decimals < 6 && Math.abs(step * Math.pow(10, decimals) - Math.round(step * Math.pow(10, decimals))) > 1e-6) decimals++
         return v.toFixed(decimals)
     }
     function sampleAt(px) {
@@ -54,6 +57,7 @@ Item {
     onPointsChanged: canvas.requestPaint()
     onX0Changed: canvas.requestPaint()
     onX1Changed: canvas.requestPaint()
+    onMarkersChanged: canvas.requestPaint()
     onWidthChanged: canvas.requestPaint()
     onHeightChanged: canvas.requestPaint()
     property bool darkTheme: Theme.dark
@@ -102,7 +106,7 @@ Item {
                 ctx.fillStyle = Theme.textMuted
                 ctx.fillText(plot.label(y, yStep), L - 6, py(y))
             }
-            var xStep = Math.max(1, plot.niceStep(plot.x1 - plot.x0, 6))
+            var xStep = Math.max(plot.minXStep, plot.niceStep(plot.x1 - plot.x0, 6))
             ctx.textAlign = "center"; ctx.textBaseline = "top"
             for (var x = Math.ceil(plot.x0 / xStep) * xStep; x <= plot.x1; x += xStep) {
                 ctx.strokeStyle = Theme.border
@@ -144,6 +148,14 @@ Item {
                 else ctx.lineTo(px(xs[k]), py(ys[k]))
             }
             ctx.stroke()
+            var marks = plot.markers || []
+            ctx.lineWidth = 1
+            if (ctx.setLineDash) ctx.setLineDash([4, 3])
+            for (var m = 0; m < marks.length; m++) {
+                ctx.strokeStyle = m === 0 ? Theme.textMuted : Theme.warnFg
+                ctx.beginPath(); ctx.moveTo(Math.round(px(marks[m])) + 0.5, T); ctx.lineTo(Math.round(px(marks[m])) + 0.5, T + H); ctx.stroke()
+            }
+            if (ctx.setLineDash) ctx.setLineDash([])
             if (xs.length === 1) {
                 ctx.fillStyle = plot.lineColor
                 ctx.beginPath(); ctx.arc(px(xs[0]), py(ys[0]), 2.5, 0, 2 * Math.PI); ctx.fill()

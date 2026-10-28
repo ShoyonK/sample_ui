@@ -53,11 +53,11 @@ def main() -> int:
     app.load()
     app.window.setPosition(-4000, -4000)
     app.container.start(autoconnect=True)
-    shell, state, catalog = app.container.shell, app.container.state, app.container.services.catalog
+    shell, selection, catalog = app.container.shell, app.container.selection, app.container.services.catalog
     pump(app, 1500)
 
     # Registers: open BUFC.LPMODE, read it twice so a changed field shows
-    state.select(catalog.register("BUFC.LPMODE"), by_user=True)
+    selection.select(catalog.register("BUFC.LPMODE"), by_user=True)
     pump(app, 300)
     shell.detail.write("0x3")
     pump(app, 400)
@@ -76,7 +76,7 @@ def main() -> int:
     pump(app, 2500)
 
     shell.navigate("registers")
-    state.select(catalog.register("CMU.CLKEN0"), by_user=True)
+    selection.select(catalog.register("CMU.CLKEN0"), by_user=True)
     pump(app, 300)
     shell.detail.write("0xF0F")
     pump(app, 400)
@@ -143,7 +143,7 @@ def main() -> int:
     for name in ("before_lpmode", "after_lpmode"):
         dumps.take(["BUFC", "MODEM", "SYNTH"], lambda job, n=name: dumps.save(dumps.new_dump(job, n)))
         pump(app, 2500)
-        state.select(catalog.register("BUFC.LPMODE"), by_user=True)
+        selection.select(catalog.register("BUFC.LPMODE"), by_user=True)
         shell.detail.write("0x1")
         pump(app, 1200)
     shell.dumps.select(1)
@@ -155,16 +155,16 @@ def main() -> int:
     shell.dumps.openPicker()
     pump(app, 500)
     grab(app, args.out / "15_dump_picker.png")
-    shell.dumps.closePicker()
+    shell.dumpPicker.closePicker()
     pump(app, 200)
 
     # Radio Calculator diff with the sample config, sorted by status
     from sirat_ui.core.radio_config import parse_config
     sample = Path(__file__).resolve().parent.parent / "docs" / "samples" / "PHY_demo.cfg"
     config = parse_config(sample.read_text(encoding="utf-8"), sample.name)
-    dumps.radio_diff(config, list(config.field_counts), shell.dumps._show_radio)
+    dumps.radio_diff(config, list(config.field_counts), shell.comparison.show_radio)
     pump(app, 1500)
-    shell.dumps.sortBy("status")
+    shell.comparison.sortBy("status")
     pump(app, 400)
     grab(app, args.out / "16_radio_diff.png")
     help_tip = find_item(app.window.contentItem(), "comparisonHelp")
@@ -174,8 +174,76 @@ def main() -> int:
         grab(app, args.out / "17_radio_help.png")
         help_tip.setProperty("pinned", False)
 
+    # Instruments: siggen applied and RF on, chamber heading for 40 °C, an ECA capture with markers
+    shell.navigate("instruments")
+    pump(app, 800)
+    shell.siggen.apply()
+    shell.siggen.setRf(True)
+    shell.rfSwitch.connectPath()
+    shell.chamber.setField("target", "40")
+    shell.chamber.setTemperature()
+    shell.eca.capture()
+    pump(app, 3500)
+    shell.eca.setField("markerA", "0.5")
+    shell.eca.setField("markerB", "1.75")
+    pump(app, 400)
+    grab(app, args.out / "18_instruments.png")
+
+    # Advanced: a console session, a custom function run, a DUT control call with a hint, a memory diff
+    shell.navigate("advanced")
+    pump(app, 400)
+    for code in ("x = dut.dut_control.lpw.radio.GetRssi(4)", "x", "hex(dut.rm.readByName('CMU.CLKEN0'))",
+                 "for ch in (0, 5, 11):\n    dut.dut_control.lpw.radio.SetChannel(ch)\n    print('channel', ch)",
+                 "dut.dut_control.lpw.radio.SetChannel(60)"):
+        shell.pyConsole.setDraft(code)
+        shell.pyConsole.execute()
+    shell.pyConsole.setDraft("dut.dut_control.lpw.radio.GetRxStats()")
+    pump(app, 600)
+    grab(app, args.out / "19_advanced_console.png")
+
+    functions = app.container.services.functions
+    functions.create("read_rssi")
+    functions.create("sweep_power")
+    functions.set_code("sweep_power", "# Step the PA and log what it actually gives\nresults = {}\n"
+                       "for p in range(-10, 21, 5):\n    results[p] = dut.dut_control.lpw.radio.SetPower(p)\n"
+                       "    print(f\"asked {p:>3} dBm, got {results[p]} dBm\")\nreturn results\n")
+    shell.advanced.setTab(1)
+    shell.customFunctions.select(1)
+    shell.customFunctions.run()
+    pump(app, 600)
+    grab(app, args.out / "20_advanced_functions.png")
+
+    shell.advanced.setTab(2)
+    pump(app, 600)
+    dc = shell.dutControl
+    dc.setFilter("StartTx")
+    pump(app, 200)
+    dc.activate(next(i for i, r in enumerate(dc.rows.items) if r["key"] == "lpw.radio.StartTx"))
+    dc.setParam("num_packets", "1000")
+    dc.execute()
+    dc.setFilter("SetPower")
+    dc.activate(next(i for i, r in enumerate(dc.rows.items) if r["key"] == "lpw.radio.SetPower"))
+    dc.setParam("power_dbm", "30")
+    dc.execute()
+    dc.setFilter("")
+    pump(app, 600)
+    grab(app, args.out / "21_advanced_dut_control.png")
+
+    shell.advanced.setTab(3)
+    shell.memory.read()
+    pump(app, 400)
+    shell.memory.setField("writeAddress", "0x20000010")
+    shell.memory.setField("writeValue", "0xCAFEF00D")
+    app.container.services.memory.write(0x20000010, 0xCAFEF00D, 4)
+    pump(app, 600)
+    grab(app, args.out / "22_advanced_memory.png")
+
     shell.state.toggleDarkMode()
-    state.select(catalog.register("BUFC.LPMODE"), by_user=True)
+    shell.advanced.setTab(1)
+    pump(app, 600)
+    grab(app, args.out / "23_advanced_functions_dark.png")
+    shell.navigate("registers")
+    selection.select(catalog.register("BUFC.LPMODE"), by_user=True)
     pump(app, 600)
     grab(app, args.out / "07_registers_dark.png")
     app.shutdown()

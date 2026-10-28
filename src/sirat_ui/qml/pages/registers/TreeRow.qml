@@ -62,7 +62,7 @@ Rectangle {
         }
         Text {
             text: model.name
-            font.family: Theme.fontUi
+            font.family: Theme.fontMono
             font.pixelSize: Theme.fontMd
             color: Theme.textPrimary
             elide: Text.ElideRight

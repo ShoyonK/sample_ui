@@ -88,3 +88,29 @@ def test_no_matches(harness, palette):
 def test_register_name_after_the_dot_outranks_other_kinds(harness, palette):
     palette.setQuery("lpmode")  # also the start of the action "lpmode_on"
     assert results(harness)[0] == ("register", "BUFC.LPMODE")
+
+
+def test_keyboard_shortcuts_come_from_one_table_and_show_in_the_palette(harness, palette):
+    shortcuts = {(s["kind"], s["key"]): s["sequence"] for s in palette.shortcuts}
+    assert shortcuts[("command", "read")] == "F5" and shortcuts[("command", "run_checked")] == "Ctrl+R"
+    assert shortcuts[("page", "registers")] == "Ctrl+1" and shortcuts[("page", "settings")] == "Ctrl+,"
+    assert len(set(shortcuts.values())) == len(shortcuts)  # no key does two things
+    palette.setQuery("run checked")
+    assert palette.results.items[0]["shortcut"] == "Ctrl+R"
+
+
+def test_a_shortcut_runs_its_command_or_opens_its_page(harness):
+    palette = harness.shell.palette
+    palette.trigger("page", "dumps")
+    assert harness.shell.currentPage == "dumps" and not palette.isOpen
+    palette.trigger("command", "toggle_dock")
+    assert harness.shell.dock.collapsed
+    palette.trigger("command", "no_such_command")  # ignored
+
+
+def test_settings_lists_every_shortcut_once(harness):
+    guide = harness.shell.palette.shortcutGuide
+    keys = [row["keys"] for row in guide]
+    bound = {s["sequence"] for s in harness.shell.palette.shortcuts}
+    assert bound <= set(keys) and {"Ctrl+K", "Ctrl+Q"} <= set(keys)
+    assert len(keys) == len(set(keys)) and all(row["title"] for row in guide)

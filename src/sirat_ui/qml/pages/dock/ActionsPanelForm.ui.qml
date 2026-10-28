@@ -36,11 +36,11 @@ Card {
             title: "Actions"
             meta: "synced with the Actions page"
             Layout.fillWidth: true
-            IconButton { id: viewButton; objectName: "actionsViewButton"; iconName: "eye"; tip: "View the selected action" }
-            IconButton { id: editButton; objectName: "actionsEditButton"; iconName: "edit"; tip: "Edit the selected action" }
+            AppButton { id: viewButton; objectName: "actionsViewButton"; text: "View"; iconName: "eye"; small: true }
+            AppButton { id: editButton; objectName: "actionsEditButton"; text: "Edit"; iconName: "edit"; small: true }
             AppButton { id: runButton; objectName: "actionsRunButton"; text: "Run"; iconName: "play"; small: true }
             AppButton { id: runSelectedButton; objectName: "actionsRunSelectedButton"; text: "Run checked"; iconName: "next"; small: true; variant: "primary" }
-            IconButton { id: codeButton; objectName: "actionsCodeButton"; iconName: "code"; tip: "Generate code" }
+            AppButton { id: codeButton; objectName: "actionsCodeButton"; text: "Code"; iconName: "code"; small: true }
         }
 
         ListView {

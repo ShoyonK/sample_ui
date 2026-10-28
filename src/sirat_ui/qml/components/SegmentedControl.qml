@@ -10,6 +10,7 @@ Rectangle {
     property bool multi: false
     property var checkedStates: []
     property bool small: false
+    property var tones: []   // optional per-option tone ("ok", "warn" ...) for the lit option, e.g. Live in green
     signal activated(int index)
 
     implicitWidth: row.implicitWidth + 2
@@ -32,9 +33,18 @@ Rectangle {
                 height: row.height
                 implicitWidth: label.implicitWidth + (root.small ? 16 : 20)
                 hoverEnabled: true
+                focusPolicy: Qt.StrongFocus
+                checkable: false
+                Accessible.role: root.multi ? Accessible.CheckBox : Accessible.RadioButton
+                Accessible.name: modelData
+                Accessible.checkable: true
+                Accessible.checked: segment.on
                 onClicked: root.activated(index)
                 background: Rectangle {
-                    color: segment.on ? Theme.select : (segment.hovered ? Theme.surface2 : "transparent")
+                    color: segment.on ? (root.tones[index] ? Theme.toneBg(root.tones[index]) : Theme.select)
+                                      : (segment.hovered ? Theme.surface2 : "transparent")
+                    border.width: segment.visualFocus ? 2 : 0
+                    border.color: Theme.focusRing
                     Rectangle {
                         visible: index > 0
                         width: 1
@@ -50,7 +60,8 @@ Rectangle {
                     font.family: Theme.fontUi
                     font.pixelSize: root.small ? Theme.fontXs : Theme.fontSm
                     font.weight: Font.DemiBold
-                    color: segment.on ? Theme.textPrimary : Theme.textMuted
+                    color: segment.on ? (root.tones[index] ? Theme.toneFg(root.tones[index]) : Theme.textPrimary)
+                                      : Theme.textMuted
                 }
             }
         }

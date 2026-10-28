@@ -1,4 +1,7 @@
-"""Register detail: header, value bar, bit grid and fields table (req §5, §7, §10, §11)."""
+"""Register detail: header, value bar, bit grid and fields table (req §5, §7, §10, §11).
+
+Showing and editing the register. Sending it elsewhere (favorites, watch, logger, formulas, Actions) is
+shortcuts_viewmodel.py."""
 
 from __future__ import annotations
 
@@ -8,18 +11,16 @@ from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from sirat_ui.core import bits
 from sirat_ui.core.formatting import ValueFormat, format_field, format_value, parse_value
-from sirat_ui.core.registers import FieldDef, PeripheralDef, RegisterDef
-from sirat_ui.domains.annotations.formula_viewmodel import FormulaEditorViewModel
+from sirat_ui.core.observable import Event
 from sirat_ui.domains.annotations.service import AnnotationService, FavoritesService
-from sirat_ui.domains.automation.actions import ActionService
-from sirat_ui.domains.monitoring.logger import DataLoggerService
-from sirat_ui.domains.monitoring.watch import WatchService
-from sirat_ui.domains.registers.read_all import ReadAllService
 from sirat_ui.domains.registers.service import RegisterService
-from sirat_ui.shared.interactions import InteractionService, PromptField, PromptRequest
-from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
-from sirat_ui.state.app_state import AppState
+from sirat_ui.models.registers import FieldDef, PeripheralDef, RegisterDef
+from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
+from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
+from sirat_ui.state.preferences import PreferencesState
+from sirat_ui.state.selection import SelectionState
+from sirat_ui.state.station import StationState
 
 FIELD_ROLES = ["bits", "name", "fullName", "accessText", "accessKey", "valueText", "editable", "hasValue",
                "changed", "changedTip", "enumName", "enumTip", "calcText", "description", "note", "hasNote",
@@ -29,21 +30,16 @@ FIELD_ROLES = ["bits", "name", "fullName", "accessText", "accessKey", "valueText
 class RegisterDetailViewModel(BaseViewModel):
     changed = pyqtSignal()
 
-    def __init__(self, state: AppState, registers: RegisterService, favorites: FavoritesService,
-                 annotations: AnnotationService, watch: WatchService, logger: DataLoggerService,
-                 actions: ActionService, interactions: InteractionService,
-                 formula_editor: Optional[FormulaEditorViewModel] = None,
-                 read_all: Optional[ReadAllService] = None, parent: Optional[QObject] = None) -> None:
+    def __init__(self, state: StationState, selection: SelectionState, prefs: PreferencesState,
+                 registers: RegisterService, favorites: FavoritesService, annotations: AnnotationService,
+                 interactions: InteractionService, runs_finished: Event, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
-        self._formula_editor = formula_editor
-        self._read_all = read_all
         self._state = state
+        self._selection = selection
+        self._prefs = prefs
         self._registers = registers
         self._favorites = favorites
         self._annotations = annotations
-        self._watch = watch
-        self._logger = logger
-        self._actions = actions
         self._interactions = interactions
         self._reg: Optional[RegisterDef] = None
         self._periph: Optional[PeripheralDef] = None
@@ -53,18 +49,18 @@ class RegisterDetailViewModel(BaseViewModel):
         self._meta_text = self._description = self._value_text = self._chip_short = ""
         self._is_favorite = self._has_value = self._busy = self._show_calculated = False
         self._can_read = self._can_write = False
-        self._format_index = state.preferences.format.ordinal
+        self._format_index = prefs.value.format.ordinal
         self._bit_values: List[bool] = [False] * 32
         self._field_bits: List[bool] = [False] * 32
         self._register_count = 0
 
-        state.selection_changed.connect(self._on_selection)
+        selection.changed.connect(self._on_selection)
         state.changed.connect(self._refresh)
-        state.preferences_changed.connect(lambda _: self._refresh())
+        prefs.changed.connect(lambda _: self._refresh())
         registers.value_changed.connect(self._on_value)
         favorites.changed.connect(self._refresh)
         annotations.changed.connect(self._refresh)
-        actions.run_finished.connect(lambda ok: self._reread_quietly())
+        runs_finished.connect(lambda ok: self._reread_quietly())   # an action may have written it
 
     mode = qprop(str, "_mode", changed)
     title = qprop(str, "_title", changed)
@@ -101,7 +97,7 @@ class RegisterDetailViewModel(BaseViewModel):
         self._periph = selection if isinstance(selection, PeripheralDef) else None
         self._refresh()
         reg = self._reg
-        if (by_user and reg and self._state.preferences.auto_read_on_click and reg.access.readable
+        if (by_user and reg and self._prefs.value.auto_read_on_click and reg.access.readable
                 and self._state.can("registers.read")):
             self._registers.read(reg, manual=False)
 
@@ -111,7 +107,7 @@ class RegisterDetailViewModel(BaseViewModel):
 
     def _refresh(self) -> None:
         chip = self._state.chip
-        common = dict(chip_short=chip.short if chip else "", format_index=self._state.preferences.format.ordinal)
+        common = dict(chip_short=chip.short if chip else "", format_index=self._prefs.value.format.ordinal)
         if self._reg:
             self._refresh_register(self._reg, common)
         elif self._periph:
@@ -127,7 +123,7 @@ class RegisterDetailViewModel(BaseViewModel):
     def _refresh_register(self, reg: RegisterDef, common: Dict[str, Any]) -> None:
         value = self._registers.cached(reg.full_name)
         previous = self._registers.previous_value(reg.full_name)
-        fmt = self._state.preferences.format
+        fmt = self._prefs.value.format
         field_bits = [False] * 32
         for f in reg.fields:
             for i in range(f.lsb, f.msb + 1):
@@ -183,17 +179,12 @@ class RegisterDetailViewModel(BaseViewModel):
         if self._reg:
             self._run(self._registers.read(self._reg, manual=True))
 
-    @pyqtSlot()
-    def readPeripheral(self) -> None:  # noqa: N802
-        if self._periph and self._read_all is not None:
-            self._read_all.start(self._periph)
-
     @pyqtSlot(str)
     def write(self, text: str) -> None:
         if not self._reg:
             return
         try:
-            value = parse_value(text, self._state.preferences.format)
+            value = parse_value(text, self._prefs.value.format)
         except ValueError as exc:
             self._interactions.toast("error", str(exc))
             return
@@ -206,12 +197,7 @@ class RegisterDetailViewModel(BaseViewModel):
 
     @pyqtSlot(int)
     def setFormatIndex(self, index: int) -> None:  # noqa: N802
-        self._state.update_preferences(value_format=ValueFormat.from_index(index).value)
-
-    @pyqtSlot()
-    def toggleFavorite(self) -> None:  # noqa: N802
-        if self._reg:
-            self._favorites.toggle(self._reg.full_name)
+        self._prefs.update(value_format=ValueFormat.from_index(index).value)
 
     @pyqtSlot(int, str)
     def setFieldValue(self, row: int, text: str) -> None:  # noqa: N802
@@ -230,39 +216,3 @@ class RegisterDetailViewModel(BaseViewModel):
         f = self._field(row)
         if f:
             self._annotations.set_note(f.full_name, text)
-
-    @pyqtSlot(int)
-    def addToWatch(self, row: int) -> None:  # noqa: N802
-        f = self._field(row)
-        if f:
-            added = self._watch.add(f.full_name)
-            self._interactions.toast("info", f"{'Added' if added else 'Already watching'} {f.full_name}")
-
-    @pyqtSlot(int)
-    def addToLogger(self, row: int) -> None:  # noqa: N802
-        f = self._field(row)
-        if f:
-            added = self._logger.track(f.full_name)
-            self._interactions.toast("info", f"{'Logging' if added else 'Already logging'} {f.full_name}")
-
-    @pyqtSlot(int)
-    def editFormula(self, row: int) -> None:  # noqa: N802
-        f = self._field(row)
-        if f and self._formula_editor is not None:
-            self._formula_editor.open_for(f.full_name)
-
-    @pyqtSlot()
-    def saveToActions(self) -> None:  # noqa: N802
-        reg = self._reg
-        value = self._registers.cached(reg.full_name) if reg else None
-        if reg is None or value is None:
-            self._interactions.toast("error", "Read the register before saving it to actions")
-            return
-
-        def answered(values) -> None:
-            if values and values.get("name", "").strip():
-                action = self._actions.add(values["name"], [{"register": reg.full_name, "value": value}])
-                self._interactions.toast("success", f"Saved action {action.name}")
-
-        self._interactions.prompt(PromptRequest("Save register to actions", [
-            PromptField("name", "Action name", reg.name.lower(), "lpmode_on")])).then(answered)

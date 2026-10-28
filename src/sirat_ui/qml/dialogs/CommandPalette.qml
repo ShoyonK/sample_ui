@@ -99,6 +99,23 @@ Popup {
                             color: Theme.textMuted
                         }
                     }
+                    Rectangle {
+                        objectName: "paletteShortcut_" + model.key
+                        visible: model.shortcut !== ""
+                        implicitWidth: keyText.implicitWidth + 12
+                        implicitHeight: 20
+                        radius: Theme.radiusSm
+                        color: Theme.surface2
+                        border.color: Theme.borderStrong
+                        Text {
+                            id: keyText
+                            anchors.centerIn: parent
+                            text: model.shortcut
+                            font.family: Theme.fontMono
+                            font.pixelSize: Theme.fontXs
+                            color: Theme.textPrimary
+                        }
+                    }
                 }
             }
             Text {

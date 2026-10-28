@@ -6,16 +6,16 @@ from typing import Dict, List, Optional, Tuple
 
 from sirat_ui.core import search as search_mod
 from sirat_ui.core.observable import Event
-from sirat_ui.core.registers import FieldDef, PeripheralDef, RegisterDef
 from sirat_ui.gateway.call import Call
-from sirat_ui.gateway.port import StationGateway
-from sirat_ui.state.app_state import AppState
+from sirat_ui.gateway.port import RegistersPort
+from sirat_ui.models.registers import FieldDef, PeripheralDef, RegisterDef, SearchResult
+from sirat_ui.state.preferences import PreferencesState
 
 
 class RegisterCatalog:
-    def __init__(self, gateway: StationGateway, state: AppState) -> None:
+    def __init__(self, gateway: RegistersPort, prefs: PreferencesState) -> None:
         self._gateway = gateway
-        self._state = state
+        self._prefs = prefs
         self.peripherals: List[PeripheralDef] = []
         self._registers: Dict[str, RegisterDef] = {}
         self._by_peripheral: Dict[str, PeripheralDef] = {}
@@ -51,5 +51,5 @@ class RegisterCatalog:
             return reg, reg.field(field_name)
         return None, None
 
-    def search(self, text: str) -> search_mod.SearchResult:
-        return search_mod.search(self.peripherals, text, self._state.preferences.show_secure_peripherals)
+    def search(self, text: str) -> SearchResult:
+        return search_mod.search(self.peripherals, text, self._prefs.value.show_secure_peripherals)

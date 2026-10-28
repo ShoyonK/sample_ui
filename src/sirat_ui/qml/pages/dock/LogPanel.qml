@@ -19,6 +19,9 @@ LogPanelForm {
     clearButton.onClicked: vm.clear()
     popOutButton.visible: !inWindow
     popOutButton.onClicked: vm.setPoppedOut(true)
+    hideButton.visible: !inWindow
+    hideButton.onClicked: app.dock.toggle()
+    hideButton.tip: "Hide panels · " + app.palette.shortcutMap["toggle_dock"]
     list.model: vm.model
     // Follow new lines unless the user is searching.
     list.onCountChanged: if (vm.searchText === "") list.positionViewAtEnd()

@@ -5,13 +5,13 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from sirat_ui.core.observable import Event
-from sirat_ui.core.wifi import WifiPhyConfig
-from sirat_ui.core.actions import Action
-from sirat_ui.domains.automation.actions import ActionService
+from sirat_ui.domains.automation.recorder import ActionRecorder
 from sirat_ui.domains.connection.service import ConnectionService
 from sirat_ui.gateway.call import Call
-from sirat_ui.gateway.models import LoadPhyResult, LpwPhy, WifiPhy
-from sirat_ui.state.app_state import AppState
+from sirat_ui.models.actions import Action
+from sirat_ui.models.radio import WifiPhyConfig
+from sirat_ui.models.station import LoadPhyResult, LpwPhy, WifiPhy
+from sirat_ui.state.station import StationState
 
 # PHY names offered in the LPW drop-down; any other name can be typed or taken from a file.
 KNOWN_LPW_PHYS: List[str] = ["BLE_1M", "BLE_2M", "BLE_CODED_125K", "BLE_CODED_500K", "IEEE802154_2P4GHZ",
@@ -29,7 +29,7 @@ def wifi_op(config: WifiPhyConfig) -> Dict[str, Any]:
 
 
 class PhyService:
-    def __init__(self, connection: ConnectionService, state: AppState, actions: ActionService) -> None:
+    def __init__(self, connection: ConnectionService, state: StationState, actions: ActionRecorder) -> None:
         self._connection = connection
         self._state = state
         self._actions = actions
@@ -56,8 +56,8 @@ class PhyService:
         return self._connection.load_phy(self._state.position, WifiPhy(config)).then(self.loaded.emit)
 
     def add_lpw_action(self, name: str) -> Action:
-        return self._actions.add(self._actions.unique_name(f"load_{name.lower()}"), [lpw_op(name)])
+        return self._actions.add(f"load_{name.lower()}", [lpw_op(name)])
 
     def add_wifi_action(self, config: WifiPhyConfig) -> Action:
         name = f"wifi_{config.mode.lower()}_{config.standard.replace('802.', '')}_ch{config.channel}"
-        return self._actions.add(self._actions.unique_name(name), [wifi_op(config)])
+        return self._actions.add(name, [wifi_op(config)])

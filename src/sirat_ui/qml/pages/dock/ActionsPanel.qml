@@ -13,8 +13,11 @@ ActionsPanelForm {
     editButton.onClicked: vm.editCurrent()
     runButton.enabled: vm.canRun && hasCurrent
     runSelectedButton.enabled: vm.canRun
+    // primary only on the Actions page; in the dock it would compete with the page's own main action
+    runSelectedButton.variant: showManagement ? "primary" : "secondary"
     runButton.onClicked: vm.runCurrent()
     runSelectedButton.onClicked: vm.runSelected()
+    runSelectedButton.tip: "Run the checked actions · " + app.palette.shortcutMap["run_checked"]
     codeButton.onClicked: vm.generateCode()
     upButton.enabled: hasCurrent
     upButton.onClicked: vm.moveCurrent(-1)

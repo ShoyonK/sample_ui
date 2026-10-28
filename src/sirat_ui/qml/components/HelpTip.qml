@@ -11,11 +11,18 @@ Rectangle {
     property bool pinned: false
     readonly property bool open: tip.visible
 
+    activeFocusOnTab: true
+    Accessible.role: Accessible.Button
+    Accessible.name: "Help"
+    Accessible.description: text.replace(/<[^>]+>/g, " ")
+    Keys.onSpacePressed: root.pinned = !root.pinned
+    Keys.onReturnPressed: root.pinned = !root.pinned
     implicitWidth: 18
     implicitHeight: 18
     radius: width / 2
     color: hover.hovered || pinned ? Theme.surface2 : "transparent"
-    border.color: hover.hovered || pinned ? Theme.textMuted : Theme.borderStrong
+    border.color: activeFocus ? Theme.focusRing : hover.hovered || pinned ? Theme.textMuted : Theme.borderStrong
+    border.width: activeFocus ? 2 : 1
 
     Text {
         anchors.centerIn: parent

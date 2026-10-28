@@ -14,17 +14,17 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 from sirat_ui.core.observable import Event
-from sirat_ui.core.registers import FieldDef, RegisterDef
 from sirat_ui.domains.annotations.service import AnnotationService
 from sirat_ui.domains.monitoring.subscription import WATCH_MAX_S, WATCH_MIN_S, WatchSubscription
 from sirat_ui.domains.registers.catalog import RegisterCatalog
 from sirat_ui.gateway.call import Call
 from sirat_ui.gateway.errors import ApiError
-from sirat_ui.gateway.models import ReadManyItem, WatchValues
-from sirat_ui.gateway.port import StationGateway
+from sirat_ui.gateway.port import RegistersPort
 from sirat_ui.gateway.scheduler import Handle, Scheduler
+from sirat_ui.models.registers import FieldDef, RegisterDef
+from sirat_ui.models.station import ReadManyItem, WatchValues
 from sirat_ui.shared.error_presenter import ErrorPresenter
-from sirat_ui.state.app_state import AppState
+from sirat_ui.state.station import StationState
 from sirat_ui.stores.formats import read_data_logger, write_data_logger
 from sirat_ui.stores.json_store import JsonStore
 
@@ -53,7 +53,7 @@ def uses_watch(rate_s: float) -> bool:
 
 
 class DataLoggerService:
-    def __init__(self, gateway: StationGateway, state: AppState, catalog: RegisterCatalog,
+    def __init__(self, gateway: RegistersPort, state: StationState, catalog: RegisterCatalog,
                  annotations: AnnotationService, store: JsonStore, errors: ErrorPresenter,
                  scheduler: Scheduler, clock: Callable[[], float] = time.time) -> None:
         self._gateway = gateway

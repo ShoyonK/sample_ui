@@ -45,7 +45,7 @@ Rectangle {
         Column {
             Text {
                 text: model.fullName
-                font.family: Theme.fontUi
+                font.family: Theme.fontMono
                 font.pixelSize: Theme.fontSm
                 color: Theme.textPrimary
             }

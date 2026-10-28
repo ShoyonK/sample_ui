@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional
 
-from sirat_ui.core.actions import describe_op, op_kind
+from sirat_ui.core.ops import describe_op, op_kind
 from sirat_ui.gateway.errors import ApiError, ErrorCode
-from sirat_ui.gateway.models import ActivityFinished, ActivityProgress
 from sirat_ui.gateway.scheduler import Scheduler
+from sirat_ui.models.station import ActivityFinished, ActivityProgress
 
 STEP_MS = 450
 
@@ -51,7 +51,7 @@ class FakeSequencer:
             return
         op = activity.ops[activity.step]
         self._emit(ActivityProgress(activity.activity_id, activity.position, activity.step + 1,
-                                    len(activity.ops), describe_op(op)))
+                                    len(activity.ops), describe_op(op), str(op.get("group", ""))))
         try:
             value = self._execute(activity.position, op)
             activity.results.append({"ok": True, "value": value, "kind": op_kind(op)})

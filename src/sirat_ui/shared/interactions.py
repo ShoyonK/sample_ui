@@ -6,52 +6,10 @@ DialogsViewModel implements it for the real UI; ScriptedInteractions answers in 
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import dataclass, field
 from typing import Any, Deque, Dict, List, Optional, Protocol, Tuple
 
 from sirat_ui.gateway.call import Call
-
-
-@dataclass
-class ConfirmRequest:
-    title: str
-    message: str
-    details: List[Tuple[str, str]] = field(default_factory=list)
-    warning: str = ""
-    confirm_text: str = "Confirm"
-    allow_dont_show: bool = False
-    tone: str = "warning"  # warning | danger | info
-
-
-@dataclass
-class ConfirmAnswer:
-    accepted: bool
-    dont_show_again: bool = False
-
-
-@dataclass
-class PromptField:
-    key: str
-    label: str
-    value: str = ""
-    placeholder: str = ""
-    options: List[str] = field(default_factory=list)  # non-empty: shown as a drop-down
-    multiline: bool = False
-
-
-@dataclass
-class PromptRequest:
-    title: str
-    fields: List[PromptField]
-    message: str = ""
-    confirm_text: str = "Save"
-
-
-@dataclass
-class Alert:
-    title: str
-    message: str
-    level: str = "warning"
+from sirat_ui.models.dialogs import Alert, ConfirmAnswer, ConfirmRequest, PromptRequest
 
 
 class InteractionService(Protocol):

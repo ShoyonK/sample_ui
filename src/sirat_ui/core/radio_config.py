@@ -10,8 +10,10 @@ import csv
 import io
 import re
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple, Union
+
+from sirat_ui.models.radio import ConfigEntry, RadioConfig
 
 _LINE = re.compile(r"^(?P<p>[A-Za-z_]\w*)\.(?P<r>[A-Za-z_]\w*)\.(?P<f>[A-Za-z_]\w*)\s*=\s*(?P<v>\S+)$")
 
@@ -19,34 +21,6 @@ MATCH, MISMATCH, ERROR = "match", "mismatch", "error"
 STATUS_TEXT = {MATCH: "✓ Match", MISMATCH: "⚠ Mismatch", ERROR: "❌ Error"}
 COLUMNS = ["peripheral", "register", "field", "expected", "actual", "status"]
 _STATUS_ORDER = {MISMATCH: 0, ERROR: 1, MATCH: 2}  # sorting by Status puts problems first
-
-
-@dataclass(frozen=True)
-class ConfigEntry:
-    peripheral: str
-    register: str
-    field: str
-    expected: int
-
-    @property
-    def register_name(self) -> str:
-        return f"{self.peripheral}.{self.register}"
-
-    @property
-    def path(self) -> str:
-        return f"{self.register_name}.{self.field}"
-
-
-@dataclass
-class RadioConfig:
-    name: str
-    entries: List[ConfigEntry] = field(default_factory=list)
-    skipped: List[str] = field(default_factory=list)  # "line 7: ..." for lines that aren't assignments
-
-    @property
-    def field_counts(self) -> Dict[str, int]:
-        """Fields per peripheral, in the order the peripherals first appear."""
-        return dict(Counter(e.peripheral for e in self.entries))
 
 
 def parse_config(text: str, name: str = "config") -> RadioConfig:

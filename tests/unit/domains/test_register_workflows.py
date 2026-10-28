@@ -3,7 +3,7 @@
 import pytest
 
 from sirat_ui.gateway.errors import ErrorCode
-from sirat_ui.shared.interactions import ConfirmAnswer
+from sirat_ui.models.dialogs import ConfirmAnswer
 
 
 @pytest.mark.req("5.auto-read")
@@ -66,7 +66,7 @@ def test_dont_show_again_skips_future_confirmations(harness):
     harness.shell.detail.write("0xF0F")
     harness.shell.detail.write("0xF07")
     assert len(harness.ix.confirms) == 1
-    assert harness.state.preferences.confirm_critical_writes is False
+    assert harness.prefs.value.confirm_critical_writes is False
 
 
 @pytest.mark.req("7.verify")
@@ -110,7 +110,7 @@ def test_display_format_applies_everywhere_and_persists(harness):
     harness.select("BUFC.LPMODE")
     harness.shell.detail.setFormatIndex(1)
     assert harness.shell.detail.valueText == "1"
-    assert harness.restart().state.preferences.value_format == "dec"
+    assert harness.restart().prefs.value.value_format == "dec"
 
 
 def test_write_only_registers_cannot_be_read(harness):

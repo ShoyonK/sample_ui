@@ -29,6 +29,7 @@ Rectangle {
         width: clearLabel.implicitWidth + 16
         height: 20
         hoverEnabled: true
+        Accessible.name: "Clear " + panel.title
         onClicked: panel.clearRequested()
         background: Rectangle { radius: 4; color: parent.hovered ? "#2A2A2A" : "transparent" }
         contentItem: Text {

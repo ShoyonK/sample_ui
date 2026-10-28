@@ -9,7 +9,7 @@ import "../components"
 ModalDialog {
     id: dialog
     objectName: "dumpPicker"
-    readonly property var vm: app.dumps
+    readonly property var vm: app.dumpPicker
 
     visible: vm.pickerOpen
     dialogWidth: 440

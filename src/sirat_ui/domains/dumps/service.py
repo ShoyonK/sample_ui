@@ -14,14 +14,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
 
-from sirat_ui.core.dumps import Comparison, RegisterDump, compare, read_csv, write_csv
+from sirat_ui.core.dumps import compare, read_csv, write_csv
 from sirat_ui.core.observable import Event
-from sirat_ui.core.radio_config import ERROR, MATCH, MISMATCH, FieldResult, RadioComparison, RadioConfig
-from sirat_ui.core.registers import RegisterDef
+from sirat_ui.core.radio_config import ERROR, FieldResult, MATCH, MISMATCH, RadioComparison
 from sirat_ui.domains.logs.service import LogService
 from sirat_ui.domains.registers.catalog import RegisterCatalog
 from sirat_ui.domains.registers.service import RegisterService
 from sirat_ui.gateway.errors import ApiError, ErrorCode
+from sirat_ui.models.dumps import Comparison, RegisterDump
+from sirat_ui.models.radio import RadioConfig
+from sirat_ui.models.registers import RegisterDef
 
 MAX_DUMPS = 50  # req 12: "Limit to prevent unbounded growth"
 _STOP_CODES = (ErrorCode.DUT_DISCONNECTED, ErrorCode.WRONG_STATE)

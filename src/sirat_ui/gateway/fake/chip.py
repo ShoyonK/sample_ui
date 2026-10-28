@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import List, Sequence, Tuple
 
-from sirat_ui.core.registers import AccessType, EnumValue, FieldDef, PeripheralDef, RegisterDef
+from sirat_ui.models.registers import AccessType, EnumValue, FieldDef, PeripheralDef, RegisterDef
 
 RO, WO, RW = AccessType.READ_ONLY, AccessType.WRITE_ONLY, AccessType.READ_WRITE
 

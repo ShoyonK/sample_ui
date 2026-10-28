@@ -8,7 +8,8 @@ NavRailForm {
     pagesRepeater.delegate: NavButton {
         pageKey: modelData.key
         iconName: modelData.icon
-        tip: modelData.title + (modelData.ready ? "" : " (planned)")
+        label: modelData.label
+        tip: modelData.title + (modelData.ready ? "" : " (planned)") + " · " + app.palette.shortcutMap["page:" + modelData.key]
         ready: modelData.ready
         current: app.currentPage === modelData.key
         poppedOut: popped(modelData.key)
@@ -19,7 +20,7 @@ NavRailForm {
         onDockRequested: app.windows.close("page:" + modelData.key)
     }
     settingsButton.current: app.currentPage === "settings"
-    settingsButton.tip: "Settings"
+    settingsButton.tip: "Settings · " + app.palette.shortcutMap["page:settings"]
     settingsButton.poppedOut: popped("settings")
     settingsButton.onClicked: { app.navigate("settings"); app.windows.show("page:settings") }
     settingsButton.onPopOutRequested: app.windows.open("page", "settings")

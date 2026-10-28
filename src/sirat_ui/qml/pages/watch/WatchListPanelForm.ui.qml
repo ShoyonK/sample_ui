@@ -4,15 +4,18 @@ import QtQuick.Layouts 1.15
 import "../../theme"
 import "../../components"
 
-// Req 18 Watch List: refresh rate, live/pause, add to logger, the watched fields. Can open in its own window.
+// Req 18 Watch List: refresh rate and Live | Paused, then actions. Selection actions appear only while rows are
+// selected, so the toolbar shows what applies now. Can open in its own window.
 Card {
     id: root
     width: 1000
     height: 760
 
     property alias intervalField: intervalField
-    property alias livePill: livePill
-    property alias liveButton: liveButton
+    property alias liveToggle: liveToggle
+    property alias densityToggle: densityToggle
+    property alias selectionGroup: selectionGroup
+    property alias selectionLabel: selectionLabel
     property alias refreshButton: refreshButton
     property alias addAllButton: addAllButton
     property alias addSelectedButton: addSelectedButton
@@ -28,23 +31,31 @@ Card {
 
         CardHeader {
             title: "Watch list"
-            meta: "refresh every (s)"
             Layout.fillWidth: true
+            Text { text: "Every"; height: 24; verticalAlignment: Text.AlignVCenter; font.pixelSize: Theme.fontSm; color: Theme.textMuted }
             AppTextField {
                 id: intervalField
                 objectName: "watchIntervalField"
+                Accessible.name: "Refresh interval in seconds"
                 mono: true
                 selectOnFocus: true
                 width: 64
                 implicitHeight: 24
                 text: "1.0"
             }
-            StatusPill { id: livePill; compact: true; text: "Live"; level: "ok" }
-            AppButton { id: liveButton; objectName: "watchLiveButton"; text: "Pause"; iconName: "pause"; small: true }
+            Text { text: "s"; height: 24; verticalAlignment: Text.AlignVCenter; font.pixelSize: Theme.fontSm; color: Theme.textMuted }
+            SegmentedControl { id: liveToggle; objectName: "watchLiveToggle"; small: true; model: ["Live", "Paused"]; tones: ["ok", ""]; currentIndex: 1 }
             AppButton { id: refreshButton; objectName: "watchRefreshButton"; text: "Refresh once"; iconName: "refresh"; small: true }
-            AppButton { id: deleteSelectedButton; objectName: "watchDeleteSelectedButton"; text: "Delete selected"; iconName: "delete"; small: true }
-            AppButton { id: addSelectedButton; objectName: "watchAddSelectedButton"; text: "Add selected to logger"; iconName: "chart"; small: true }
+            Rectangle { width: 1; height: 18; y: 3; color: Theme.border }
+            Row {
+                id: selectionGroup
+                spacing: Theme.s2
+                Text { id: selectionLabel; text: "2 selected"; font.pixelSize: Theme.fontSm; color: Theme.textPrimary; anchors.verticalCenter: parent.verticalCenter }
+                AppButton { id: addSelectedButton; objectName: "watchAddSelectedButton"; text: "Add to logger"; iconName: "chart"; small: true }
+                AppButton { id: deleteSelectedButton; objectName: "watchDeleteSelectedButton"; text: "Remove"; iconName: "delete"; small: true }
+            }
             AppButton { id: addAllButton; objectName: "watchAddAllButton"; text: "Add all to logger"; iconName: "chart"; small: true; variant: "primary" }
+            IconButton { id: densityToggle; objectName: "watchDensityToggle"; iconName: "textSize"; tip: "Large values, readable from the bench" }
             IconButton { id: clearButton; objectName: "watchClearButton"; iconName: "delete"; tip: "Clear all" }
             IconButton { id: popOutButton; objectName: "watchPopOutButton"; iconName: "export"; tip: "Open the watch list in its own window" }
         }

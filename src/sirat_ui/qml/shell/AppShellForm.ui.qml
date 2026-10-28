@@ -14,6 +14,7 @@ Item {
     property alias pageHost: pageHost
     property alias bottomDock: bottomDock
     property alias statusBar: statusBar
+    property bool dockCollapsed: false
 
     ColumnLayout {
         anchors.fill: parent
@@ -59,8 +60,10 @@ Item {
 
                 BottomDock {
                     id: bottomDock
+                    // collapsed, the dock is exactly the strip's height and the page takes the rest
                     SplitView.preferredHeight: 230
-                    SplitView.minimumHeight: 120
+                    SplitView.minimumHeight: root.dockCollapsed ? bottomDock.stripHeight : 120
+                    SplitView.maximumHeight: root.dockCollapsed ? bottomDock.stripHeight : 100000
                 }
             }
         }

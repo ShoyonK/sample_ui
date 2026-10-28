@@ -1,6 +1,5 @@
 import QtQuick 2.15
 import "../components"
-import "PageSources.js" as PageSources
 
 // One page slot in the main window. The page loads the first time it's opened (req 2: lazy) and stays alive.
 // While the page is open in its own window it's unloaded here and a placeholder takes its place.
@@ -19,7 +18,7 @@ Item {
         objectName: "page_" + slot.key
         anchors.fill: parent
         active: slot.visited && !slot.poppedOut
-        source: PageSources.sourceFor(slot.key)
+        source: Qt.resolvedUrl(app.pageSource(slot.key))
     }
 
     PoppedOutPlaceholder {

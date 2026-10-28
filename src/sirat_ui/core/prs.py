@@ -3,8 +3,9 @@ operations a removed route is recorded as in History."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
+
+from sirat_ui.models.radio import Signal
 
 PINS = [f"P{port}{n}" for port in "ABCD" for n in range(8)]
 CHANNELS = list(range(12))
@@ -20,16 +21,6 @@ FALLBACK_SIGNALS: Dict[str, List[str]] = {
 }
 
 CONSTRAINT_TEXT = "Ports A/B can only use PRS channels 0-5. Ports C/D can only use PRS channels 6-11."
-
-
-@dataclass(frozen=True)
-class Signal:
-    name: str
-    category: str = ""
-
-    @property
-    def label(self) -> str:
-        return f"{self.name}  ({self.category})" if self.category else self.name
 
 
 def fallback_signals() -> List[Signal]:

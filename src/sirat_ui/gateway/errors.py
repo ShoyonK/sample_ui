@@ -17,7 +17,6 @@ class ErrorCode(str, Enum):
     READ_SENSITIVE = "read_sensitive"
     ACCESS_DENIED = "access_denied"
     OUT_OF_RANGE = "out_of_range"
-    VERIFY_FAILED = "verify_failed"
     NOT_FOUND = "not_found"
     DUT_DISCONNECTED = "dut_disconnected"
     INSTRUMENT_ERROR = "instrument_error"

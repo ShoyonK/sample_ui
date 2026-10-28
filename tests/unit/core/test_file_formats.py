@@ -62,9 +62,9 @@ def test_new_stores_start_in_the_original_shapes(tmp_path):
 
 def test_app_writes_original_formats_to_disk(harness):
     harness.select("GPIO.PA_DOUT")
-    harness.shell.detail.toggleFavorite()
-    harness.shell.detail.addToWatch(0)
-    harness.shell.detail.addToLogger(0)
+    harness.shell.registerShortcuts.toggleFavorite()
+    harness.shell.registerShortcuts.addToWatch(harness.shell.detail.fields.get(0)["fullName"])
+    harness.shell.registerShortcuts.addToLogger(harness.shell.detail.fields.get(0)["fullName"])
     harness.shell.watch.setIntervalText("2.5")
     home = harness.home
     assert "GPIO.PA_DOUT" in json.loads((home / ".sirat_favorites.json").read_text())["favorites"]
@@ -99,7 +99,7 @@ def test_formulas_written_by_earlier_builds_still_load():
 
 def test_app_saves_formulas_in_the_original_format(harness):
     harness.select("GPIO.PA_DOUT")
-    harness.shell.detail.editFormula(0)
+    harness.shell.registerShortcuts.editFormula(harness.shell.detail.fields.get(0)["fullName"])
     harness.shell.formulaEditor.setExpr("x * 3.3 / 4096")
     harness.shell.formulaEditor.setUnit("V")
     harness.shell.formulaEditor.save()

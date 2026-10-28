@@ -14,9 +14,9 @@ from PyQt5.QtCore import QObject, QTimer, pyqtSignal, pyqtSlot
 
 from sirat_ui.core.highlight import highlight_python
 from sirat_ui.gateway.call import Call
-from sirat_ui.shared.interactions import Alert, ConfirmAnswer, ConfirmRequest, PromptRequest
-from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, copy_to_clipboard, qprop
+from sirat_ui.models.dialogs import Alert, ConfirmAnswer, ConfirmRequest, PromptRequest
 from sirat_ui.shared.qt import pyqtProperty
+from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, copy_to_clipboard, qprop
 
 TOAST_MS = 3500
 

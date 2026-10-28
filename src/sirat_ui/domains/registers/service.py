@@ -9,26 +9,31 @@ from __future__ import annotations
 from typing import Dict, Optional
 
 from sirat_ui.core.observable import Event
-from sirat_ui.core.registers import FieldDef, RegisterDef
+from sirat_ui.domains.history.service import HistoryLog
+from sirat_ui.domains.logs.service import LogService
 from sirat_ui.gateway.call import Call
 from sirat_ui.gateway.errors import ApiError, ErrorCode
-from sirat_ui.gateway.models import WriteResult
-from sirat_ui.gateway.port import StationGateway
+from sirat_ui.gateway.port import RegistersPort
+from sirat_ui.models.dialogs import ConfirmAnswer, ConfirmRequest
+from sirat_ui.models.registers import FieldDef, RegisterDef
+from sirat_ui.models.station import WriteResult
 from sirat_ui.shared.error_presenter import ErrorPresenter
-from sirat_ui.domains.history.service import HistoryLog
-from sirat_ui.shared.interactions import ConfirmAnswer, ConfirmRequest, InteractionService
-from sirat_ui.domains.logs.service import LogService
-from sirat_ui.state.app_state import AppState
+from sirat_ui.shared.interactions import InteractionService
+from sirat_ui.state.preferences import PreferencesState
+from sirat_ui.state.station import StationState
+from sirat_ui.state.status import StatusLine
 
 CRITICAL_WARNING = ("This is a critical peripheral. Writing incorrect values may cause device lockup "
                     "or debug access loss.")
 
 
 class RegisterService:
-    def __init__(self, gateway: StationGateway, state: AppState, history: HistoryLog,
+    def __init__(self, gateway: RegistersPort, state: StationState, prefs: PreferencesState, status: StatusLine, history: HistoryLog,
                  interactions: InteractionService, errors: ErrorPresenter, log: LogService) -> None:
         self._gateway = gateway
         self._state = state
+        self._prefs = prefs
+        self._status = status
         self._history = history
         self._interactions = interactions
         self._errors = errors
@@ -71,11 +76,11 @@ class RegisterService:
             self._store(reg.full_name, value)
             if manual:
                 self._history.record("READ", reg.full_name, value)
-            self._state.set_status_message(f"{reg.full_name} @ 0x{reg.address:08X} · read ok")
+            self._status.set(f"{reg.full_name} @ 0x{reg.address:08X} · read ok")
             out.resolve(value)
 
         def failed(error: ApiError) -> None:
-            self._state.set_status_message(f"{reg.full_name} @ 0x{reg.address:08X} · read failed")
+            self._status.set(f"{reg.full_name} @ 0x{reg.address:08X} · read failed")
             if quiet:
                 self._log.warning(f"Read {reg.full_name}: {error.message}")
             else:
@@ -114,7 +119,7 @@ class RegisterService:
     def _write(self, reg: RegisterDef, field: Optional[FieldDef], value: int) -> Call:
         out: Call = Call()
         target = field.full_name if field else reg.full_name
-        preconfirmed = reg.critical and not self._state.preferences.confirm_critical_writes
+        preconfirmed = reg.critical and not self._prefs.value.confirm_critical_writes
 
         def attempt(confirm: bool) -> None:
             pos = self._state.position
@@ -132,16 +137,19 @@ class RegisterService:
 
         def done(result: WriteResult) -> None:
             record(result.readback)
+            if not result.verified:
+                self._errors.verify_mismatch(target, result.written, result.readback)
+                self._status.set(f"{target} @ 0x{reg.address:08X} · read-back differs")
+                out.resolve(result)
+                return
             self._log.success(f"Wrote {target} = 0x{value:X} · verified")
-            self._state.set_status_message(f"{target} @ 0x{reg.address:08X} · write ok")
+            self._status.set(f"{target} @ 0x{reg.address:08X} · write ok")
             out.resolve(result)
 
         def failed(error: ApiError) -> None:
             if error.code == ErrorCode.CONFIRMATION_REQUIRED:
                 self._interactions.confirm(self._confirm_request(reg, field, value)).then(answered)
                 return
-            if error.code == ErrorCode.VERIFY_FAILED and "readback" in error.data:
-                record(int(error.data["readback"]))
             self._errors.present(error, f"Write {target}")
             out.reject(error)
 
@@ -151,7 +159,7 @@ class RegisterService:
                 out.reject(ApiError(ErrorCode.ABORTED, "Write cancelled"))
                 return
             if answer.dont_show_again:
-                self._state.update_preferences(confirm_critical_writes=False)
+                self._prefs.update(confirm_critical_writes=False)
             attempt(True)
 
         attempt(preconfirmed)

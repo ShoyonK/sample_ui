@@ -1,5 +1,7 @@
 # API change: WiFi PHY config, load_phy result, and PRS signal list
 
+> **Superseded** by [API_DESIGN.md](API_DESIGN.md) (revision 2), which folds this proposal in. Kept for the reasoning.
+
 Status: proposed by the frontend. The fake backend implements it; the real Station API doesn't yet.
 
 ## Why
@@ -61,5 +63,5 @@ checks first and shows req 24's warning.
 ## Frontend side
 
 - Typed models: `LpwPhy`, `WifiPhy`, `LoadPhyResult`, `PrsRoute`, `PrsSignalCatalog` in
-  `src/sirat_ui/gateway/models.py`; `WifiPhyConfig` in `src/sirat_ui/core/wifi.py`.
+  `src/sirat_ui/models/station.py`; `WifiPhyConfig` in `src/sirat_ui/models/radio.py`.
 - Port: `StationGateway.load_phy`, `prs_route`, `prs_signals` in `src/sirat_ui/gateway/port.py`.

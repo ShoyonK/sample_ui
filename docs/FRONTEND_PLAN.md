@@ -78,6 +78,19 @@ flowchart TB
 
 ## 3. Project layout
 
+
+### Design rules (enforced by tests/unit/test_architecture.py unless noted)
+
+- Services depend on the gateway area they use (`gateway/port.py`); only `app/` and `gateway/` see `StationGateway`.
+- ViewModels reach the station only through services. Services report unexpected station failures through
+  `ErrorPresenter`; ViewModels show results inline and toast only input and file problems.
+- `models/` imports only the standard library and other models.
+- One way to declare a Qt property: `qprop(...)` for stored values, `@pyqtProperty` for computed ones.
+- An operation kind is defined once, in `core/ops.py`; tests check its file schema and theme color exist.
+- A page is one row in `domains/shell/pages.py` plus its ViewModels registered in the container; the shell
+  turns each registered ViewModel into `app.<name>` (convention, not a test).
+- Pages that offer "Add to Actions" depend on `ActionRecorder`, not the whole `ActionService` (convention).
+
 ```
 Sample_UI/
 ├── pyproject.toml                 # python = "==3.10.5", PyQt5 pinned
@@ -88,26 +101,36 @@ Sample_UI/
 │   ├── __main__.py                # python -m sirat_ui --backend fake
 │   ├── app/
 │   │   ├── application.py         # Application (bootstrap / composition root)
-│   │   ├── container.py           # ServiceContainer: builds and holds services + VMs
+│   │   ├── container.py           # ServiceContainer: builds services, then VMs one area at a time
+│   │   ├── commands.py            # the Ctrl+K command list
 │   │   ├── launch.py              # launch_viewer(), launch_viewer_async() (req §1)
 │   │   └── qml_setup.py           # fonts, import paths, context property
-│   ├── state/
-│   │   ├── app_state.py           # AppState
-│   │   └── preferences.py         # Preferences (format, auto-read, _NS/_S filter ...)
+│   ├── models/                    # shared dataclasses; imports only stdlib and each other (enforced)
+│   │   ├── registers.py           # RegisterDef, FieldDef, AccessType, ChipInfo, SearchResult
+│   │   ├── facts.py               # PositionFacts, InstrumentFacts
+│   │   ├── station.py             # Station API results and events
+│   │   ├── actions.py, radio.py, instruments.py, dumps.py, memory.py, dialogs.py, settings.py
+│   ├── state/                     # each store has its own change event
+│   │   ├── station.py             # StationState: facts, position, chips, instruments, requires checks
+│   │   ├── selection.py           # SelectionState: the open register or peripheral
+│   │   ├── preferences.py         # PreferencesState
+│   │   └── status.py              # StatusLine: the status bar message
 │   ├── core/                      # pure Python, no Qt imports (enforced by a test)
-│   │   ├── registers.py           # RegisterDef, FieldDef, AccessType (frontend models)
 │   │   ├── bits.py                # extract/insert field, bit toggle
 │   │   ├── formatting.py          # parse/format hex/dec/bin
 │   │   ├── search.py              # peripheral/register/field matching (req §6)
 │   │   ├── requires.py            # RequiresChecker: mirrors server check_requires
 │   │   ├── formula.py             # safe formula evaluator ('x' only)
-│   │   ├── actions.py             # Action/Op models + legacy format migration
+│   │   ├── ops.py                 # one OpKind per operation kind: description, code, wire, flags
+│   │   ├── actions.py             # action summaries + legacy format migration
+│   │   ├── naming.py              # load_phy, load_phy_2 ... for saved names
 │   │   └── codegen.py             # Python code generation templates (req §16)
 │   ├── gateway/
-│   │   ├── port.py                # StationGateway protocol, Call, event types
+│   │   ├── port.py                # one interface per API area (RegistersPort ...); StationGateway = all
+│   │   ├── activities.py          # ActivityTracker: routes activity events to whoever started them
 │   │   ├── errors.py              # ApiError, ErrorCode (mirrors API doc)
 │   │   ├── fake/
-│   │   │   ├── fake_station.py    # FakeStationGateway
+│   │   │   ├── fake_station.py    # FakeStationGateway; composes FakeBench and FakeAdvanced
 │   │   │   ├── scenarios.py       # named fault/latency scenarios
 │   │   │   └── fixtures/chip_small.json
 │   │   └── api/                   # ApiStationGateway (when backend exists)

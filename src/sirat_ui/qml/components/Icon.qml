@@ -16,7 +16,7 @@ Text {
         code: "", save: "", download: "", upload: "", add: "",
         close: "", edit: "", warning: "", check: "", plug: "",
         moon: "", sun: "", up: "", down: "", info: "",
-        error: "", fold: "", next: "", export: "", erase: ""
+        error: "", fold: "", next: "", export: "", erase: "", textSize: ""
     })
 
     text: glyphs[name] || ""
