@@ -55,11 +55,11 @@ sections of `sirat_requirements.txt`.
 ## Build the executable
 
 ```bash
-uv run pyinstaller packaging/sirat.spec --noconfirm
+uv run python build_exe.py
 ```
 
-This produces `dist/SiRAT/SiRAT.exe`. Ship the whole `dist/SiRAT` folder. For a single file, set
-`ONEFILE = True` in the spec; it starts slower because it unpacks itself on every launch.
+This produces `dist/SiRAT.exe`, a single file that needs no Python or Qt installed. The bundle carries only the Qt
+the app uses, so a new QML import has to be added to `KEEP` in `packaging/sirat.spec`.
 
 ## Layout
 
