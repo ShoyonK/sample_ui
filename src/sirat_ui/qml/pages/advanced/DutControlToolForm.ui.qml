@@ -90,7 +90,7 @@ RowLayout {
                     monoTitle: true
                     Layout.fillWidth: true
                     AppButton { id: addButton; objectName: "apiAddToActionsButton"; text: "Add to Actions"; iconName: "bolt"; small: true }
-                    AppButton { id: executeButton; objectName: "apiExecuteButton"; text: "Execute"; iconName: "play"; small: true; variant: "primary" }
+                    AppButton { id: executeButton; objectName: "apiExecuteButton"; text: "Execute"; iconName: "play"; small: true; variant: "run" }
                 }
                 ScrollView {
                     id: detailScroll

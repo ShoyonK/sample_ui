@@ -70,9 +70,11 @@ AbstractButton {
         Icon { anchors.centerIn: parent; name: "export"; size: 8; color: Theme.infoFg }
     }
 
-    TapHandler {
+    // A MouseArea, not a TapHandler: with a TapHandler the button still sees the right-click and fires clicked.
+    MouseArea {
+        anchors.fill: parent
         acceptedButtons: Qt.RightButton
-        onTapped: menu.popup()
+        onClicked: menu.popup(mouse.x, mouse.y)
     }
 
     AppMenu {

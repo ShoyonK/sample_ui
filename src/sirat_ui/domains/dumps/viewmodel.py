@@ -45,10 +45,11 @@ class DumpsViewModel(BaseViewModel):
 
     def __init__(self, service: DumpService, catalog: RegisterCatalog, state: StationState, prefs: PreferencesState,
                  interactions: InteractionService, picker: PeripheralPickerViewModel,
-                 progress: DumpProgressViewModel, comparison: ComparisonViewModel,
+                 progress: DumpProgressViewModel, comparison: ComparisonViewModel, samples_dir: Path,
                  parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._service = service
+        self._samples_dir = samples_dir
         self._catalog = catalog
         self._state = state
         self._prefs = prefs
@@ -208,12 +209,14 @@ class DumpsViewModel(BaseViewModel):
     @pyqtSlot()
     def compareFiles(self) -> None:  # noqa: N802
         """Req 12 Compare Dumps: two file dialogs, then the comparison."""
+        folder = self._service.directory
+
         def second(first: Optional[str]) -> None:
             if first:
-                self._interactions.choose_open_file("Select the second dump", CSV_FILTER).then(
+                self._interactions.choose_open_file("Select the second dump", CSV_FILTER, folder).then(
                     lambda path: path and self._compare(Path(first), Path(path)))
 
-        self._interactions.choose_open_file("Select the first dump", CSV_FILTER).then(second)
+        self._interactions.choose_open_file("Select the first dump", CSV_FILTER, folder).then(second)
 
     def _compare(self, first: Path, second: Path) -> None:
         try:
@@ -222,8 +225,10 @@ class DumpsViewModel(BaseViewModel):
             self._interactions.alert(Alert("Couldn't compare the dumps", str(exc), "error"))
 
     def _comparison_done(self, result: Optional[Comparison]) -> None:
-        if result is not None:  # None: cancelled or stopped
+        if result is not None:
             self._comparison.show(result)
+        else:
+            self._explain_stop()
 
     # ---- Radio Calculator diff (req 21) ------------------------------------------------------------
 
@@ -251,7 +256,7 @@ class DumpsViewModel(BaseViewModel):
                                                     f"that aren't PERIPHERAL.REGISTER.FIELD = value")
             self._open_radio_picker(config)
 
-        self._interactions.choose_open_file("Select a Radio Calculator config", CFG_FILTER).then(chosen)
+        self._interactions.choose_open_file("Select a Radio Calculator config", CFG_FILTER, self._samples_dir).then(chosen)
 
     def _open_radio_picker(self, config: RadioConfig) -> None:
         fields = config.field_counts
@@ -266,3 +271,13 @@ class DumpsViewModel(BaseViewModel):
     def _radio_done(self, result: Optional[RadioComparison]) -> None:
         if result is not None:
             self._comparison.show_radio(result)
+        else:
+            self._explain_stop()
+
+    def _explain_stop(self) -> None:
+        """A comparison came back empty: cancelled, or stopped part way (the DUT went away, say)."""
+        job = self._service.job
+        if job is not None and job.stopped_reason:
+            self._interactions.alert(Alert("Comparison stopped", f"The comparison stopped: {job.stopped_reason}.", "error"))
+        else:
+            self._interactions.toast("info", "Comparison cancelled")

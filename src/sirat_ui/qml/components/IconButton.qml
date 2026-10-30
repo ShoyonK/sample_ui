@@ -7,6 +7,7 @@ AbstractButton {
     property string iconName: ""
     property string tip: ""
     property color iconColor: Theme.textMuted
+    property color iconHoverColor: Theme.textPrimary
     property int iconSize: 14
     property bool active: false   // a toggle that's on (e.g. Large values)
 
@@ -23,7 +24,7 @@ AbstractButton {
     contentItem: Icon {
         name: control.iconName
         size: control.iconSize
-        color: control.hovered || control.active ? Theme.textPrimary : control.iconColor
+        color: control.hovered || control.active ? control.iconHoverColor : control.iconColor
     }
     background: Rectangle {
         radius: Theme.radiusSm

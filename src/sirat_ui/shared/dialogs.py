@@ -95,8 +95,8 @@ class DialogsViewModel(BaseViewModel):
     def choose_save_file(self, title: str, suggested: str, filters: str) -> Optional[str]:
         return self._chooser(title, suggested, filters)
 
-    def choose_open_file(self, title: str, filters: str) -> Optional[str]:
-        return self._opener(title, filters)
+    def choose_open_file(self, title: str, filters: str, start_dir: Optional[Path] = None) -> Optional[str]:
+        return self._opener(title, filters, start_dir)
 
     def show_code_dialog(self, title: str, code: str) -> None:
         self._code_raw = code
@@ -184,8 +184,8 @@ class QmlInteractions:
     def show_code(self, title: str, code: str) -> None:
         self._dialogs.show_code_dialog(title, code)
 
-    def choose_open_file(self, title: str, filters: str) -> Call:
-        return Call.succeeded(self._dialogs.choose_open_file(title, filters))
+    def choose_open_file(self, title: str, filters: str, start_dir: Optional[Path] = None) -> Call:
+        return Call.succeeded(self._dialogs.choose_open_file(title, filters, start_dir))
 
 
 def _native_save_dialog(title: str, suggested: str, filters: str) -> Optional[str]:
@@ -195,8 +195,9 @@ def _native_save_dialog(title: str, suggested: str, filters: str) -> Optional[st
     return path or None
 
 
-def _native_open_dialog(title: str, filters: str) -> Optional[str]:
+def _native_open_dialog(title: str, filters: str, start_dir: Optional[Path] = None) -> Optional[str]:
     """The Windows open dialog. Modal; returns None when cancelled."""
     from PyQt5.QtWidgets import QFileDialog
-    path, _ = QFileDialog.getOpenFileName(None, title, str(Path.home()), filters)
+    folder = start_dir if start_dir is not None and start_dir.is_dir() else Path.home()
+    path, _ = QFileDialog.getOpenFileName(None, title, str(folder), filters)
     return path or None

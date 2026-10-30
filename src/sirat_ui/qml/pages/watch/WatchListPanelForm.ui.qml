@@ -44,7 +44,7 @@ Card {
                 text: "1.0"
             }
             Text { text: "s"; height: 24; verticalAlignment: Text.AlignVCenter; font.pixelSize: Theme.fontSm; color: Theme.textMuted }
-            SegmentedControl { id: liveToggle; objectName: "watchLiveToggle"; small: true; model: ["Live", "Paused"]; tones: ["ok", ""]; currentIndex: 1 }
+            SegmentedControl { id: liveToggle; objectName: "watchLiveToggle"; small: true; model: ["Live", "Paused"]; tones: ["ok", ""]; invites: [true, false]; currentIndex: 1 }
             AppButton { id: refreshButton; objectName: "watchRefreshButton"; text: "Refresh once"; iconName: "refresh"; small: true }
             Rectangle { width: 1; height: 18; y: 3; color: Theme.border }
             Row {

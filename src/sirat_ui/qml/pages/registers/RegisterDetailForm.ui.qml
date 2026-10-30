@@ -61,7 +61,7 @@ Item {
                 }
                 Chip {
                     id: accessChip
-                    text: "RW"
+                    text: "Read/Write"
                     tone: "ok"
                 }
                 Text {

@@ -11,6 +11,7 @@ Rectangle {
     property var checkedStates: []
     property bool small: false
     property var tones: []   // optional per-option tone ("ok", "warn" ...) for the lit option, e.g. Live in green
+    property var invites: []  // options that start something: solid run color until lit, e.g. Live while paused
     signal activated(int index)
 
     implicitWidth: row.implicitWidth + 2
@@ -30,6 +31,7 @@ Rectangle {
                 id: segment
                 objectName: "segment_" + modelData
                 readonly property bool on: root.multi ? !!root.checkedStates[index] : index === root.currentIndex
+                readonly property bool inviting: !on && !!root.invites[index]
                 height: row.height
                 implicitWidth: label.implicitWidth + (root.small ? 16 : 20)
                 hoverEnabled: true
@@ -42,7 +44,8 @@ Rectangle {
                 onClicked: root.activated(index)
                 background: Rectangle {
                     color: segment.on ? (root.tones[index] ? Theme.toneBg(root.tones[index]) : Theme.select)
-                                      : (segment.hovered ? Theme.surface2 : "transparent")
+                         : segment.inviting ? (segment.hovered ? Theme.runBgHover : Theme.runBg)
+                         : (segment.hovered ? Theme.surface2 : "transparent")
                     border.width: segment.visualFocus ? 2 : 0
                     border.color: Theme.focusRing
                     Rectangle {
@@ -61,7 +64,7 @@ Rectangle {
                     font.pixelSize: root.small ? Theme.fontXs : Theme.fontSm
                     font.weight: Font.DemiBold
                     color: segment.on ? (root.tones[index] ? Theme.toneFg(root.tones[index]) : Theme.textPrimary)
-                                      : Theme.textMuted
+                         : segment.inviting ? Theme.runText : Theme.textMuted
                 }
             }
         }

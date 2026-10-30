@@ -68,6 +68,8 @@ def main() -> int:
     shell.logger.toggleRecording()
     pump(app, 4500)
     grab(app, args.out / "02_watch_logger.png")
+    shell.watch.toggleLive()
+    shell.logger.toggleRecording()
 
     shell.navigate("sequences")
     shell.sequences.run()

@@ -16,6 +16,12 @@ def qml_dir() -> Path:
     return package_dir() / "qml"
 
 
+def samples_dir() -> Path:
+    """Sample files for trying features out: docs/samples from source, samples/ in a PyInstaller bundle."""
+    base = getattr(sys, "_MEIPASS", None)
+    return Path(base) / "samples" if base else package_dir().parent.parent / "docs" / "samples"
+
+
 def default_home(backend: str) -> Path:
     """The fake backend keeps its data in a demo folder so it never touches real SiRAT settings."""
     home = Path.home()

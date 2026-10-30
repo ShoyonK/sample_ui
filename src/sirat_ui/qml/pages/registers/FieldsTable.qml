@@ -15,7 +15,7 @@ Item {
     signal formulaClicked(int row)
 
     readonly property var columns: ({
-        bits: 50, name: 150, access: 64, value: 84, enumName: 110,
+        bits: 50, name: 150, access: 104, value: 84, enumName: 110,
         calc: showCalculated ? 120 : 0, actions: 92, notes: 210
     })
     readonly property real descWidth: Math.max(160, width - 24 - columns.bits - columns.name - columns.access

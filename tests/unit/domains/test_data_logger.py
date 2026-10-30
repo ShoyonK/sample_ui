@@ -105,3 +105,84 @@ def test_clear_resets_samples_and_zoom(harness):
     vm.clear()
     assert vm.sampleCount == 0 and vm.zoomStart == -1
     assert all(r["points"] == [] for r in vm.series.items)
+
+
+def fill(h, n):
+    series = logger(h).series[0]
+    series.samples[:] = list(range(n))
+    series.values[:] = [float(i % 10) for i in range(n)]
+    series.values[n // 2] = 999.0      # one spike
+    h.shell.logger._rebuild()
+    return h.shell.logger.series.items[0]
+
+
+def test_a_long_run_sends_the_plots_a_thin_copy_but_keeps_every_sample(harness):
+    row = fill(harness, 5000)
+    assert len(row["points"]) <= 802 and 999.0 in row["points"]        # spikes survive thinning
+    assert row["samples"][0] == 0 and row["samples"][-1] == 4999
+    assert len(logger(harness).series[0].values) == 5000
+
+
+def test_zooming_in_shows_full_detail_of_that_range(harness):
+    fill(harness, 5000)
+    harness.shell.logger.zoomTo(1000, 1100)
+    row = harness.shell.logger.series.items[0]
+    assert row["samples"] == list(range(999, 1102))
+    harness.shell.logger.resetZoom()
+    assert harness.shell.logger.series.items[0]["samples"][-1] == 4999
+
+
+def start_both(h):
+    h.shell.navigate("watch")
+    h.shell.watch.toggleLive()
+    h.shell.logger.toggleRecording()
+    assert h.services.watch.live and logger(h).recording
+
+
+def test_leaving_the_watch_page_stops_the_watch_list_and_the_logger(harness):
+    start_both(harness)
+    harness.scheduler.advance(2000)
+    samples = logger(harness).sample_count
+    harness.shell.navigate("registers")
+    assert not harness.services.watch.live and not logger(harness).recording
+    assert harness.ix.toasts[-1] == ("info", "Watch list paused and data logger stopped. Your data is kept.")
+    assert harness.fake.calls_to("registers.unwatch")
+    harness.scheduler.advance(2000)
+    assert logger(harness).sample_count == samples > 0                 # stopped, and nothing was thrown away
+
+
+def test_coming_back_does_not_restart_them(harness):
+    start_both(harness)
+    harness.shell.navigate("registers")
+    harness.shell.navigate("watch")
+    assert not harness.services.watch.live and not logger(harness).recording
+
+
+def test_moving_around_with_nothing_running_stays_quiet(harness):
+    harness.shell.navigate("watch")
+    harness.shell.navigate("registers")
+    assert harness.ix.toasts == []
+
+
+def test_a_popped_out_watch_page_keeps_running_until_its_window_closes(harness):
+    start_both(harness)
+    harness.shell.windows.open("page", "watch")
+    harness.shell.navigate("registers")
+    assert harness.services.watch.live and logger(harness).recording
+    harness.shell.windows.close("page:watch")
+    assert not harness.services.watch.live and not logger(harness).recording
+
+
+def test_a_popped_out_logger_keeps_recording_but_the_watch_list_stops(harness):
+    start_both(harness)
+    harness.shell.windows.open("logger")
+    harness.shell.navigate("registers")
+    assert logger(harness).recording and not harness.services.watch.live
+    assert harness.ix.toasts[-1] == ("info", "Watch list paused. Your data is kept.")
+
+
+def test_ctrl_l_opens_the_watch_page_so_live_never_runs_unseen(harness):
+    harness.shell.navigate("registers")
+    harness.shell.palette.run_command("toggle_live") if hasattr(harness.shell.palette, "run_command") else \
+        next(c for c in harness.shell.palette._commands.values() if c.key == "toggle_live").run()
+    assert harness.shell.currentPage == "watch" and harness.services.watch.live

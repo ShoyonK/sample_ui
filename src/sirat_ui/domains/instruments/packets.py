@@ -37,4 +37,4 @@ class PacketService:
 
     def add_gfsk_action(self, packet: GfskPacket) -> Action:
         name = f"gfsk_{packet.symbol_rate_kbps:g}k_{packet.frequency_mhz:g}".replace(".", "p")
-        return self._actions.add(name, [gfsk_op(packet, self.siggen_id)])
+        return self._actions.add(name, [gfsk_op(packet, self.siggen_id)], enabled=False)

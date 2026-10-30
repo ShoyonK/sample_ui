@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from bisect import bisect_left, bisect_right
+from typing import List, Optional, Tuple
 
 import time
 from pathlib import Path
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
-from sirat_ui.domains.monitoring.logger import RATE_MAX_S, RATE_MIN_S, DataLoggerService
+from sirat_ui.core.thinning import thin
+from sirat_ui.domains.monitoring.logger import RATE_MAX_S, RATE_MIN_S, DataLoggerService, Series
 from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
 from sirat_ui.shared.qt import pyqtProperty
+
+PLOT_BUCKETS = 400   # each plot gets at most about 800 points, however long the run
 
 
 class DataLoggerViewModel(BaseViewModel):
@@ -51,12 +55,20 @@ class DataLoggerViewModel(BaseViewModel):
     def series(self) -> DictListModel:
         return self._series
 
+    def _plot_data(self, s: Series) -> Tuple[List[float], List[float]]:
+        """What the plots draw: the zoomed range (plus a point each side, so lines reach the edges), thinned."""
+        lo, hi = 0, len(s.samples)
+        if self._zoom_start >= 0:
+            lo = max(0, bisect_left(s.samples, self._zoom_start) - 1)
+            hi = min(hi, bisect_right(s.samples, self._zoom_end) + 1)
+        return thin(s.samples[lo:hi], s.values[lo:hi], PLOT_BUCKETS)
+
     def _rebuild(self) -> None:
         rows = []
         for s in self._logger.series:
             last = f"{s.values[-1]:.3f} {s.unit}".strip() if s.values else "—"
-            rows.append({"name": s.name, "unit": s.unit, "samples": list(s.samples), "points": list(s.values),
-                         "lastText": last})
+            samples, points = self._plot_data(s)
+            rows.append({"name": s.name, "unit": s.unit, "samples": samples, "points": points, "lastText": last})
         self._series.set_items(rows)
         logger = self._logger
         elapsed = logger.elapsed_s
@@ -105,10 +117,12 @@ class DataLoggerViewModel(BaseViewModel):
         lo, hi = sorted((start, end))
         if hi - lo >= 1:  # ignore clicks and tiny drags
             self._update(zoom_start=lo, zoom_end=hi)
+            self._rebuild()
 
     @pyqtSlot()
     def resetZoom(self) -> None:  # noqa: N802
         self._update(zoom_start=-1.0, zoom_end=-1.0)
+        self._rebuild()
 
     @pyqtSlot()
     def exportCsv(self) -> None:  # noqa: N802

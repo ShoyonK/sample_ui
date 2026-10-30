@@ -79,7 +79,7 @@ Rectangle {
                     color: Theme.textPrimary
                     Layout.fillWidth: true
                 }
-                AppButton { id: runButton; objectName: "dockRunChecked"; text: "Run checked"; iconName: "play"; small: true }
+                AppButton { id: runButton; objectName: "dockRunChecked"; text: "Run checked"; iconName: "play"; small: true; variant: "run" }
             }
         }
 

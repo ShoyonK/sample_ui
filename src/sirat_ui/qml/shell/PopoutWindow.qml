@@ -1,6 +1,8 @@
 import QtQuick 2.15
 import QtQuick.Window 2.15
 import "../theme"
+import "../components"
+import "../dialogs"
 import "../pages/watch"
 
 // A page, the watch list, the data logger or one graph in its own window (one per row of app.windows.model).
@@ -33,6 +35,8 @@ Window {
         }
     }
 
+    OverlayTracker { }
+
     Component {
         id: pageContent
         Loader { source: Qt.resolvedUrl(app.pageSource(win.arg)) }
@@ -56,5 +60,12 @@ Window {
         anchors.margins: 10
         sourceComponent: win.kind === "page" ? pageContent : win.kind === "watchList" ? watchContent
                        : win.kind === "logger" ? loggerContent : graphContent
+    }
+
+    ToastStack {
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.rightMargin: 20
+        anchors.bottomMargin: 20
     }
 }

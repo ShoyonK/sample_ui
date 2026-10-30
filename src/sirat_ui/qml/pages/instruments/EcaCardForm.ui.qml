@@ -79,7 +79,7 @@ Card {
                 Text { id: errorLabel; objectName: "ecaErrors"; text: ""; visible: text !== ""; font.pixelSize: Theme.fontXs; color: Theme.dangerFg; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                 RowLayout {
                     spacing: 8
-                    AppButton { id: captureButton; objectName: "ecaCaptureButton"; text: "Start capture"; iconName: "play"; variant: "primary" }
+                    AppButton { id: captureButton; objectName: "ecaCaptureButton"; text: "Start capture"; iconName: "play"; variant: "run" }
                     AppButton { id: stopButton; objectName: "ecaStopButton"; text: "Stop"; iconName: "stop"; variant: "danger" }
                 }
                 Text { id: progressLabel; objectName: "ecaProgress"; text: ""; font.pixelSize: Theme.fontXs; color: Theme.textMuted; wrapMode: Text.WordWrap; Layout.fillWidth: true }

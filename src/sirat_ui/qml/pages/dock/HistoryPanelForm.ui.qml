@@ -34,7 +34,7 @@ Card {
                 checkedStates: [true, true]
             }
             Rectangle { width: 1; height: 18; y: 3; color: Theme.border }
-            AppButton { id: runButton; objectName: "historyRunButton"; text: "Run"; iconName: "play"; small: true }
+            AppButton { id: runButton; objectName: "historyRunButton"; text: "Run"; iconName: "play"; small: true; variant: "run" }
             AppButton { id: createActionButton; objectName: "createActionButton"; text: "Create action"; iconName: "bolt"; small: true }
             AppButton { id: codeButton; objectName: "historyCodeButton"; text: "Code"; iconName: "code"; small: true }
             IconButton { id: copyButton; objectName: "historyCopyButton"; iconName: "copy"; tip: "Copy history" }

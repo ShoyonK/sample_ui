@@ -158,8 +158,12 @@ def test_run_and_abort_a_sequence(running, qtbot):
 
 def test_dark_mode_button(running, qtbot):
     ui = Ui(running.app, qtbot)
+    moon = ui.find("themeButton").property("iconColor")
     ui.click("themeButton")
     assert running.h.shell.state.darkMode is True
+    ui.wait_for(lambda: ui.find("themeButton").property("iconName") == "sun")
+    sun = ui.find("themeButton").property("iconColor")
+    assert sun != moon and sun.red() > sun.green() > sun.blue()    # warm, not the grey of the other icon buttons
     ui.navigate("settings")
     ui.wait_for(lambda: ui.exists("darkModeBox"))
     assert ui.find("darkModeBox").property("checked") is True
@@ -417,7 +421,7 @@ def test_radio_calculator_diff_from_the_dumps_page(running, qtbot):
     from pathlib import Path
     ui = Ui(running.app, qtbot)
     sample = Path(__file__).resolve().parents[2] / "docs" / "samples" / "PHY_demo.cfg"
-    running.h.container.dialogs.choose_open_file = lambda title, filters: str(sample)  # instead of the Windows dialog
+    running.h.container.dialogs.choose_open_file = lambda *_: str(sample)  # instead of the Windows dialog
     ui.navigate("dumps")
     ui.wait_for(lambda: ui.exists("radioDiffButton") and ui.enabled("radioDiffButton"))
     ui.click("radioDiffButton")
@@ -472,7 +476,8 @@ def test_right_click_a_nav_tab_to_open_the_page_in_its_own_window(running, qtbot
     nav = ui.find("nav_watch")
     center = nav.mapToScene(QPointF(nav.width() / 2, nav.height() / 2)).toPoint()
     QTest.mouseClick(ui.window, Qt.RightButton, Qt.NoModifier, center)
-    ui.wait_for(lambda: ui.visible("navMenuPopOut_watch"))
+    ui.wait_for(lambda: ui.find("navMenu_watch").property("opened"))
+    ui.settle(300)    # a click in the instant the menu opens can be dropped; no person is that fast
     ui.click("navMenuPopOut_watch")
     ui.wait_for(lambda: _popout("page:watch") is not None)
     ui.wait_for(lambda: _in_window(_popout("page:watch"), "watchList") is not None)
@@ -616,3 +621,107 @@ def test_recover_a_faulted_dut_from_the_top_bar(running, qtbot):
     ui.wait_for(dialogs.confirm_open)
     dialogs.accept_confirm()
     ui.wait_for(lambda: not ui.visible("recoverButton") and ui.text("connectionPill") == "Connected")
+
+
+def test_right_clicking_a_nav_tab_stays_on_the_current_page(running, qtbot):
+    ui = Ui(running.app, qtbot)
+    ui.navigate("watch")
+    ui.right_click("nav_dumps")
+    ui.wait_for(lambda: ui.visible("navMenuPopOut_dumps"))
+    assert running.h.shell.currentPage == "watch"
+
+
+def test_right_clicking_a_segment_does_not_pick_it(running, qtbot):
+    ui = Ui(running.app, qtbot)
+    ui.navigate("advanced")
+    ui.wait_for(lambda: ui.exists("segment_Memory"))
+    ui.right_click("segment_Memory")
+    assert running.h.shell.advanced.tab == 0
+
+
+def test_start_buttons_are_red_until_they_are_running(running, qtbot):
+    ui = Ui(running.app, qtbot)
+    ui.navigate("watch")
+    ui.wait_for(lambda: ui.exists("loggerRecordButton"))
+    assert ui.find("loggerRecordButton").property("variant") == "run"
+
+    live = ui.find("segment_Live")
+    assert live.property("inviting") is True
+    ui.click("segment_Live")
+    ui.wait_for(lambda: running.h.shell.watch.live)
+    assert live.property("inviting") is False
+
+
+def test_a_running_logger_swaps_start_for_a_stop_button(running, qtbot):
+    ui = Ui(running.app, qtbot)
+    ui.navigate("watch")
+    ui.wait_for(lambda: ui.exists("loggerRecordButton"))
+    running.h.shell.logger.toggleRecording()
+    ui.wait_for(lambda: ui.find("loggerRecordButton").property("variant") == "danger")
+    assert ui.text("loggerRecordButton") == "Stop"
+
+
+@pytest.mark.parametrize("page, button", [("actions", "actionsRunSelectedButton"), ("sequences", "runSequenceButton"),
+                                          ("instruments", "ecaCaptureButton"), ("instruments", "sgInfiniteButton")])
+def test_each_run_button_uses_the_run_style(running, qtbot, page, button):
+    ui = Ui(running.app, qtbot)
+    ui.navigate(page)
+    ui.wait_for(lambda: ui.exists(button))
+    assert ui.find(button).property("variant") == "run"
+
+
+def _active_popout(ui, qtbot, key):
+    window = _popout(key)
+    window.requestActivate()
+    qtbot.waitUntil(window.isActive, timeout=2000)
+    return window
+
+
+def _click_in(window, item, qtbot):
+    from PyQt5.QtCore import QPointF, Qt
+    from PyQt5.QtTest import QTest
+    center = item.mapToScene(QPointF(item.width() / 2, item.height() / 2)).toPoint()
+    QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, center)
+    qtbot.wait(150)
+
+
+@pytest.mark.req("ui.popout")
+def test_a_popped_out_dumps_page_opens_its_dialogs_in_its_own_window(running, qtbot):
+    ui = Ui(running.app, qtbot)
+    running.h.shell.windows.open("page", "dumps")
+    ui.wait_for(lambda: _popout("page:dumps") is not None
+                and _in_window(_popout("page:dumps"), "takeDumpButton") is not None)
+    window = _active_popout(ui, qtbot, "page:dumps")
+    picker = ui.find("dumpPicker")
+    ui.wait_for(lambda: picker.property("parent").window() is window)
+
+    _click_in(window, _in_window(window, "takeDumpButton"), qtbot)
+    ui.wait_for(lambda: picker.property("opened"))
+    assert picker.property("parent").window() is window
+
+    # It stays put while open, even if the main window gets used
+    ui.window.requestActivate()
+    qtbot.waitUntil(ui.window.isActive, timeout=2000)
+    qtbot.wait(100)
+    assert picker.property("parent").window() is window
+    running.h.shell.dumpPicker.closePicker()
+
+    # Closing the pop-out brings dialogs home
+    ui.wait_for(lambda: not picker.property("visible"))
+    running.h.shell.windows.close("page:dumps")
+    ui.wait_for(lambda: _popout("page:dumps") is None)
+    ui.wait_for(lambda: picker.property("parent") is not None and picker.property("parent").window() is ui.window)
+
+
+def test_clicking_another_page_stops_the_watch_and_the_logger(running, qtbot):
+    ui = Ui(running.app, qtbot)
+    ui.navigate("watch")
+    ui.wait_for(lambda: ui.exists("loggerRecordButton") and ui.enabled("loggerRecordButton"))
+    ui.click("loggerRecordButton")
+    ui.click("segment_Live")
+    ui.wait_for(lambda: ui.text("loggerRecordButton") == "Stop" and running.h.shell.watch.live)
+    ui.navigate("registers")
+    ui.wait_for(lambda: not running.h.shell.watch.live and not running.h.services.logger.recording)
+    ui.navigate("watch")
+    ui.wait_for(lambda: ui.text("loggerRecordButton") == "Start")
+    assert ui.find("segment_Live").property("inviting") is True

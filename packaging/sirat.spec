@@ -17,7 +17,7 @@ ICON = ROOT / "packaging" / "sirat.ico"
 a = Analysis(
     [str(ROOT / "packaging" / "sirat_entry.py")],
     pathex=[str(SRC)],
-    datas=[(str(QML), "sirat_ui/qml")],
+    datas=[(str(QML), "sirat_ui/qml"), (str(ROOT / "docs" / "samples"), "samples")],
     # QML files import these at runtime; PyInstaller can't see that from Python imports alone.
     hiddenimports=["PyQt5.QtQuick", "PyQt5.QtQml", "PyQt5.QtQuickWidgets", "PyQt5.sip"],
     excludes=["tkinter", "pandas", "numpy", "PyQt5.QtWebEngineCore", "PyQt5.QtWebEngineWidgets",

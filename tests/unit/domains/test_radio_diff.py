@@ -108,6 +108,12 @@ def test_a_config_without_assignments_is_rejected(harness, tmp_path):
     assert harness.shell.dumpPicker.pickerOpen is False
 
 
+def test_the_file_dialog_opens_in_the_samples_folder(harness):
+    harness.shell.dumps.openRadioDiff()
+    _, folder = harness.ix.open_requests[-1]
+    assert (folder / SAMPLE.name).exists()
+
+
 def test_needs_a_connection(qapp, tmp_path):
     from support import Harness
     h = Harness(tmp_path, connect=False)

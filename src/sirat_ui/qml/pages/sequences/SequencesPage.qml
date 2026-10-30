@@ -26,7 +26,7 @@ SequencesPageForm {
     codeButton.onClicked: vm.generateCode()
     runButton.text: vm.running ? "Abort" : "Run"
     runButton.iconName: vm.running ? "stop" : "play"
-    runButton.variant: vm.running ? "danger" : "primary"
+    runButton.variant: vm.running ? "danger" : "run"
     runButton.enabled: vm.running || (vm.canRun && hasSequence)
     runButton.onClicked: vm.running ? vm.abort() : vm.run()
     progressBar.width: progressBar.parent.width * vm.progress

@@ -7,6 +7,7 @@ import "../theme"
 Item {
     id: plot
     property var samples: []     // x values (sample numbers)
+    readonly property int strokeRun: 24
     property var points: []      // y values
     property real xMin: -1
     property real xMax: -1
@@ -53,15 +54,20 @@ Item {
         return x0 + (px - marginLeft) / plotWidth * (x1 - x0)
     }
 
-    onSamplesChanged: canvas.requestPaint()
-    onPointsChanged: canvas.requestPaint()
-    onX0Changed: canvas.requestPaint()
-    onX1Changed: canvas.requestPaint()
-    onMarkersChanged: canvas.requestPaint()
-    onWidthChanged: canvas.requestPaint()
-    onHeightChanged: canvas.requestPaint()
+    // Hidden plots skip the work; they catch up when they show again
+    function repaint() {
+        if (visible) canvas.requestPaint()
+    }
+    onVisibleChanged: repaint()
+    onSamplesChanged: repaint()
+    onPointsChanged: repaint()
+    onX0Changed: repaint()
+    onX1Changed: repaint()
+    onMarkersChanged: repaint()
+    onWidthChanged: repaint()
+    onHeightChanged: repaint()
     property bool darkTheme: Theme.dark
-    onDarkThemeChanged: canvas.requestPaint()
+    onDarkThemeChanged: repaint()
 
     Rectangle {
         anchors.fill: parent
@@ -141,13 +147,14 @@ Item {
             ctx.strokeStyle = plot.lineColor
             ctx.lineWidth = plot.lineWidth
             ctx.lineJoin = "round"
-            ctx.beginPath()
-            var started = false
-            for (var k = 0; k < xs.length; k++) {
-                if (!started) { ctx.moveTo(px(xs[k]), py(ys[k])); started = true }
-                else ctx.lineTo(px(xs[k]), py(ys[k]))
+            // Stroked in short runs: one long path that crosses itself (noisy data) costs far more to paint
+            for (var k = 0; k < xs.length - 1; k += plot.strokeRun) {
+                ctx.beginPath()
+                ctx.moveTo(px(xs[k]), py(ys[k]))
+                for (var j = k + 1; j <= Math.min(k + plot.strokeRun, xs.length - 1); j++)
+                    ctx.lineTo(px(xs[j]), py(ys[j]))
+                ctx.stroke()
             }
-            ctx.stroke()
             var marks = plot.markers || []
             ctx.lineWidth = 1
             if (ctx.setLineDash) ctx.setLineDash([4, 3])

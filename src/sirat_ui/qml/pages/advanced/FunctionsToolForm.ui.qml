@@ -75,7 +75,7 @@ RowLayout {
                 monoTitle: true
                 Layout.fillWidth: true
                 AppButton { id: addButton; objectName: "functionAddToActionsButton"; text: "Add to Actions"; iconName: "bolt"; small: true }
-                AppButton { id: runButton; objectName: "functionRunButton"; text: "Run"; iconName: "play"; small: true; variant: "primary" }
+                AppButton { id: runButton; objectName: "functionRunButton"; text: "Run"; iconName: "play"; small: true; variant: "run" }
             }
             ColumnLayout {
                 spacing: Theme.s2

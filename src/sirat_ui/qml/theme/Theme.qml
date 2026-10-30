@@ -38,6 +38,15 @@ QtObject {
     readonly property color focusRing: dark ? "#8EA6F5" : "#3B5BDB"   // keyboard focus, same hue as info
     readonly property color changed:  dark ? "#3D3814" : "#FFF6BF"   // changed-field highlight (req 5)
 
+    // Run / Start buttons: a solid red that says "this is how you set it going". White text keeps 5:1 or better.
+    readonly property color runBg:      dark ? "#C93434" : "#C92A2A"
+    readonly property color runBgHover: dark ? "#B02A2A" : "#A82222"
+    readonly property color runText:    "#FFFFFF"
+
+    // theme toggle: the sun only shows on the dark surface, the moon only on the light one
+    readonly property color sunIcon:  "#FFB020"
+    readonly property color moonIcon: "#4C5FD5"
+
     // bit grid: set bits are a soft red tint with deep red digits, so the pattern reads without glare
     readonly property color bitOn:       dark ? "#4A2626" : "#FFD8D8"
     readonly property color bitOnBorder: dark ? "#7A3A3A" : "#F4A3A3"

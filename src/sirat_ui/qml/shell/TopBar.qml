@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import "../theme"
 
 TopBarForm {
     readonly property var appState: app.state
@@ -14,6 +15,9 @@ TopBarForm {
     recoverButton.onClicked: app.faultRecovery.recover()
     phyChip.text: appState.phyText
     themeButton.iconName: appState.darkMode ? "sun" : "moon"
+    themeButton.iconSize: 16
+    themeButton.iconColor: appState.darkMode ? Theme.sunIcon : Theme.moonIcon
+    themeButton.iconHoverColor: themeButton.iconColor
     themeButton.onClicked: appState.toggleDarkMode()
     connectionButton.onClicked: app.connection.openSheet()
     searchButton.onClicked: app.palette.open()

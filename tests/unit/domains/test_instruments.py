@@ -71,6 +71,7 @@ def test_add_to_actions_keeps_the_req_25_format_and_runs_on_the_wire(harness):
     sg = harness.shell.siggen
     sg.addToActions()
     action = harness.services.actions.actions["siggen_2440_0dbm_2"]   # the demo data already has one
+    assert action.enabled is False    # Run checked shouldn't start the generator unless it's ticked
     op = action.operations[0]
     assert {k: op[k] for k in ("type", "sg_type", "input_config_name", "frequency_mhz", "power_dbm")} == \
         {"type": "signal_generator", "sg_type": "PacketSrw", "input_config_name": "BLE_1M", "frequency_mhz": 2440.0,
@@ -202,7 +203,9 @@ def test_gfsk_code_and_action(harness):
     g.generateCode()
     assert "deviation_hz=500000" in harness.ix.codes[-1][1]
     g.addToActions()
-    op = harness.services.actions.actions["gfsk_2000k_2440"].operations[0]
+    action = harness.services.actions.actions["gfsk_2000k_2440"]
+    assert action.enabled is False
+    op = action.operations[0]
     assert op["type"] == "gfsk_packet" and "GfskModulator" in op["code"]
 
 

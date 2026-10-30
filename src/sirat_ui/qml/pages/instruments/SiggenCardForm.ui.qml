@@ -90,7 +90,7 @@ Card {
             RowLayout {
                 spacing: 8
                 SegmentedControl { id: rfControl; objectName: "sgRfControl"; model: ["RF off", "RF on"]; tones: ["", "ok"] }
-                AppButton { id: infiniteButton; objectName: "sgInfiniteButton"; text: "Infinite trigger"; iconName: "play" }
+                AppButton { id: infiniteButton; objectName: "sgInfiniteButton"; text: "Infinite trigger"; iconName: "play"; variant: "run" }
                 AppButton { id: singleButton; objectName: "sgSingleButton"; text: "Single trigger"; iconName: "next" }
             }
             Text { id: triggerLabel; objectName: "sgTriggerText"; text: "Not triggered"; font.pixelSize: Theme.fontXs; color: Theme.textMuted }

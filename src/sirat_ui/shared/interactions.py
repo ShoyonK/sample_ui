@@ -6,6 +6,7 @@ DialogsViewModel implements it for the real UI; ScriptedInteractions answers in 
 from __future__ import annotations
 
 from collections import deque
+from pathlib import Path
 from typing import Any, Deque, Dict, List, Optional, Protocol, Tuple
 
 from sirat_ui.gateway.call import Call
@@ -18,7 +19,8 @@ class InteractionService(Protocol):
     def alert(self, alert: Alert) -> None: ...
     def toast(self, level: str, text: str) -> None: ...
     def choose_save_file(self, title: str, suggested: str, filters: str) -> Call: ...  # -> path str | None
-    def choose_open_file(self, title: str, filters: str) -> Call: ...  # -> path str | None
+    def choose_open_file(self, title: str, filters: str,
+                         start_dir: Optional[Path] = None) -> Call: ...  # -> path str | None; opens in the home folder
     def show_code(self, title: str, code: str) -> None: ...       # req 16 code dialog
 
 
@@ -32,6 +34,7 @@ class ScriptedInteractions:
         self.toasts: List[Tuple[str, str]] = []
         self.codes: List[Tuple[str, str]] = []
         self.save_requests: List[Tuple[str, str]] = []
+        self.open_requests: List[Tuple[str, Optional[Path]]] = []
         self._answers: Deque[Any] = deque()
         self._save_paths: Deque[Optional[str]] = deque()
         self._open_paths: Deque[Optional[str]] = deque()
@@ -70,5 +73,6 @@ class ScriptedInteractions:
     def answer_open(self, path: Optional[str]) -> None:
         self._open_paths.append(path)
 
-    def choose_open_file(self, title: str, filters: str) -> Call:
+    def choose_open_file(self, title: str, filters: str, start_dir: Optional[Path] = None) -> Call:
+        self.open_requests.append((title, start_dir))
         return Call.succeeded(self._open_paths.popleft() if self._open_paths else None)

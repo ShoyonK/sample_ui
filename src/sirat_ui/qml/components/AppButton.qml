@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import "../theme"
 
-// variants: primary (one per view), secondary (default), ghost, danger
+// variants: primary (one per view), secondary (default), ghost, danger, run (starts something: Run, Start, Execute)
 Button {
     id: control
     property string variant: "secondary"
@@ -12,6 +12,7 @@ Button {
     property string tip: ""
 
     readonly property color fg: variant === "primary" ? Theme.accentText
+                              : variant === "run" ? Theme.runText
                               : variant === "danger" ? Theme.dangerFg : Theme.textPrimary
 
     hoverEnabled: true
@@ -52,10 +53,12 @@ Button {
     background: Rectangle {
         radius: Theme.radiusSm
         color: control.variant === "primary" ? (control.hovered ? Theme.accentHover : Theme.accent)
+             : control.variant === "run" ? (control.hovered ? Theme.runBgHover : Theme.runBg)
              : control.variant === "ghost" ? (control.hovered ? Theme.select : "transparent")
              : (control.hovered ? Theme.surface2 : Theme.surface)
         border.width: control.variant === "ghost" ? 0 : 1
         border.color: control.variant === "primary" ? Theme.accent
+                    : control.variant === "run" ? Theme.runBg
                     : control.variant === "danger" ? Theme.dangerBg : Theme.borderStrong
     }
 

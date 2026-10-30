@@ -46,12 +46,12 @@ _SVD_ACCESS = {
 }
 
 _ACCESS_LABELS = {
-    AccessType.READ_ONLY: "R",
-    AccessType.READ_WRITE: "RW",
-    AccessType.WRITE_ONLY: "W",
-    AccessType.WRITE_ONCE: "W1",
-    AccessType.READ_WRITE_ONCE: "RW1",
-    AccessType.UNKNOWN: "?",
+    AccessType.READ_ONLY: "Read",
+    AccessType.READ_WRITE: "Read/Write",
+    AccessType.WRITE_ONLY: "Write",
+    AccessType.WRITE_ONCE: "Write once",
+    AccessType.READ_WRITE_ONCE: "Read/Write once",
+    AccessType.UNKNOWN: "Unknown",
 }
 
 

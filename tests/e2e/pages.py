@@ -70,6 +70,12 @@ class Ui:
             QTest.mouseClick(self.window, Qt.LeftButton, Qt.NoModifier, center)
         self.settle()
 
+    def right_click(self, name: str) -> None:
+        item = self.find(name)
+        center = item.mapToScene(QPointF(item.width() / 2, item.height() / 2)).toPoint()
+        QTest.mouseClick(self.window, Qt.RightButton, Qt.NoModifier, center)
+        self.settle()
+
     def type_text(self, name: str, text: str, enter: bool = True) -> None:
         field = self.find(name)
         field.forceActiveFocus()

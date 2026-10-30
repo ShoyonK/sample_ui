@@ -4,6 +4,7 @@ import pytest
 
 from sirat_ui.gateway.errors import ErrorCode
 from sirat_ui.models.dialogs import ConfirmAnswer
+from sirat_ui.models.registers import AccessType
 
 
 @pytest.mark.req("5.auto-read")
@@ -132,3 +133,12 @@ def test_read_errors_are_reported_not_raised(harness):
     harness.fake.fail_next("registers.read", ErrorCode.TIMEOUT)
     harness.select("BUFC.LPMODE")
     assert harness.ix.toasts[-1] == ("error", "Read BUFC.LPMODE: The station didn't answer in time.")
+
+
+@pytest.mark.parametrize("access, label", [
+    (AccessType.READ_ONLY, "Read"), (AccessType.READ_WRITE, "Read/Write"), (AccessType.WRITE_ONLY, "Write"),
+    (AccessType.WRITE_ONCE, "Write once"), (AccessType.READ_WRITE_ONCE, "Read/Write once"),
+    (AccessType.UNKNOWN, "Unknown"),
+])
+def test_access_is_spelled_out(access, label):
+    assert access.label == label

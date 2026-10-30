@@ -1,4 +1,6 @@
 Icon 1.0 Icon.qml
+singleton ActiveOverlay 1.0 ActiveOverlay.qml
+OverlayTracker 1.0 OverlayTracker.qml
 AppButton 1.0 AppButton.qml
 IconButton 1.0 IconButton.qml
 Card 1.0 Card.qml

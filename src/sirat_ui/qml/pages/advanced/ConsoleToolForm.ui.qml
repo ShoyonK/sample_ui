@@ -43,7 +43,7 @@ Card {
             Layout.rightMargin: Theme.s3
             Layout.bottomMargin: Theme.s3
             ConsoleInput { id: input; objectName: "consoleInput"; Layout.fillWidth: true }
-            AppButton { id: executeButton; objectName: "consoleExecuteButton"; text: "Execute"; iconName: "play"; variant: "primary"; Layout.alignment: Qt.AlignBottom; Layout.bottomMargin: 4 }
+            AppButton { id: executeButton; objectName: "consoleExecuteButton"; text: "Execute"; iconName: "play"; variant: "run"; Layout.alignment: Qt.AlignBottom; Layout.bottomMargin: 4 }
         }
     }
 }

@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import QtQml 2.15
 import QtQuick.Controls 2.15
 import "../theme"
 
@@ -7,7 +8,12 @@ Popup {
     id: popup
     property int dialogWidth: 480
 
-    parent: Overlay.overlay
+    // Opens in the window in use, and stays there while it's open even if another window gets clicked.
+    Binding on parent {
+        when: !popup.visible
+        value: ActiveOverlay.current || popup.Overlay.overlay
+        restoreMode: Binding.RestoreNone
+    }
     modal: true
     dim: true
     focus: true

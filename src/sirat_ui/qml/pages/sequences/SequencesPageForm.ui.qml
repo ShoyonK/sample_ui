@@ -88,7 +88,7 @@ RowLayout {
                     Chip { id: statusChip; text: "Running · action 2 of 2"; tone: "info" }
                     Item { Layout.fillWidth: true }
                     AppButton { id: codeButton; objectName: "sequenceCodeButton"; text: "Generate code"; iconName: "code"; small: true }
-                    AppButton { id: runButton; objectName: "runSequenceButton"; text: "Run"; iconName: "play"; small: true; variant: "primary" }
+                    AppButton { id: runButton; objectName: "runSequenceButton"; text: "Run"; iconName: "play"; small: true; variant: "run" }
                 }
                 Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.border }
             }

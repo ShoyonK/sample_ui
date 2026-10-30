@@ -38,8 +38,8 @@ Card {
             Layout.fillWidth: true
             AppButton { id: viewButton; objectName: "actionsViewButton"; text: "View"; iconName: "eye"; small: true }
             AppButton { id: editButton; objectName: "actionsEditButton"; text: "Edit"; iconName: "edit"; small: true }
-            AppButton { id: runButton; objectName: "actionsRunButton"; text: "Run"; iconName: "play"; small: true }
-            AppButton { id: runSelectedButton; objectName: "actionsRunSelectedButton"; text: "Run checked"; iconName: "next"; small: true; variant: "primary" }
+            AppButton { id: runButton; objectName: "actionsRunButton"; text: "Run"; iconName: "play"; small: true; variant: "run" }
+            AppButton { id: runSelectedButton; objectName: "actionsRunSelectedButton"; text: "Run checked"; iconName: "next"; small: true; variant: "run" }
             AppButton { id: codeButton; objectName: "actionsCodeButton"; text: "Code"; iconName: "code"; small: true }
         }
 

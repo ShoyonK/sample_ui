@@ -21,6 +21,7 @@ LoggerPanelForm {
     resetZoomButton.onClicked: vm.resetZoom()
     recordButton.text: vm.recording ? "Stop" : "Start"
     recordButton.iconName: vm.recording ? "stop" : "play"
+    recordButton.variant: vm.recording ? "danger" : "run"
     recordButton.enabled: vm.recording || vm.fieldCount > 0
     recordButton.onClicked: vm.toggleRecording()
     clearButton.onClicked: vm.clear()

@@ -549,7 +549,7 @@ flowchart TB
 
 ```text
 DumpService(directory: Path, catalog: RegisterCatalog, registers: RegisterService, log: LogService, clock: Callable=…)
-DumpsViewModel(service: DumpService, catalog: RegisterCatalog, state: StationState, prefs: PreferencesState, interactions: InteractionService, picker: PeripheralPickerViewModel, progress: DumpProgressViewModel, comparison: ComparisonViewModel)
+DumpsViewModel(service: DumpService, catalog: RegisterCatalog, state: StationState, prefs: PreferencesState, interactions: InteractionService, picker: PeripheralPickerViewModel, progress: DumpProgressViewModel, comparison: ComparisonViewModel, samples_dir: Path)
 DumpProgressViewModel(service: DumpService)
 ComparisonViewModel(reports_dir: Path, interactions: InteractionService)
 ```

@@ -141,6 +141,41 @@ def test_compare_files_uses_two_file_dialogs_and_saves_a_report(harness, tmp_pat
     assert "Register,a (09:00:00),b (10:00:00),Change" in text and "MODEM.CTRL,0x00000001,0x00000002" in text
 
 
+def test_compare_files_opens_in_the_dumps_folder(harness):
+    harness.ix.answer_open("first.csv")
+    harness.shell.dumps.compareFiles()
+    folders = [folder for _, folder in harness.ix.open_requests]
+    assert folders == [harness.services.dumps.directory] * 2
+
+
+def test_a_diff_that_stops_part_way_says_why(harness):
+    take(harness, ["BUFC"])
+    vm = harness.shell.dumps
+    vm.select(0)
+    harness.fake.auto_resolve = False
+    vm.diffLive()
+    harness.fake.drop_dut(1, "RPC connection lost")
+    harness.fake.auto_resolve = True
+    harness.fake.release()
+    harness.scheduler.run_pending()
+    assert harness.ix.alerts[-1].title == "Comparison stopped"
+    assert harness.shell.comparison.hasResult is False
+
+
+def test_a_cancelled_diff_says_so(harness):
+    take(harness, ["BUFC"])
+    vm = harness.shell.dumps
+    vm.select(0)
+    harness.fake.auto_resolve = False
+    vm.diffLive()
+    harness.services.dumps.cancel()
+    harness.fake.auto_resolve = True
+    harness.fake.release()
+    harness.scheduler.run_pending()
+    assert harness.ix.toasts[-1] == ("info", "Comparison cancelled")
+    assert harness.ix.alerts == []
+
+
 def test_a_file_that_isnt_a_dump_shows_an_error(harness, tmp_path):
     bad = tmp_path / "notes.csv"
     bad.write_text("hello,world\n")

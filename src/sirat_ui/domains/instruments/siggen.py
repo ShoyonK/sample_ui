@@ -130,5 +130,5 @@ class SignalGeneratorService:
     def add_action(self, settings: SiggenSettings) -> Action:
         self.remember(settings)
         instrument_id = self.instrument_id or "siggen1"
-        return self._actions.add(siggen_action_name(settings),
-                                 [siggen_op(settings, instrument_id)])
+        # Unchecked, like the seeded siggen action: Run checked shouldn't start the generator unless asked to.
+        return self._actions.add(siggen_action_name(settings), [siggen_op(settings, instrument_id)], enabled=False)

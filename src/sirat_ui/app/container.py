@@ -12,6 +12,7 @@ from typing import Callable, Dict, Optional, cast
 from PyQt5.QtCore import QObject
 
 from sirat_ui.app.commands import palette_commands
+from sirat_ui.app.paths import samples_dir
 from sirat_ui.domains.advanced.advanced_viewmodel import AdvancedViewModel
 from sirat_ui.domains.advanced.console import ConsoleService
 from sirat_ui.domains.advanced.console_viewmodel import ConsoleViewModel
@@ -55,6 +56,7 @@ from sirat_ui.domains.logs.service import LogService
 from sirat_ui.domains.logs.viewmodel import LogViewModel
 from sirat_ui.domains.monitoring.logger import DataLoggerService
 from sirat_ui.domains.monitoring.logger_viewmodel import DataLoggerViewModel
+from sirat_ui.domains.monitoring.page_guard import MonitoringGuard
 from sirat_ui.domains.monitoring.watch import WatchService
 from sirat_ui.domains.monitoring.watch_viewmodel import WatchListViewModel
 from sirat_ui.domains.radio.phy import PhyService
@@ -146,6 +148,7 @@ class ServiceContainer:
         self.highlighters = HighlighterHost()
         self.services = self._build_services()
         self.shell = self._build_viewmodels()
+        self.monitoring_guard = self._monitoring_guard()
 
     def _build_services(self) -> Services:
         log = LogService()
@@ -198,6 +201,23 @@ class ServiceContainer:
             children.update(area())
         children["palette"] = self._palette(children)
         return with_children(children)
+
+    def _monitoring_guard(self) -> MonitoringGuard:
+        """The watch list and the logger run only while something on screen shows them."""
+        shell = self.shell
+        windows = cast(WindowsViewModel, getattr(shell, "windows"))
+
+        def on_page() -> bool:
+            return shell.currentPage == "watch" or windows.isOpen("page", "watch")
+
+        def logger_on_screen() -> bool:
+            return on_page() or windows.isOpen("logger") or any(k.startswith("graph:") for k in windows.open_keys())
+
+        guard = MonitoringGuard(self.services.watch, self.services.logger, self.services.log, self.interactions,
+                                lambda: on_page() or windows.isOpen("watchList"), logger_on_screen)
+        shell.changed.connect(guard.check)
+        windows.changed.connect(guard.check)
+        return guard
 
     def _go(self, page: str, then: Callable[[], object] = lambda: None) -> Callable[[], None]:
         """A command that opens a page, then does something on it."""
@@ -254,7 +274,8 @@ class ServiceContainer:
         picker, progress = PeripheralPickerViewModel(), DumpProgressViewModel(s.dumps)
         comparison = ComparisonViewModel(self.dumps_dir, ix)
         return {
-            "dumps": DumpsViewModel(s.dumps, s.catalog, self.state, self.prefs, ix, picker, progress, comparison),
+            "dumps": DumpsViewModel(s.dumps, s.catalog, self.state, self.prefs, ix, picker, progress, comparison,
+                                    samples_dir()),
             "dumpPicker": picker,
             "dumpProgress": progress,
             "comparison": comparison,
