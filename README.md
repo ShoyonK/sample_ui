@@ -1,5 +1,5 @@
 # SiRAT frontend
-
+j
 PyQt5 + QML frontend for SiRAT, built with strict MVVM. Until the Station API service exists, it runs
 against an in-memory fake that follows the same contract (requires rules, error codes, events).
 
