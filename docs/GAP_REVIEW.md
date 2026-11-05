@@ -42,7 +42,7 @@ Priority:
 | Radio Calculator diff | §21 | ✅ Done |
 | PHY loaders, PRS routing | §23, §24 | ✅ Done (Radio and PHY page) |
 | Logging | §35 | ✅ Done |
-| Test execution | §33 | ⏸ Deferred (decided 2026-10-28; see docs/API_DESIGN.md §11.4) |
+| Test execution | §33 | ✅ Tests page (2026-11-05); `tests.*` proposed, not agreed (docs/API_DESIGN.md §11.4) |
 
 ---
 
@@ -105,6 +105,10 @@ All eight are fixed and covered by tests tagged `11.persist`, `11.format`, `14.s
 - ✅ Display format `[14:23:45.123] [INFO] …`
 - ✅ Pop-out log window, synced with the dock panel
 
+### Tool windows ✅ done 2026-11-05
+- ✅ The tools the requirements give their own window open in one: right-click a page in the nav rail for the page and each of its parts (Watch: watch list, data logger; Advanced: Python console, custom functions, DUT control explorer, memory viewer; Instruments: signal generator, BLE packet, GFSK, RF switch, temperature chamber, ECA; Radio: PRS routing, WiFi PHY; Settings: hardware configuration, system information). Each window carries the tool's own console or output; the page shows a placeholder with Show window and Bring back. Sizes follow the requirements where they fit.
+- ✅ Actions large view (§13): right-click Actions to open the page, with its run output, in its own window.
+
 ### Tree, detail, connection (§3–§5)
 - ✅ **Read all registers progress dialog**: modal, cancelable, "Reading {periph}.{reg}…", X of Y; reads one register at a time, skips write-only and read-sensitive registers, stops if the DUT drops, summary at the end.
 - ✅ **Add reconnect to Actions** from the disconnect dialog (§3 user requirement).
@@ -149,7 +153,7 @@ These were scoped to Phases 6 and 7 from the start, so they aren't oversights. T
 | 28 | ✅ RF switch | Done: paths from `rf.paths`, DUT position 1–4, Connect path / Disconnect, current path from the `rf_path` fact, Add to Actions (§28 format). |
 | 29 | ✅ Temperature chamber | Done: large live reading with Stable/Heating/Cooling and a trend line, polled at the chosen interval only while the page shows; Set temperature; Wait for stable (tolerance, hold time) as an abortable activity. Nothing saved (§29). |
 | 30 | ✅ ECA capture | Done: channels, trigger, edge, sample rate, duration, pre-trigger with a sample-count limit; abortable capture; paged download; one plot per channel with linked drag-to-zoom, trigger line and markers A/B (Δt and 1/Δt); per-channel range, mean, rising edges, frequency, high time, first rise; Save CSV with a metadata header. |
-| 33 | Test execution | Deferred: not in v1 (docs/API_DESIGN.md §11.4) |
+| 33 | ✅ Test execution | Done on the Tests page: check tests, Run, Stop; current test, progress bar, elapsed time; results table (Test, Pass/Fail in colour, Notes, Started, Duration) filling in as each test ends; output per test (select a result); summary at the end; Export results as JSON. Runs against the proposed `tests.list` / `tests.run`, with four placeholder tests in the fake. Open questions in docs/API_DESIGN.md §11.4. |
 
 ---
 
@@ -161,6 +165,6 @@ These were scoped to Phases 6 and 7 from the start, so they aren't oversights. T
 4. ~~**Read-all progress**, favorites sort, tooltips, Ctrl+K palette~~ done (P2).
 5. ~~**Settings additions**: export/import/clear, About, System info, Hardware config~~ done (P3).
 6. ~~**Sessions**~~ done (P3).
-7. Planned pages, as in the frontend plan. ~~Dumps (§12)~~, ~~Radio Calculator diff (§21)~~, ~~Radio and PHY (§23, §24)~~, ~~Instruments (§25–§30)~~ and ~~Advanced (§15, §19, §20, §22)~~ done. Only the Tests page (§33) is left, and it is deferred.
+7. Planned pages, as in the frontend plan. ~~Dumps (§12)~~, ~~Radio Calculator diff (§21)~~, ~~Radio and PHY (§23, §24)~~, ~~Instruments (§25–§30)~~ and ~~Advanced (§15, §19, §20, §22)~~ done. ~~Tests (§33)~~ done too.
 
 Each batch adds tests tagged with the `req` IDs, so the coverage report (P2) shows progress against this list.

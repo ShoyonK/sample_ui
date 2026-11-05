@@ -29,6 +29,8 @@ from sirat_ui.domains.automation.action_editor import ActionEditorViewModel
 from sirat_ui.domains.automation.actions import ActionService
 from sirat_ui.domains.automation.actions_viewmodel import ActionsViewModel
 from sirat_ui.domains.automation.sequences import SequenceService
+from sirat_ui.domains.station_tests.service import StationTestService
+from sirat_ui.domains.station_tests.viewmodel import StationTestsViewModel
 from sirat_ui.domains.automation.sequences_viewmodel import SequencesViewModel
 from sirat_ui.domains.connection.service import ConnectionService
 from sirat_ui.domains.connection.system_info_viewmodel import SystemInfoViewModel
@@ -91,7 +93,7 @@ from sirat_ui.state.preferences import PreferencesState
 from sirat_ui.state.selection import SelectionState
 from sirat_ui.state.station import StationState
 from sirat_ui.state.status import StatusLine
-from sirat_ui.stores.json_store import UserStores
+from sirat_ui.stores.json_store import JsonStore, UserStores
 
 
 @dataclass
@@ -109,6 +111,7 @@ class Services:
     logger: DataLoggerService
     actions: ActionService
     sequences: SequenceService
+    station_tests: StationTestService
     hardware: HardwareConfigService
     transfer: SettingsTransfer
     dumps: DumpService
@@ -136,10 +139,13 @@ class ServiceContainer:
         self.home = Path(home)
         self.dumps_dir = Path(dumps_dir) if dumps_dir else self.home / ".sirat" / "dumps"
         self.stores = UserStores.in_home(self.home)
+        for store in self.stores.all():
+            store.on_save_error = self._save_failed
         self.prefs = PreferencesState(Preferences.from_json(self.stores.preferences.load()))
         self.prefs.changed.connect(lambda prefs: self.stores.preferences.save(prefs.to_json()))
         self.state = StationState(self.prefs.value.last_position, backend_label)
         self.state.position_changed.connect(lambda position: self.prefs.update(last_position=position))
+        self.state.position_changed.connect(self._position_changed)
         self.selection = SelectionState()
         self.status = StatusLine()
 
@@ -169,6 +175,7 @@ class ServiceContainer:
         actions = ActionService(self.stores.actions, self.gateway, self.state, activities, errors, log,
                                 self.stores.custom_functions)
         sequences = SequenceService(self.stores.sequences, actions, self.gateway, self.state, activities, errors, log)
+        station_tests = StationTestService(self.gateway, self.state, activities, errors, log, self.scheduler)
         hardware = HardwareConfigService(self.stores.hardware_config, self.gateway, self.state, log)
         transfer = SettingsTransfer(self.stores, self.reload_user_data)
         dumps = DumpService(self.dumps_dir, catalog, registers, log)
@@ -190,7 +197,7 @@ class ServiceContainer:
         dut_control = DutControlService(self.gateway, self.state, actions, errors)
         memory = MemoryService(self.gateway, self.state, self.stores.memory_viewer, errors, log)
         return Services(log, history, errors, catalog, registers, read_all, connection, favorites, annotations,
-                        watch, logger, actions, sequences, hardware, transfer, dumps, phy, prs, sessions, bench,
+                        watch, logger, actions, sequences, station_tests, hardware, transfer, dumps, phy, prs, sessions, bench,
                         siggen, rf_switch, chamber, eca, packets, session, console, functions, dut_control, memory)
 
     def _build_viewmodels(self) -> ShellViewModel:
@@ -267,6 +274,7 @@ class ServiceContainer:
             "actions": ActionsViewModel(s.actions, s.sequences, editor, st, ix),
             "actionEditor": editor,
             "sequences": SequencesViewModel(s.sequences, s.actions, st, ix),
+            "stationTests": StationTestsViewModel(s.station_tests, st, ix),
         }
 
     def _dumps_viewmodels(self) -> Dict[str, QObject]:
@@ -333,6 +341,36 @@ class ServiceContainer:
                         s.packets, s.functions, s.memory):
             service.reload()
         self.report_settings_problems()
+
+    def _position_changed(self, position: int) -> None:
+        """Switching DUT: whatever reads or streams from the old one stops and says why, and its cached values go,
+        so nothing from one DUT is shown, logged or saved as the other's. Sequences and test runs keep going on
+        the DUT they started on."""
+        s = self.services
+        reason = f"you switched to DUT {position}"
+        stopped = []
+        if s.watch.live:
+            s.watch.stop()
+            stopped.append("watch list paused")
+        if s.logger.recording:
+            s.logger.stop()
+            stopped.append("data logger stopped")
+        if s.dumps.running:
+            s.dumps.stop(reason)
+        if s.read_all.running:
+            s.read_all.stop(reason)
+        s.registers.clear_cache()
+        if stopped:
+            text = " and ".join(stopped)
+            s.log.info(f"{text[0].upper()}{text[1:]}: {reason}")
+            self.interactions.toast("info", f"{text[0].upper()}{text[1:]}: {reason}. Your data is kept.")
+
+    def _save_failed(self, store: JsonStore, error: OSError) -> None:
+        """What you changed stays on screen; only the file is behind. The next save tries again."""
+        reason = error.strerror or str(error)
+        self.services.log.error(f"Couldn't save {store.path}: {reason}")
+        self.interactions.toast("error", f"Couldn't save {store.path.name}: {reason}. "
+                                         "Your change is kept for now; SiRAT will try again on the next change.")
 
     def report_settings_problems(self) -> None:
         """Each skipped entry goes to the Log panel; one toast says how many and where the originals are."""

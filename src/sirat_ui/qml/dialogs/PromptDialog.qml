@@ -11,7 +11,7 @@ ModalDialog {
     readonly property var req: vm.prompt
     property var values: ({})
 
-    visible: req.title !== undefined
+    shown: req.title !== undefined
     dialogWidth: 440
     onOpened: {
         var v = {}

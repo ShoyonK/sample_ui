@@ -4,8 +4,8 @@ It enforces the same requires rules (via core.requires) and returns the same err
 real service, so the UI can't depend on behaviour the real backend won't have.
 
 Test knobs: auto_resolve/release(), fail_next(), time_out_next(), set_latency(), drop_dut(), emit_watch_tick(),
-drop_instrument(), bench (the instruments' state, gateway/fake/instruments.py), calls, and the memory and
-console knobs on `advanced` (gateway/fake/advanced.py).
+drop_instrument(), restart_station(), swallow_next(), duplicate_next(), bench (the instruments' state, gateway/fake/instruments.py), calls, the memory and
+console knobs on `advanced` (gateway/fake/advanced.py), and test outcomes on `station_tests`.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import itertools
 import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from typing import Any, Callable, Deque, Dict, List, Optional
+from typing import Any, Callable, DefaultDict, Deque, Dict, List, Optional
 
 from sirat_ui.core.observable import Event
 from sirat_ui.core.ops import op_kind
@@ -27,6 +27,7 @@ from sirat_ui.gateway.fake.chip import CHIP_FAMILY, CHIP_PART, CHIP_REVISION, bu
 from sirat_ui.gateway.fake.instruments import FakeBench
 from sirat_ui.gateway.fake.register_memory import RegisterMemory
 from sirat_ui.gateway.fake.sequencer import FakeActivity, FakeSequencer
+from sirat_ui.gateway.fake.station_tests import FakeStationTests, StationTestMethods
 from sirat_ui.gateway.scheduler import Handle, ManualScheduler, Scheduler
 from sirat_ui.models.facts import InstrumentFacts, PositionFacts
 from sirat_ui.models.registers import ChipInfo, PeripheralDef
@@ -55,7 +56,7 @@ class _Watch:
     handle: Handle
 
 
-class FakeStationGateway(AdvancedMethods):
+class FakeStationGateway(AdvancedMethods, StationTestMethods):
     def __init__(self, scheduler: Optional[Scheduler] = None, peripherals: Optional[List[PeripheralDef]] = None,
                  seed: int = 7, clock: Callable[[], float] = time.time) -> None:
         self.scheduler: Scheduler = scheduler or ManualScheduler()
@@ -72,9 +73,11 @@ class FakeStationGateway(AdvancedMethods):
         self._held: Deque[Callable[[], None]] = deque()
         self._failures: Dict[str, Deque[ApiError]] = defaultdict(deque)
         self._timeouts: Dict[str, Deque[int]] = defaultdict(deque)   # method -> ms until the late result
+        self._swallow: DefaultDict[type, int] = defaultdict(int)       # event type -> how many to lose
+        self._duplicate: DefaultDict[type, int] = defaultdict(int)     # event type -> how many to send twice
         self._request_ids = itertools.count(1)
         self.connected_once: set = set()   # positions that were connected; dut.reconnect needs one
-        self.bench = FakeBench(self.scheduler, self.events.emit,
+        self.bench = FakeBench(self.scheduler, self._emit_event,
                                lambda level, text: self._log(level, text, "instrument"),
                                self._emit_status, clock, lambda: self.chip.part)
         self.instruments: Dict[str, InstrumentFacts] = self.bench.instruments
@@ -87,8 +90,10 @@ class FakeStationGateway(AdvancedMethods):
         # where each position's DUT was reached; the workspace config unless connect overrode it
         self.addresses: Dict[int, tuple] = {p: WORKSPACE_ADDRESS for p in range(1, 5)}
         self.unreachable_hosts = {"10.255.255.1"}  # test knob: these hosts never answer
-        self.sequencer = FakeSequencer(self.scheduler, self.events.emit, self._execute_op, self._activity_done)
+        self.sequencer = FakeSequencer(self.scheduler, self._emit_event, self._execute_op, self._activity_done,
+                                       lambda position: self.facts[position].dut_connected)
         self.advanced = FakeAdvanced(self._respond, self._log, self, self.peripherals, seed)
+        self.station_tests = FakeStationTests(self._respond, self, self.scheduler, self._emit_event, self._emit_status)
 
     # ---------------------------------------------------------------- test knobs
 
@@ -114,13 +119,49 @@ class FakeStationGateway(AdvancedMethods):
     def drop_dut(self, position: int, cause: str = "RPC connection lost", detected_by: str = "heartbeat") -> None:
         self._clear_dut(position)
         self._log("error", f"DUT {position} disconnected: {cause}")
-        self.events.emit(DutDisconnected(position, cause, detected_by))
+        self._emit_event(DutDisconnected(position, cause, detected_by))
         self._emit_status()
 
     def emit_watch_tick(self, sub_id: Optional[str] = None) -> None:
         for watch in list(self._watches.values()):
             if sub_id is None or watch.sub_id == sub_id:
                 self._tick(watch.sub_id)
+
+    def swallow_next(self, event_type: type, count: int = 1) -> None:
+        """The next `count` events of that type are lost, as on a dropped connection."""
+        self._swallow[event_type] += count
+
+    def duplicate_next(self, event_type: type, count: int = 1) -> None:
+        """The next `count` events of that type arrive twice."""
+        self._duplicate[event_type] += count
+
+    def restart_station(self) -> None:
+        """The service process restarts: every activity ends, and every DUT connection, watch and console session
+        is gone, along with the bench setups, so dut.reconnect is refused until a full dut.connect. Each connected
+        position reports dut.disconnected."""
+        error = ApiError(ErrorCode.INTERNAL, "Station service restarted")
+        self.sequencer.end_all(error)
+        self.bench.end_all(error)
+        self.station_tests.end_all(error)
+        for position, facts in self.facts.items():
+            was_connected = facts.dut_connected
+            self._clear_dut(position)
+            facts.activity, facts.fault = "idle", None
+            if was_connected:
+                self._emit_event(DutDisconnected(position, "Station service restarted", "station"))
+        self.connected_once.clear()
+        self._log("warning", "Station service restarted")
+        self._emit_status()
+
+    def _emit_event(self, event: Any) -> None:
+        kind = type(event)
+        if self._swallow[kind]:
+            self._swallow[kind] -= 1
+            return
+        self.events.emit(event)
+        if self._duplicate[kind]:
+            self._duplicate[kind] -= 1
+            self.events.emit(event)
 
     def calls_to(self, method: str) -> List[RecordedCall]:
         return [c for c in self.calls if c.method == method]
@@ -144,9 +185,9 @@ class FakeStationGateway(AdvancedMethods):
 
         def finish_late() -> None:
             try:
-                self.events.emit(CallLate(request_id, True, checked()))
+                self._emit_event(CallLate(request_id, True, checked()))
             except ApiError as exc:
-                self.events.emit(CallLate(request_id, False, error=exc))
+                self._emit_event(CallLate(request_id, False, error=exc))
 
         def run() -> None:
             if self._timeouts[method]:
@@ -187,10 +228,10 @@ class FakeStationGateway(AdvancedMethods):
                              [InstrumentFacts(**vars(i)) for i in self.instruments.values()])
 
     def _emit_status(self) -> None:
-        self.events.emit(StatusChanged(self.status_snapshot()))
+        self._emit_event(StatusChanged(self.status_snapshot()))
 
     def _log(self, level: str, text: str, source: str = "station", position: Optional[int] = None) -> None:
-        self.events.emit(LogLine(self.clock(), level, source, text, position))
+        self._emit_event(LogLine(self.clock(), level, source, text, position))
 
     def _clear_dut(self, position: int) -> None:
         """Reset rules from the API doc: disconnect clears phy, watching and the RF path."""
@@ -517,7 +558,7 @@ class FakeStationGateway(AdvancedMethods):
             return
         self.memory.advance_live()
         values = {name: self.memory.values[name] for name in watch.names}
-        self.events.emit(WatchValues(sub_id, watch.position, self.clock(), values))
+        self._emit_event(WatchValues(sub_id, watch.position, self.clock(), values))
 
     # ---------------------------------------------------------------- automation
 
@@ -533,7 +574,7 @@ class FakeStationGateway(AdvancedMethods):
 
     def abort_activity(self, activity_id: str) -> Call:
         def run() -> None:
-            if not self.bench.abort(activity_id):
+            if not self.bench.abort(activity_id) and not self.station_tests.abort(activity_id):
                 self.sequencer.abort(activity_id)
         return self._respond("activity.abort", None, run, activity_id=activity_id)
 

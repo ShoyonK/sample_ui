@@ -10,7 +10,7 @@ ModalDialog {
     objectName: "sessionBrowser"
     readonly property var vm: app.sessions
 
-    visible: vm.browserOpen
+    shown: vm.browserOpen
     dialogWidth: 860
 
     contentItem: ColumnLayout {

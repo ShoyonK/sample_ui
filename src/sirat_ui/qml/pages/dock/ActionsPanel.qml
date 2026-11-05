@@ -21,16 +21,33 @@ ActionsPanelForm {
     upButton.onClicked: vm.moveCurrent(-1)
     downButton.enabled: hasCurrent
     downButton.onClicked: vm.moveCurrent(1)
-    deselectAllButton.onClicked: vm.deselectAll()
+    allBox.checkState: vm.total > 0 && vm.checkedCount === vm.total ? Qt.Checked
+                     : vm.checkedCount > 0 ? Qt.PartiallyChecked : Qt.Unchecked
+    allBox.nextCheckState: function() { return allBox.checkState }   // the ViewModel decides; the box follows it
+    allBox.enabled: vm.total > 0
+    allBox.onClicked: vm.setAllChecked(vm.checkedCount < vm.total)
+    checkedLabel.text: vm.total === 0 ? "No actions" : vm.checkedCount + " of " + vm.total + " checked"
+    dockTools.visible: !showManagement
+    dockUpButton.enabled: hasCurrent
+    dockUpButton.onClicked: vm.moveCurrent(-1)
+    dockDownButton.enabled: hasCurrent
+    dockDownButton.onClicked: vm.moveCurrent(1)
+    dockDeleteButton.enabled: vm.selectedCount > 0
+    dockDeleteButton.tip: vm.selectedCount > 1 ? "Delete the " + vm.selectedCount + " selected actions"
+                                               : "Delete the selected action · Ctrl or Shift+click selects more"
+    dockDeleteButton.onClicked: vm.removeSelected()
+    dockDeleteAllButton.enabled: vm.total > 0
+    dockDeleteAllButton.onClicked: vm.removeAll()
     addToSequenceButton.onClicked: vm.addCheckedToSequence()
-    deleteButton.enabled: hasCurrent
-    deleteButton.onClicked: vm.removeCurrent()
+    deleteButton.enabled: vm.selectedCount > 0
+    deleteButton.text: vm.selectedCount > 1 ? "Delete " + vm.selectedCount : "Delete"
+    deleteButton.onClicked: vm.removeSelected()
     deleteAllButton.onClicked: vm.removeAll()
     runConsole.model: vm.console
     runConsole.onClearRequested: vm.console.clear()
     list.model: vm.model
     list.delegate: ActionRow {
-        onSelected: vm.select(index)
+        onSelected: vm.selectRow(index, mode)
         onEnabledToggled: vm.toggleEnabled(index)
         onViewRequested: {
             vm.select(index)

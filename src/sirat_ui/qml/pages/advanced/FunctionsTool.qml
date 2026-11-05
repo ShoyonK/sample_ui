@@ -24,11 +24,13 @@ FunctionsToolForm {
     runButton.enabled: vm.canRun
     runButton.busy: vm.running
     runButton.onClicked: vm.run()
+    runButton.tip: "Run · Ctrl+Enter"
     editor.visible: vm.hasSelection
     editor.code: vm.code
     editor.placeholder: vm.placeholder
     editor.onEdited: vm.setCode(text)
     editor.onRunRequested: vm.run()
+    editor.shortcutHint: "to run"
     editor.onDocumentReady: vm.attachHighlighter(doc, Theme.dark)
     runHint.text: vm.runHint
     runHint.visible: vm.hasSelection

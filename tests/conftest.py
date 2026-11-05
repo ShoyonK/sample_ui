@@ -32,3 +32,18 @@ def fake() -> FakeStationGateway:
     fake = FakeStationGateway(ManualScheduler())
     fake.connect_dut(1)
     return fake
+
+
+def pytest_addoption(parser):
+    group = parser.getgroup("chaos", "the seeded chaos runner (docs/CHAOS_TESTING.md)")
+    group.addoption("--chaos-seed", type=int, default=None, help="replay one seed")
+    group.addoption("--chaos-seeds", type=int, default=25, help="how many seeds to run, from 0")
+    group.addoption("--chaos-steps", type=int, default=150, help="steps per seed")
+
+
+def pytest_generate_tests(metafunc):
+    if "chaos_seed" in metafunc.fixturenames:
+        one = metafunc.config.getoption("--chaos-seed")
+        seeds = [one] if one is not None else list(range(metafunc.config.getoption("--chaos-seeds")))
+        metafunc.parametrize("chaos_seed", seeds)
+

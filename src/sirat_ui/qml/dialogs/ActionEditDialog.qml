@@ -10,7 +10,7 @@ ModalDialog {
     objectName: "actionEditDialog"
     readonly property var vm: app.actionEditor
 
-    visible: vm.editOpen
+    shown: vm.editOpen
     dialogWidth: 760
 
     contentItem: ColumnLayout {

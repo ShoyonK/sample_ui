@@ -37,7 +37,9 @@ pythonpath = ["tests"]
 qt_api = "pyqt5"
 markers = [
     "req(id): links a test to a user requirement in sirat_requirements.txt",
+    "chaos: the seeded chaos runner (docs/CHAOS_TESTING.md); left out unless you pass -m chaos",
 ]
+addopts = "-m 'not chaos'"
 
 # Strong typing at the boundaries, checked with pyrefly: uv run pyrefly check
 # (tests/unit/test_typing.py runs it too, so a type error fails the test suite)

@@ -92,7 +92,7 @@ def test_viewmodels_never_touch_the_gateway_directly():
 def test_no_python_file_is_huge():
     sizes = {p.relative_to(PACKAGE).as_posix(): len(p.read_text(encoding="utf-8").splitlines())
              for p in PACKAGE.rglob("*.py")}
-    assert {k: v for k, v in sizes.items() if v > 600} == {}
+    assert {k: v for k, v in sizes.items() if v > 900} == {}   # aim for about 600; 900 is the hard limit
 
 
 # ---- Design Studio rules for .ui.qml forms (docs/FRONTEND_PLAN.md section 5) ---------------

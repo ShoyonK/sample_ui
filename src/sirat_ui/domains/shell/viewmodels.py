@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from sirat_ui.domains.shell.pages import PAGES, page_source
+from sirat_ui.domains.shell.tools import tool
 from sirat_ui.shared.qt import pyqtProperty
 from sirat_ui.shared.viewmodel import BaseViewModel, qprop
 from sirat_ui.state.preferences import PreferencesState
@@ -97,6 +98,22 @@ class ShellViewModel(BaseViewModel):
     def pageSource(self, key: str) -> str:  # noqa: N802
         """The page's QML file, relative to qml/shell/ (domains/shell/pages.py)."""
         return page_source(key)
+
+    @pyqtSlot(str, result="QString")
+    def toolSource(self, key: str) -> str:  # noqa: N802
+        """A tool's QML file, relative to qml/shell/ (domains/shell/tools.py)."""
+        found = tool(key)
+        return found.source if found else ""
+
+    @pyqtSlot(str, result="bool")
+    def toolFills(self, key: str) -> bool:  # noqa: N802
+        found = tool(key)
+        return bool(found and found.fill)
+
+    @pyqtSlot(str, result="QString")
+    def toolTitle(self, key: str) -> str:  # noqa: N802
+        found = tool(key)
+        return found.title if found else ""
 
     @pyqtSlot(str)
     def navigate(self, key: str) -> None:

@@ -51,3 +51,45 @@ def test_no_fault_means_nothing_to_recover(harness):
     assert not vm.hasFault and vm.faultText == ""
     vm.recover()
     assert harness.ix.confirms == [] and harness.fake.calls_to("sys.recover") == []
+
+
+
+# ---- chaos phase 1 (docs/CHAOS_TESTING.md) ----------------------------------------------------------
+
+def test_a_failed_save_is_shown_and_the_change_is_kept_until_the_next_save(harness, monkeypatch):
+    import sirat_ui.stores.json_store as json_store
+    real_replace = json_store.os.replace
+
+    def locked(src, dst):
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(json_store.os, "replace", locked)
+    favorites = harness.services.favorites
+    favorites.toggle("SYNTH.CHCTRL")                       # must not raise out of the click
+    assert "SYNTH.CHCTRL" in favorites.names                # still on screen
+    level, text = harness.ix.toasts[-1]
+    assert level == "error" and text.startswith("Couldn't save .sirat_favorites.json: Permission denied")
+    assert "Couldn't save" in harness.services.log.lines[-1].text
+
+    monkeypatch.setattr(json_store.os, "replace", real_replace)
+    favorites.toggle("SYNTH.FREQ")                          # the next save writes both
+    assert {"SYNTH.CHCTRL"} <= set(harness.restart().services.favorites.names)
+
+
+def test_a_sequence_ends_when_its_dut_drops_instead_of_finishing(harness):
+    seqs = harness.shell.sequences
+    seqs.run()
+    harness.scheduler.advance(500)
+    harness.fake.drop_dut(1)
+    harness.scheduler.run_pending()
+    assert not seqs.running and seqs.statusText == "Failed" and seqs.message == "DUT 1 disconnected"
+
+
+def test_a_chamber_wait_ends_when_the_chamber_drops(harness):
+    ch = harness.shell.chamber
+    ch.setField("target", "80")
+    ch.setTemperature()
+    ch.waitForStable()
+    harness.scheduler.advance(1000)
+    harness.fake.drop_instrument("chamber1")
+    assert not ch.waiting and "disconnected" in ch.waitText

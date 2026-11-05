@@ -3,6 +3,7 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import "../../theme"
 import "../../components"
+import "../../shell"
 import "../../dialogs"
 
 // Settings: preferences, user settings (req 2), About (req 2) | hardware configuration (req 32),
@@ -201,10 +202,12 @@ ScrollView {
             Layout.fillWidth: true
             spacing: 10
 
-            HardwareConfigCard {
+            ToolSlot {
+                toolKey: "hardwareConfig"
                 Layout.fillWidth: true
             }
-            SystemInfoCard {
+            ToolSlot {
+                toolKey: "systemInfo"
                 Layout.fillWidth: true
             }
         }

@@ -6,7 +6,7 @@ import "../../components"
 // One action: checkbox (enabled), type color bar, name, type chip, operation summary (req 13).
 Rectangle {
     id: row
-    signal selected()
+    signal selected(string mode)   // single, toggle (Ctrl), range (Shift)
     signal enabledToggled()
     signal viewRequested()
 
@@ -15,12 +15,23 @@ Rectangle {
     objectName: "actionRow_" + model.name
     width: ListView.view ? ListView.view.width : 600
     height: 36
-    color: model.current ? Theme.select : (hover.hovered ? Theme.surface2 : "transparent")
+    color: model.selected ? Theme.infoBg : (hover.hovered ? Theme.surface2 : "transparent")
+    Behavior on color { ColorAnimation { duration: 120 } }
 
     HoverHandler { id: hover }
-    TapHandler {
-        onTapped: row.selected()
-        onDoubleTapped: row.viewRequested()
+    // Under the checkbox, so the box still takes its own clicks
+    MouseArea {
+        anchors.fill: parent
+        onClicked: row.selected((mouse.modifiers & Qt.ShiftModifier) ? "range"
+                                : (mouse.modifiers & Qt.ControlModifier) ? "toggle" : "single")
+        onDoubleClicked: row.viewRequested()
+    }
+    Rectangle {   // the selection's edge, so selected rows read clearly even next to each other
+        visible: model.selected
+        anchors.right: parent.right
+        width: 3
+        height: parent.height
+        color: Theme.infoFg
     }
 
     Rectangle {
@@ -51,7 +62,7 @@ Rectangle {
             font.family: Theme.fontMono
             font.pixelSize: Theme.fontSm
             font.weight: Font.DemiBold
-            color: Theme.textPrimary
+            color: model.selected ? Theme.infoFg : Theme.textPrimary
             elide: Text.ElideRight
             Layout.fillWidth: true
         }

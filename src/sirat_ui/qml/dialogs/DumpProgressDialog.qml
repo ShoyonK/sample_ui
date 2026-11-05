@@ -9,7 +9,7 @@ ModalDialog {
     objectName: "dumpProgressDialog"
     readonly property var vm: app.dumpProgress
 
-    visible: vm.progressOpen
+    shown: vm.progressOpen
     dialogWidth: 460
 
     contentItem: ColumnLayout {

@@ -1,11 +1,15 @@
-"""Python code generation (req 16), following the template and per-operation snippets in the requirements."""
+"""Python code generation (req 16), following the template and per-operation snippets in the requirements.
+
+A sequence action (req 14 "Add to Actions Panel") runs its enabled actions in order (core/wire_ops.py), so its
+code is theirs, in order, with a comment for each one skipped. Req 16: generated code is self-contained.
+"""
 
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, Dict, Iterable, List, Mapping, Optional
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Set
 
-from sirat_ui.core.ops import code_lines
+from sirat_ui.core.ops import code_lines, op_kind
 from sirat_ui.models.actions import Action
 
 _HEADER = '''#!/usr/bin/env python
@@ -22,6 +26,8 @@ from tests.utils.instrument_utils.switch_utils import SwitchUtils
 def main(dut):
     """Execute actions."""
 '''
+
+Lookup = Callable[[str], Optional[Action]]   # action name -> the action, for expanding sequences
 
 _FOOTER = '''
 
@@ -45,15 +51,41 @@ def _script(blocks: List[List[str]], source: str, now: Optional[dt.datetime]) ->
     return _HEADER.format(source=source, timestamp=stamp) + indented + "\n" + _FOOTER
 
 
+def _action_lines(action: Action, functions: Mapping[str, str], lookup: Optional[Lookup],
+                  seen: Set[str]) -> List[str]:
+    lines: List[str] = []
+    for op in action.operations:
+        if op_kind(op) == "sequence" and lookup is not None:
+            lines.extend(_sequence_lines(op, functions, lookup, seen | {action.name}))
+        else:
+            lines.extend(code_lines(op, functions))
+    return lines
+
+
+def _sequence_lines(op: Dict[str, Any], functions: Mapping[str, str], lookup: Lookup, seen: Set[str]) -> List[str]:
+    """The same actions a run of this sequence sends, skipped ones as comments."""
+    lines = [f"# Sequence: {op.get('sequence_name', '')}"]
+    for name in op.get("action_names") or []:
+        inner = lookup(name)
+        if inner is None:
+            lines.append(f"# {name}: not found, skipped")
+        elif not inner.enabled:
+            lines.append(f"# {name}: disabled, skipped")
+        elif name in seen:
+            lines.append(f"# {name}: already part of this sequence, skipped")
+        else:
+            lines.append(f"# Action: {name}")
+            lines.extend(_action_lines(inner, functions, lookup, seen))
+    return lines
+
+
 def generate(actions: Iterable[Action], custom_functions: Optional[Mapping[str, str]] = None,
-             now: Optional[dt.datetime] = None) -> str:
+             now: Optional[dt.datetime] = None, lookup: Optional[Lookup] = None) -> str:
+    """lookup finds actions by name, so a sequence action expands into its actions' code."""
     functions = custom_functions or {}
     blocks = []
     for action in actions:
-        lines = [f"# Action: {action.name}"]
-        for op in action.operations:
-            lines.extend(code_lines(op, functions))
-        blocks.append(lines)
+        blocks.append([f"# Action: {action.name}"] + _action_lines(action, functions, lookup, set()))
     return _script(blocks, "Actions", now)
 
 

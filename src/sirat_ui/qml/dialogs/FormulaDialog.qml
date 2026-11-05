@@ -10,7 +10,7 @@ ModalDialog {
     objectName: "formulaDialog"
     readonly property var vm: app.formulaEditor
 
-    visible: vm.isOpen
+    shown: vm.isOpen
     dialogWidth: 600
 
     contentItem: ColumnLayout {

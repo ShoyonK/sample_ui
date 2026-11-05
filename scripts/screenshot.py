@@ -251,7 +251,18 @@ def main() -> int:
     actions.remove(failing.name)
     pump(app, 300)
 
+    shell.navigate("tests")
+    pump(app, 400)
+    for row in range(shell.stationTests.catalogue.count):
+        shell.stationTests.toggle(row)
+    shell.stationTests.run()
+    pump(app, 4000)
+    shell.stationTests.selectResult(2)
+    pump(app, 400)
+    grab(app, args.out / "25_tests.png")
+
     shell.state.toggleDarkMode()
+    shell.navigate("advanced")
     shell.advanced.setTab(1)
     pump(app, 600)
     grab(app, args.out / "23_advanced_functions_dark.png")

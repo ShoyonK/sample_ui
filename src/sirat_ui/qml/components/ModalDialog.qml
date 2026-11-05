@@ -1,18 +1,38 @@
 import QtQuick 2.15
 import QtQml 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Window 2.15
 import "../theme"
 
 // Centered modal card. Content goes in contentItem; closes only through the caller's buttons.
+// Bind `shown` to the ViewModel's open state, not `visible`: Qt ignores open() while the closing animation runs,
+// so a dialog reopened in that moment would stay closed while its ViewModel thinks it's open.
 Popup {
     id: popup
     property int dialogWidth: 480
+    property bool shown: false
 
-    // Opens in the window in use, and stays there while it's open even if another window gets clicked.
+    onShownChanged: shown ? open() : close()
+    onClosed: if (shown) Qt.callLater(popup.reopen)   // after it has moved to the window in use
+    function reopen() { if (shown && !visible) open() }
+    Component.onCompleted: if (shown) open()
+
+    // Opens in the window in use, and stays there while it's open even if another window gets clicked. A pop-out
+    // that closes hands its dialogs back (OverlayTracker), so they move once closed and can always open again.
     Binding on parent {
         when: !popup.visible
         value: ActiveOverlay.current || popup.Overlay.overlay
         restoreMode: Binding.RestoreNone
+    }
+    // Open in a pop-out that closes: move to the window in use now, or it would be modal but out of sight
+    Connections {
+        target: ActiveOverlay
+        function onCurrentChanged() {
+            var item = popup.parent
+            var win = item ? item.Window.window : null
+            if (popup.visible && ActiveOverlay.current && (!win || !win.visible))
+                popup.parent = ActiveOverlay.current
+        }
     }
     modal: true
     dim: true

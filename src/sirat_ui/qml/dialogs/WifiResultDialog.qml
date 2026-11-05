@@ -9,7 +9,7 @@ ModalDialog {
     objectName: "wifiResultDialog"
     readonly property var vm: app.wifiPhy
 
-    visible: vm.resultOpen
+    shown: vm.resultOpen
     dialogWidth: 720
 
     contentItem: ColumnLayout {

@@ -41,3 +41,25 @@ def test_every_nav_page_can_pop_out(harness):
     assert len(windows.openKeys) == len(harness.shell.pages)
     windows.closeAll()
     assert windows.openKeys == []
+
+
+def test_a_tool_opens_in_its_own_window_at_its_size(qapp):
+    vm = WindowsViewModel()
+    vm.open("tool", "dutControl")
+    vm.open("tool", "nope")
+    assert vm.openKeys == ["tool:dutControl"]
+    row = vm.model.items[0]
+    assert (row["title"], row["width"], row["height"]) == ("DUT control API explorer", 1200, 800)
+
+
+def test_each_page_lists_the_parts_that_open_in_their_own_window():
+    from sirat_ui.domains.shell.pages import PAGES
+    parts = {p["key"]: [part["title"] for part in p["parts"]] for p in PAGES}
+    assert parts["watch"] == ["Watch list", "Data logger"]
+    assert parts["advanced"] == ["Python console", "Custom functions", "DUT control API explorer", "Memory viewer"]
+    assert parts["instruments"] == ["Signal generator", "BLE packet", "GFSK packet", "RF switch",
+                                    "Temperature chamber", "ECA capture"]
+    assert parts["radio"] == ["PRS signal routing", "WiFi PHY configuration"]
+    assert parts["settings"] == ["Hardware configuration", "System information"]
+    watch = {part["title"]: part["key"] for p in PAGES if p["key"] == "watch" for part in p["parts"]}
+    assert watch == {"Watch list": "watchList", "Data logger": "logger"}   # the window kinds they already had

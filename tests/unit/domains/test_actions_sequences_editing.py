@@ -60,6 +60,56 @@ def test_deselect_all_unchecks_every_action(harness):
     assert not any(r["enabled"] for r in harness.shell.actions.model.items)
 
 
+@pytest.mark.req("13.deselect-all")
+def test_the_checkbox_above_the_list_checks_or_unchecks_every_action(harness):
+    vm = harness.shell.actions
+    assert (vm.checkedCount, vm.total) == (3, 4)
+    vm.setAllChecked(True)
+    assert vm.checkedCount == 4 and all(r["enabled"] for r in vm.model.items)
+    vm.setAllChecked(False)
+    assert vm.checkedCount == 0
+    assert not any(a.enabled for a in harness.restart().services.actions.actions.values())   # saved
+
+
+def selected(h):
+    return [r["name"] for r in h.shell.actions.model.items if r["selected"]]
+
+
+@pytest.mark.req("13.delete")
+def test_ctrl_and_shift_select_several_actions(harness):
+    vm = harness.shell.actions
+    vm.selectRow(0, "single")
+    assert selected(harness) == ["lpmode_on"] and vm.currentName == "lpmode_on"
+    vm.selectRow(2, "toggle")                       # Ctrl+click adds one
+    assert selected(harness) == ["lpmode_on", "siggen_2440_0dbm"] and vm.selectedCount == 2
+    assert vm.currentName == ""                     # View, Edit, Run, Up and Down need exactly one
+    vm.selectRow(0, "toggle")                       # Ctrl+click again takes it out
+    assert selected(harness) == ["siggen_2440_0dbm"] and vm.currentName == "siggen_2440_0dbm"
+    vm.selectRow(2, "single")
+    vm.selectRow(0, "range")                        # Shift+click selects everything in between
+    assert selected(harness) == ["lpmode_on", "ble_1m_rx_setup", "siggen_2440_0dbm"]
+
+
+@pytest.mark.req("13.delete")
+def test_deleting_several_selected_actions_asks_first(harness):
+    vm = harness.shell.actions
+    vm.selectRow(1, "single")
+    vm.selectRow(3, "toggle")
+    vm.removeSelected()                             # cancelled
+    assert harness.ix.confirms[-1].title == "Delete 2 actions"
+    assert "ble_1m_rx_setup, reconnect_rpc" in harness.ix.confirms[-1].message
+    assert len(action_names(harness)) == 4
+    harness.ix.answer_next(True)
+    vm.removeSelected()
+    assert action_names(harness) == ["lpmode_on", "siggen_2440_0dbm"] and vm.selectedCount == 0
+
+
+def test_deleting_one_selected_action_needs_no_confirmation(harness):
+    harness.shell.actions.selectRow(0, "single")
+    harness.shell.actions.removeSelected()
+    assert "lpmode_on" not in action_names(harness) and not harness.ix.confirms
+
+
 @pytest.mark.req("13.type-style")
 def test_actions_carry_their_main_kind_for_colors_and_icons(harness):
     kinds = {r["name"]: r["kind"] for r in harness.shell.actions.model.items}
@@ -176,3 +226,27 @@ def test_highlighter_marks_keywords_strings_comments_functions_and_numbers():
 
 def test_highlighter_survives_broken_code():
     assert "if (" in highlight_python("if (")
+
+
+
+@pytest.mark.req("16.self-contained")
+def test_code_for_a_sequence_action_is_its_actions_code_in_order(harness):
+    actions, sequences = harness.services.actions, harness.services.sequences
+    name = sequences.to_action("ble_rx_bringup")          # reconnect_rpc, ble_1m_rx_setup, siggen (disabled)
+    code = actions.generate_code([name])
+    body = code[code.index("def main"):code.index("if __name__")]
+    assert body.index("# Sequence: ble_rx_bringup") < body.index("# Action: reconnect_rpc") \
+        < body.index("dut.rpc_io.Connect()") < body.index("# Action: ble_1m_rx_setup") \
+        < body.index("dut.rm.writeByName('MODEM.CTRL', 0x00000431)")
+    assert "# siggen_2440_0dbm: disabled, skipped" in body
+    compile(code, "generated.py", "exec")
+
+
+def test_code_for_a_sequence_names_actions_that_are_gone_or_loop(harness):
+    actions = harness.services.actions
+    looping = actions.add("loop", [{"type": "sequence", "sequence_name": "loop",
+                                    "action_names": ["loop", "gone", "lpmode_on"]}])
+    code = actions.generate_code([looping.name])
+    assert "# loop: already part of this sequence, skipped" in code
+    assert "# gone: not found, skipped" in code
+    assert "dut.rm.writeByName('BUFC.LPMODE'" in code

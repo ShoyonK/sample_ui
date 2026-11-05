@@ -13,7 +13,7 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Callable, List, Optional
 
 from sirat_ui.stores.schemas import CLEANERS, Cleaner, Problem, Report
 
@@ -26,6 +26,8 @@ class JsonStore:
         self._default = default
         self._cleaner = cleaner
         self.problems: List[Problem] = []  # from the last load()
+        # Called instead of raising when a save fails (disk full, no permission, file locked); the app sets it
+        self.on_save_error: Optional[Callable[["JsonStore", OSError], None]] = None
 
     def load(self) -> Any:
         self.problems = []
@@ -57,11 +59,19 @@ class JsonStore:
         except OSError as exc:
             log.warning("Couldn't back up %s (%s)", self.path, exc)
 
-    def save(self, data: Any) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.path.with_suffix(self.path.suffix + ".tmp")
-        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        os.replace(tmp, self.path)
+    def save(self, data: Any) -> bool:
+        """Writes atomically. Returns False if it failed and on_save_error was told; raises if nobody listens."""
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self.path.with_suffix(self.path.suffix + ".tmp")
+            tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            os.replace(tmp, self.path)
+        except OSError as exc:
+            if self.on_save_error is None:
+                raise
+            self.on_save_error(self, exc)
+            return False
+        return True
 
     @property
     def exists(self) -> bool:

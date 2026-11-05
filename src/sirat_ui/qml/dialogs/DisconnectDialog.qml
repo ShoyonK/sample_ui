@@ -7,7 +7,7 @@ ModalDialog {
     objectName: "disconnectDialog"
     readonly property var vm: app.recovery
 
-    visible: vm.visible
+    shown: vm.visible
     dialogWidth: 520
 
     contentItem: DisconnectDialogForm {

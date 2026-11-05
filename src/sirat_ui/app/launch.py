@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from sirat_ui.app.application import Application, ensure_qt_app
+from sirat_ui.app import crash_guard
 from sirat_ui.app.container import ServiceContainer
 from sirat_ui.app.logging_setup import setup_logging
 from sirat_ui.app.paths import daily_log_dir, default_home, dumps_dir, session_log_dir
@@ -55,6 +56,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     app, scenario = build_app(args.backend, args.scenario, args.home, not args.no_demo_data)
     if log_path:
         logging.getLogger("SiRAT").info("Session log: %s", log_path)
+    crash_guard.install(app.container.services.log, app.container.interactions)
     window = app.load()
     window.showMaximized()  # req 1: initial state maximized
     app.container.start(autoconnect=scenario.autoconnect, position=app.container.state.position)

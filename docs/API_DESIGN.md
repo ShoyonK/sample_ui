@@ -25,7 +25,8 @@ method, `advanced.custom_function` (with the console's `session_id`, so the two 
 `advanced.dut_control.describe/invoke`. Frontend choices to confirm: the GUI rejects a memory write that
 crosses a 4-byte word; `ApiParam` leaves out the injected `dut` parameter; a console or function error
 whose session has ended (`not_found` with `data.session_id`) makes the GUI open a new session and retry
-once. Every method in this document now has a frontend user except the deferred `tests.*`.
+once. Every method in this document now has a frontend user. `tests.*` is a frontend proposal for the Tests
+page, not agreed yet (11.4).
 
 ## 1. What stays the same
 
@@ -64,7 +65,7 @@ once. Every method in this document now has a frontend user except the deferred 
 | Signal generator | `set(freq, level, role)`, `trigger(role)` | `get`, `set(SiggenConfig)`, `waveforms`, `trigger(mode)`, `rf(on)` | Load current config, pick a waveform, reload waveforms |
 | Chamber | `set_temp(wait_stable)` | `read`, `set_temp`, `wait_stable` (activity) | Live temperature; waiting is optional and can be aborted |
 | ECA | `capture(CaptureSpec)` | Plus `eca.sources` and `eca.result` (paged); `CaptureSpec` defined | The captured data has to come back |
-| Tests | — | Not in v1 (deferred) | The Tests page is set aside for now (11.4) |
+| Tests | — | Proposed: `tests.list`, `tests.run` (activity) | Req 33 Tests page; open questions in 11.4 |
 | Abort/status | `automation.seq.abort/status` | `activity.abort/status` | Every activity type aborts the same way |
 | Activities | One per position, `pos` required | `pos` or `instrument_id` | Chamber waits and captures have no DUT position |
 | Instrument tag | `instrument:<id>` and `instrument:rf_switch` mixed | `instrument:<kind>` | One form |
@@ -427,12 +428,27 @@ class InvokeRes(Model): result_text: str; result_json: JsonValue | None; result_
   `data.cause: rpc_timeout | rpc_transport | rail_assert | other` and a traceback. The GUI words the hint
   for each cause.
 
-### tests (deferred, not in v1)
+### tests (proposed by the frontend, not agreed)
 
-The Tests page (req 33) is set aside for now (11.4). When it comes back, the sketch was `tests.list()` and
-`tests.run(pos, ids[]) -> ActivityRef` with per-test results in `activity.finished`, and the first question
-is where the list of tests comes from.
+| Method | Result | Requires |
+|---|---|---|
+| `tests.list()` | `list[StationTest]` | — |
+| `tests.run(pos, test_ids: list[str])` | `ActivityRef` | `dut, idle, no_fault` |
 
+```python
+class StationTest(Model):        id: str; name: str
+class StationTestResult(Model):  id: str; passed: bool; started: float; duration_s: float
+                                 notes: str = ""                  # e.g. the failure message
+                                 output: list[str]                # what the test printed
+```
+
+- A test is one call to its `execute()`; the steps inside are hidden, so a test reports pass or fail, notes and
+  its printed output.
+- `tests.run` runs the tests in the order given, as one activity. Each test sends `activity.progress` as it
+  starts (`message` = its name, `group` = its id) and again with `result` as it ends.
+- `activity.finished.ok` is false when the run ended early (`aborted`, `dut_disconnected`); `results[]` holds
+  every test that finished.
+- `invalid_params` for an empty list or an unknown id.
 ---
 
 ## 7. Events
@@ -440,7 +456,7 @@ is where the list of tests comes from.
 | Event | Data | When |
 |---|---|---|
 | `status.changed` | `StationStatus` | Any fact changes |
-| `activity.progress` | `activity_id, pos?, instrument_id?, step, total, message, group?` | |
+| `activity.progress` | `activity_id, pos?, instrument_id?, step, total, message, group?, result?` | `result`: a finished test (proposed `tests.run`) |
 | `activity.finished` | `activity_id, pos?, instrument_id?, ok, results[], result?, error?` | Exactly once |
 | `registers.watch` | `sub_id, pos, ts, values[{name, value}]` | Once per interval; only the newest is kept if the client is slow |
 | `dut.disconnected` | `pos, cause, detected_by` | After the 2 s debounce |
@@ -498,7 +514,7 @@ Library exceptions are mapped to these codes at the domain-service boundary. `ha
 | Custom functions | `advanced.custom_function` | The functions file, editor |
 | Python console | `advanced.console.*` | History, colors |
 | DUT control explorer | `advanced.dut_control.*` | Parameter parsing from text |
-| Test execution | Deferred (not in v1) | — |
+| Test execution | `tests.*` | Selection, run order, export |
 | Sessions, settings import/export, logs | — | All |
 
 ## 10. Open questions carried over
@@ -525,8 +541,10 @@ to get done, not as a spec to copy.
    in a custom-function example (req 15). The `rx_configured` / `tx_configured` facts and the
    `radio_rx` / `radio_tx` tags go with it. Add them back when a screen needs them.
 3. **Read-sensitive registers.** Not decided; deferred to a later discussion. See section 12.
-4. **The Tests page is out of v1.** Decided. `tests.*` is removed for now; req 33 is set aside, and the
-   frontend's Tests nav entry stays a "planned" placeholder.
+4. **The Tests page.** Set aside on 2026-10-28; the frontend page was built on 2026-11-05 against the
+   proposed `tests.list` / `tests.run` (section 6), which are not agreed. Open: where the tests come from (the
+   station, or files on the PC), what a "test sequence" is, where Notes come from, and whether a failure stops
+   the run.
 
 ## 12. Open items (come back to these)
 

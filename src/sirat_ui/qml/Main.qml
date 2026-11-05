@@ -36,7 +36,7 @@ ApplicationWindow {
 
     LogWindow { }
 
-    // Pages, the watch list, the data logger and graphs opened in their own windows (app.windows).
+    // Pages, their parts (watch list, data logger, tools) and graphs opened in their own windows (app.windows).
     Instantiator {
         model: app.windows.model
         delegate: PopoutWindow {
@@ -44,6 +44,8 @@ ApplicationWindow {
             kind: model.kind
             arg: model.arg
             heading: model.title
+            width: model.width
+            height: model.height
         }
     }
 

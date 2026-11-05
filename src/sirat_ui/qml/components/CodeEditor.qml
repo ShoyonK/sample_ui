@@ -9,6 +9,8 @@ Rectangle {
     id: root
     property string code: ""
     property string placeholder: ""
+    property string shortcutHint: ""   // e.g. "to run": shows [Ctrl] [Enter] to run in the corner
+
     property alias editor: area
     signal edited(string text)
     signal runRequested()
@@ -101,6 +103,52 @@ Rectangle {
                     root.runRequested()
                     event.accepted = true
                 }
+            }
+        }
+    }
+
+    // A quiet reminder of the shortcut, clearer while typing in the editor
+    Rectangle {
+        objectName: "codeEditorShortcutHint"
+        visible: root.shortcutHint !== ""
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.rightMargin: 16
+        anchors.bottomMargin: 12
+        width: hintRow.implicitWidth + 12
+        height: hintRow.implicitHeight + 8
+        radius: Theme.radiusSm
+        color: Theme.surface
+        opacity: area.activeFocus ? 0.95 : 0.5
+        Behavior on opacity { NumberAnimation { duration: 150 } }
+        Row {
+            id: hintRow
+            anchors.centerIn: parent
+            spacing: 4
+            Repeater {
+                model: ["Ctrl", "Enter"]
+                delegate: Rectangle {
+                    width: keyLabel.implicitWidth + 10
+                    height: keyLabel.implicitHeight + 4
+                    radius: 3
+                    color: Theme.surface2
+                    border.color: Theme.borderStrong
+                    Text {
+                        id: keyLabel
+                        anchors.centerIn: parent
+                        text: modelData
+                        font.family: Theme.fontUi
+                        font.pixelSize: Theme.fontXs
+                        color: Theme.textMuted
+                    }
+                }
+            }
+            Text {
+                text: root.shortcutHint
+                anchors.verticalCenter: parent.verticalCenter
+                font.family: Theme.fontUi
+                font.pixelSize: Theme.fontXs
+                color: Theme.textMuted
             }
         }
     }

@@ -228,3 +228,11 @@ def test_compare_only_looks_at_peripherals_both_sides_have():
     assert [(r.register, r.before, r.after) for r in result.rows] == [("A.R2", 2, 9)]
     assert result.compared == 2 and result.only_in_one == 0
     assert result.rows[0].change == "bits 0x0000000B"
+
+
+
+def test_right_clicking_a_peripheral_opens_take_a_dump_with_just_it_checked(harness):
+    harness.shell.dumps.dumpPeripheral("MODEM")
+    picker = harness.shell.dumpPicker
+    checked = [r["name"] for r in picker.peripherals.items if r["checked"]]
+    assert picker.pickerMode == "dump" and checked == ["MODEM"]

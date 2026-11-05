@@ -9,7 +9,7 @@ ModalDialog {
     objectName: "readAllDialog"
     readonly property var vm: app.readAll
 
-    visible: vm.isOpen
+    shown: vm.isOpen
     dialogWidth: 460
 
     contentItem: ColumnLayout {

@@ -259,9 +259,14 @@ class EcaViewModel(InstrumentViewModel):
         suggested = f"eca_capture_{'_'.join(capture.channels).lower()}.csv"
 
         def chosen(path: Optional[str]) -> None:
-            if path:
+            if not path:
+                return
+            try:
                 self._service.save_csv(Path(path))
-                self._interactions.toast("success", f"Saved {Path(path).name}")
+            except OSError as exc:
+                self._interactions.toast("error", f"Couldn't save {Path(path).name}: {exc.strerror or exc}")
+                return
+            self._interactions.toast("success", f"Saved {Path(path).name}")
 
         self._interactions.choose_save_file("Save ECA capture", suggested, "CSV files (*.csv)").then(chosen)
 

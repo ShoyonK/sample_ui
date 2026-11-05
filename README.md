@@ -5,6 +5,7 @@ against an in-memory fake that follows the same contract (requires rules, error 
 
 - Plan and class diagrams: [docs/FRONTEND_PLAN.md](docs/FRONTEND_PLAN.md)
 - Screenshots of the real app: [docs/screenshots](docs/screenshots)
+- What can go wrong and how we'll test it: [docs/CHAOS_TESTING.md](docs/CHAOS_TESTING.md)
 
 ## Run
 

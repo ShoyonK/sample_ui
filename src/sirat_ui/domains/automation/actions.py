@@ -38,6 +38,7 @@ class ActionService:
         self.changed = Event()
         self.run_finished = Event()  # (ok: bool)
         self.console = Event()       # (level, text): run output for the Actions console (req 13)
+        self.running = False         # a run is starting or going; another Run is ignored until it ends
 
     def reload(self) -> None:
         self.actions = migrate_actions(self._store.load())
@@ -68,12 +69,19 @@ class ActionService:
             self._log.info(f"Updated action {name}")
 
     def deselect_all(self) -> None:
+        self.set_all_enabled(False)
+
+    def set_all_enabled(self, enabled: bool) -> None:
         for action in self.actions.values():
-            action.enabled = False
+            action.enabled = enabled
         self._save()
 
     def remove(self, name: str) -> None:
-        self.actions.pop(name, None)
+        self.remove_many([name])
+
+    def remove_many(self, names: List[str]) -> None:
+        for name in names:
+            self.actions.pop(name, None)
         self._save()
 
     def remove_all(self) -> None:
@@ -106,6 +114,8 @@ class ActionService:
         return [op for n in names if n in self.actions for op in self.wire_ops(n)]
 
     def run(self, names: List[str]) -> Call:
+        if self.running:   # e.g. Run double-clicked: the station would refuse the second one as busy
+            return Call.failed(ApiError(ErrorCode.BUSY, "An action run is already going"))
         label = ", ".join(names)
         try:
             ops = self.ops_for(names)
@@ -121,23 +131,27 @@ class ActionService:
             self.console.emit("info", f"▶ {label} ({len(ops)} ops)")
 
         def failed(error) -> None:
+            self.running = False
             self.console.emit("error", f"✗ {label}: {error.message}")
             self._errors.present(error, f"Run {label}")
 
         if not ops:
             self.console.emit("warning", "Nothing to run")
+        self.running = True
         return self._gateway.run_sequence(self._state.position, ops, True).then(started, failed)
 
     def run_enabled(self) -> Call:
         return self.run([a.name for a in self.actions.values() if a.enabled])
 
     def generate_code(self, names: List[str]) -> str:
-        return codegen.generate([self.actions[n] for n in names if n in self.actions], self._functions())
+        return codegen.generate([self.actions[n] for n in names if n in self.actions], self._functions(),
+                                lookup=self.actions.get)
 
     def _progress(self, event: ActivityProgress) -> None:
         self.console.emit("info", f"  {event.step}/{event.total}  {event.message}")
 
     def _finished(self, label: str, event: ActivityFinished) -> None:
+        self.running = False
         if event.ok:
             self._log.success(f"Finished {label}")
             self.console.emit("success", f"✓ {label} finished")

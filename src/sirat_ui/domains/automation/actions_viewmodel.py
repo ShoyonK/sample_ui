@@ -13,6 +13,7 @@ from sirat_ui.domains.automation.sequences import SequenceService
 from sirat_ui.models.dialogs import ConfirmRequest, PromptField, PromptRequest
 from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
+from sirat_ui.shared.selection import RowSelection
 from sirat_ui.shared.viewmodel import BaseViewModel, ConsoleModel, DictListModel, qprop
 from sirat_ui.state.station import StationState
 
@@ -34,9 +35,13 @@ class ActionsViewModel(BaseViewModel):
         self._editor = editor
         self._state = state
         self._interactions = interactions
-        self._model = DictListModel(["name", "enabled", "opsText", "kind", "current"], self)
+        self._model = DictListModel(["name", "enabled", "opsText", "kind", "selected"], self)
         self._console = ConsoleModel(self)
-        self._current = ""
+        self._selection = RowSelection()   # by name; Ctrl and Shift add to it
+        self._current = ""                 # the selected action when exactly one is selected
+        self._selected_count = 0
+        self._checked_count = 0
+        self._total = 0
         self._can_run = state.can("automation.seq.run")
         actions.changed.connect(self._rebuild)
         actions.console.connect(self._console.append)
@@ -45,6 +50,9 @@ class ActionsViewModel(BaseViewModel):
 
     canRun = qprop(bool, "_can_run", changed)
     currentName = qprop(str, "_current", changed)
+    selectedCount = qprop(int, "_selected_count", changed)
+    checkedCount = qprop(int, "_checked_count", changed)
+    total = qprop(int, "_total", changed)
 
     @pyqtProperty(QObject, constant=True)
     def model(self) -> DictListModel:
@@ -55,11 +63,14 @@ class ActionsViewModel(BaseViewModel):
         return self._console
 
     def _rebuild(self) -> None:
-        if self._current not in self._actions.actions:
-            self._current = ""
+        self._selection.keep_only(self._actions.actions)
+        selected = self._selected_names()
+        self._current = selected[0] if len(selected) == 1 else ""
         self._model.set_items([{"name": a.name, "enabled": a.enabled, "opsText": summarize_ops(a.operations),
-                                "kind": main_kind(a.operations), "current": a.name == self._current}
+                               "kind": main_kind(a.operations), "selected": a.name in self._selection}
                                for a in self._actions.actions.values()])
+        self._update(checked_count=len(self._checked()), total=len(self._actions.actions),
+                     selected_count=len(selected))
         self.changed.emit()
 
     def _name(self, row: int) -> Optional[str]:
@@ -67,6 +78,9 @@ class ActionsViewModel(BaseViewModel):
 
     def _checked(self) -> List[str]:
         return [a.name for a in self._actions.actions.values() if a.enabled]
+
+    def _selected_names(self) -> List[str]:
+        return [name for name in self._actions.actions if name in self._selection]
 
     def _require_current(self) -> Optional[str]:
         if self._current in self._actions.actions:
@@ -78,12 +92,19 @@ class ActionsViewModel(BaseViewModel):
 
     @pyqtSlot(int)
     def select(self, row: int) -> None:
-        self._current = self._name(row) or ""
-        self._rebuild()
+        self.selectRow(row, "single")
+
+    @pyqtSlot(int, str)
+    def selectRow(self, row: int, mode: str) -> None:  # noqa: N802
+        """mode: "single" (click), "toggle" (Ctrl+click), "range" (Shift+click)."""
+        name = self._name(row)
+        if name:
+            self._selection.select(list(self._actions.actions), name, mode)
+            self._rebuild()
 
     def select_name(self, name: str) -> None:
         if name in self._actions.actions:
-            self._current = name
+            self._selection.select(list(self._actions.actions), name)
             self._rebuild()
 
     @pyqtSlot(int)
@@ -95,6 +116,11 @@ class ActionsViewModel(BaseViewModel):
     @pyqtSlot()
     def deselectAll(self) -> None:  # noqa: N802
         self._actions.deselect_all()
+
+    @pyqtSlot(bool)
+    def setAllChecked(self, checked: bool) -> None:  # noqa: N802
+        """The checkbox above the list: checks every action, or unchecks them all."""
+        self._actions.set_all_enabled(checked)
 
     # ---- run ----------------------------------------------------------------------------------------
 
@@ -133,10 +159,19 @@ class ActionsViewModel(BaseViewModel):
             self._actions.move(self._current, delta)
 
     @pyqtSlot()
-    def removeCurrent(self) -> None:  # noqa: N802
-        name = self._require_current()
-        if name:
-            self._actions.remove(name)
+    def removeSelected(self) -> None:  # noqa: N802
+        """Deletes every selected action; asks first when it's more than one."""
+        names = self._selected_names()
+        if not names:
+            self._interactions.toast("error", "Select an action first")
+            return
+        if len(names) == 1:
+            self._actions.remove(names[0])
+            return
+        shown = ", ".join(names[:5]) + (f" and {len(names) - 5} more" if len(names) > 5 else "")
+        request = ConfirmRequest(f"Delete {len(names)} actions", f"{shown}. You can't undo it.",
+                                 confirm_text="Delete", tone="danger")
+        self._interactions.confirm(request).then(lambda a: self._actions.remove_many(names) if a.accepted else None)
 
     @pyqtSlot()
     def removeAll(self) -> None:  # noqa: N802

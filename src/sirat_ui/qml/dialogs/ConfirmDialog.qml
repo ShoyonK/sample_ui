@@ -7,7 +7,7 @@ ModalDialog {
     readonly property var vm: app.dialogs
     readonly property var req: vm.confirm
 
-    visible: req.title !== undefined
+    shown: req.title !== undefined
 
     contentItem: ConfirmDialogForm {
         header.title: dialog.req.title || ""

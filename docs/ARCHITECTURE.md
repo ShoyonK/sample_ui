@@ -84,7 +84,7 @@ flowchart TB
         r3["Only app/ and gateway/ name StationGateway"]
         r4["One Qt property style: qprop or @pyqtProperty"]
         r5[".ui.qml forms: no handlers; every control has an objectName"]
-        r6["No Python file over 600 lines"]
+        r6["No Python file over 900 lines (aim for 600)"]
         r1 ~~~ r2 ~~~ r3 ~~~ r4 ~~~ r5 ~~~ r6
     end
     stack ~~~ rules
@@ -320,7 +320,7 @@ flowchart LR
     classDef box text-align:left,fill:#f8f8ff,stroke:#6a6ab0,color:#1c1c1c
     classDef stub fill:#ffffff,stroke:#6a6ab0,stroke-dasharray:4 3,color:#1c1c1c
     ServiceContainer["<b>ServiceContainer</b><hr/>+stop()<br/>+reload_user_data()<br/>+report_settings_problems()<br/>+start(autoconnect: bool=False, position: int=1)"]:::box
-    ShellViewModel["<b>ShellViewModel</b><hr/>+pageSource(key: str) str<br/>+navigate(key: str)<br/>+child(name: str) QObject<br/>+2 bindable properties"]:::box
+    ShellViewModel["<b>ShellViewModel</b><hr/>+pageSource(key: str) str<br/>+toolSource(key: str) str<br/>+toolFills(key: str) bool<br/>+toolTitle(key: str) str<br/>+navigate(key: str)<br/>+child(name: str) QObject<br/>+2 bindable properties"]:::box
     StateViewModel["<b>StateViewModel</b><hr/>+setPosition(position: int)<br/>+toggleDarkMode()<br/>+12 bindable properties"]:::box
     CommandPaletteViewModel["<b>CommandPaletteViewModel</b><hr/>+open()<br/>+close()<br/>+setQuery(text: str)<br/>+move(delta: int)<br/>+trigger(kind: str, key: str)<br/>+activateCurrent()<br/>+activate(row: int)<br/>+7 bindable properties"]:::box
     DockViewModel["<b>DockViewModel</b><hr/>+setPage(key: str)<br/>+toggle()<br/>+show()<br/>+6 bindable properties"]:::box
@@ -485,12 +485,12 @@ Every operation kind is one `OpKind` in `core/ops.py` (`KINDS`), used by `descri
 flowchart TB
     classDef box text-align:left,fill:#f8f8ff,stroke:#6a6ab0,color:#1c1c1c
     classDef stub fill:#ffffff,stroke:#6a6ab0,stroke-dasharray:4 3,color:#1c1c1c
-    ActionService["<b>ActionService</b><hr/>+reload()<br/>+replace(raw: Dict[str,Any])<br/>+get(name: str) Action?<br/>+unique_name(name: str) str<br/>+add(name: str, ops: List[Dict of str,Any], enabled: bool=True) Action<br/>+update(name: str, ops: List[Dict of str,Any])<br/>+deselect_all()<br/>+remove(name: str)<br/>+remove_all()<br/>+set_enabled(name: str, enabled: bool)<br/>+move(name: str, delta: int)<br/>+wire_ops(name: str) List[Dict of str,Any]<br/>+ops_for(names: List[str]) List[Dict of str,Any]<br/>+run(names: List[str]) Call<br/>+run_enabled() Call<br/>+generate_code(names: List[str]) str"]:::box
+    ActionService["<b>ActionService</b><hr/>+reload()<br/>+replace(raw: Dict[str,Any])<br/>+get(name: str) Action?<br/>+unique_name(name: str) str<br/>+add(name: str, ops: List[Dict of str,Any], enabled: bool=True) Action<br/>+update(name: str, ops: List[Dict of str,Any])<br/>+deselect_all()<br/>+set_all_enabled(enabled: bool)<br/>+remove(name: str)<br/>+remove_many(names: List[str])<br/>+remove_all()<br/>+set_enabled(name: str, enabled: bool)<br/>+move(name: str, delta: int)<br/>+wire_ops(name: str) List[Dict of str,Any]<br/>+ops_for(names: List[str]) List[Dict of str,Any]<br/>+run(names: List[str]) Call<br/>+run_enabled() Call<br/>+generate_code(names: List[str]) str"]:::box
     SequenceService["<b>SequenceService</b><hr/>+reload()<br/>+description(name: str) str<br/>+create(name: str, action_names: List[str]) str<br/>+rename(old: str, new: str) str<br/>+add_steps(name: str, action_names: List[str])<br/>+to_action(name: str) str<br/>+delete(name: str)<br/>+move_step(name: str, index: int, delta: int)<br/>+remove_step(name: str, index: int)<br/>+plan(name: str, wire: bool=False) Tuple[List of Step,List of Dict of str,Any]<br/>+preview(name: str) List[Step]<br/>+run(name: str) Call<br/>+abort()<br/>+generate_code(name: str) str"]:::box
     ActionRecorder["<b>ActionRecorder</b><hr/>+add(name: str, ops: List[Dict of str,Any], enabled: bool=True) Action"]:::box
     ActivityTracker["<b>ActivityTracker</b><hr/>+follow(activity_id: str, on_progress: Progress, on_done: Done)"]:::box
     OpKind["<b>OpKind</b><hr/>+name str<br/>+describe Callable<br/>+code Callable<br/>+wire_fields Tuple[str,...]?<br/>+to_wire Callable?<br/>+carries_code bool<br/>+editable bool<br/>+wire(op: Op, functions: Functions) Op"]:::box
-    ActionsViewModel["<b>ActionsViewModel</b><hr/>+select(row: int)<br/>+select_name(name: str)<br/>+toggleEnabled(row: int)<br/>+deselectAll()<br/>+runCurrent()<br/>+runSelected()<br/>+viewCurrent()<br/>+editCurrent()<br/>+moveCurrent(delta: int)<br/>+removeCurrent()<br/>+removeAll()<br/>+addCheckedToSequence()<br/>+generateCode()<br/>+4 bindable properties"]:::box
+    ActionsViewModel["<b>ActionsViewModel</b><hr/>+select(row: int)<br/>+selectRow(row: int, mode: str)<br/>+select_name(name: str)<br/>+toggleEnabled(row: int)<br/>+deselectAll()<br/>+setAllChecked(checked: bool)<br/>+runCurrent()<br/>+runSelected()<br/>+viewCurrent()<br/>+editCurrent()<br/>+moveCurrent(delta: int)<br/>+removeSelected()<br/>+removeAll()<br/>+addCheckedToSequence()<br/>+generateCode()<br/>+7 bindable properties"]:::box
     SequencesViewModel["<b>SequencesViewModel</b><hr/>+select(row: int)<br/>+select_name(name: str)<br/>+selectStep(row: int)<br/>+run()<br/>+abort()<br/>+newSequence()<br/>+renameSequence()<br/>+deleteSequence()<br/>+addToActions()<br/>+addAction()<br/>+removeSelectedStep()<br/>+moveSelectedStep(delta: int)<br/>+generateCode()<br/>+10 bindable properties"]:::box
     ActionEditorViewModel["<b>ActionEditorViewModel</b><hr/>+open_view(name: str)<br/>+closeView()<br/>+open_edit(name: str)<br/>+setEditValue(row: int, text: str)<br/>+saveEdit()<br/>+cancelEdit()<br/>+6 bindable properties"]:::box
     ops_py["<b>ops_py</b><br/><i>«module core/ops.py»</i><hr/>+KINDS Dict[str,OpKind]<br/>+op_kind(op: Op) str<br/>+describe_op(op: Op) str<br/>+code_lines(op: Op, functions: Functions) List[str]<br/>+to_wire(op: Op, functions: Functions) Op<br/>+carries_code(kind: str) bool<br/>+editable(kind: str) bool"]:::box
@@ -534,7 +534,7 @@ flowchart TB
     classDef box text-align:left,fill:#f8f8ff,stroke:#6a6ab0,color:#1c1c1c
     classDef stub fill:#ffffff,stroke:#6a6ab0,stroke-dasharray:4 3,color:#1c1c1c
     DumpService["<b>DumpService</b><hr/>+running bool<br/>+files() List[DumpFile]<br/>+save(dump: RegisterDump) Path<br/>+delete(path: Path)<br/>+compare_files(first: Path, second: Path) Comparison<br/>+take(peripherals: List[str], on_done: Callable) bool<br/>+diff_live(path: Path, on_done: Callable) bool<br/>+radio_diff(config: RadioConfig, peripherals: List[str], on_done: Callable) bool<br/>+cancel()<br/>+new_dump(job: DumpJob, name: str, description: str='') RegisterDump<br/>+to_records() List[Dict of str,Any]<br/>+restore(records: List[Dict of str,Any])"]:::box
-    DumpsViewModel["<b>DumpsViewModel</b><hr/>+refresh()<br/>+select(row: int)<br/>+deleteSelected()<br/>+openPicker()<br/>+diffLive()<br/>+compareWith()<br/>+compareFiles()<br/>+openRadioDiff()<br/>+4 bindable properties"]:::box
+    DumpsViewModel["<b>DumpsViewModel</b><hr/>+refresh()<br/>+select(row: int)<br/>+deleteSelected()<br/>+openPicker()<br/>+dumpPeripheral(peripheral: str)<br/>+diffLive()<br/>+compareWith()<br/>+compareFiles()<br/>+openRadioDiff()<br/>+4 bindable properties"]:::box
     PeripheralPickerViewModel["<b>PeripheralPickerViewModel</b><hr/>+open(mode: str, wording: tuple, checked: Dict[str,bool], label: Callable, on_start: Callable)<br/>+checked() Dict[str,bool]<br/>+closePicker()<br/>+togglePeripheral(row: int)<br/>+selectAll()<br/>+selectNone()<br/>+startPicked()<br/>+7 bindable properties"]:::box
     DumpProgressViewModel["<b>DumpProgressViewModel</b><hr/>+begin(title: str)<br/>+cancel()<br/>+6 bindable properties"]:::box
     ComparisonViewModel["<b>ComparisonViewModel</b><hr/>+show(result: Comparison)<br/>+show_radio(result: RadioComparison)<br/>+sortBy(column: str)<br/>+clearResult()<br/>+saveReport()<br/>+14 bindable properties"]:::box

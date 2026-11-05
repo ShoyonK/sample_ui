@@ -3,7 +3,7 @@
 from sirat_ui.gateway.errors import ErrorCode
 from sirat_ui.gateway.fake import FakeStationGateway
 from sirat_ui.gateway.scheduler import ManualScheduler
-from sirat_ui.models.station import ActivityFinished, DutDisconnected, WatchValues
+from sirat_ui.models.station import ActivityFinished, ActivityProgress, DutDisconnected, WatchValues
 from sirat_ui.models.station import CallLate, LpwPhy, RpcAddress
 
 
@@ -195,3 +195,95 @@ def test_status_carries_instrument_facts():
     assert kinds == {"signal_generator", "rf_switch", "chamber", "eca"}
     fake.drop_instrument("switch1")
     assert not next(i for i in fake.status_snapshot().instruments if i.id == "switch1").connected
+
+
+
+def test_tests_run_reports_each_test_twice_and_finishes_with_every_result():
+    scheduler = ManualScheduler()
+    fake = FakeStationGateway(scheduler)
+    fake.connect_dut(1)
+    events = []
+    fake.events.connect(lambda e: events.append(e) if isinstance(e, (ActivityProgress, ActivityFinished)) else None)
+    assert results(fake.list_tests())[0][0] == "ok"
+    fake.run_tests(1, ["sample_test_1", "sample_test_3"])
+    assert results(fake.write_register(1, "BUFC.LPMODE", 1)) == [("err", ErrorCode.WRONG_STATE)]  # busy
+    scheduler.run_pending()
+    progress = [(e.group, (e.result or {}).get("passed")) for e in events if isinstance(e, ActivityProgress)]
+    assert progress == [("sample_test_1", None), ("sample_test_1", True),
+                        ("sample_test_3", None), ("sample_test_3", False)]
+    finished = events[-1]
+    assert finished.ok is True and [r["passed"] for r in finished.results] == [True, False]
+    assert fake.facts[1].activity == "idle"
+
+
+def test_tests_run_refuses_unknown_tests_and_needs_a_dut():
+    fake = FakeStationGateway(ManualScheduler())
+    assert results(fake.run_tests(1, ["sample_test_1"])) == [("err", ErrorCode.WRONG_STATE)]
+    fake.connect_dut(1)
+    assert results(fake.run_tests(1, ["nope"])) == [("err", ErrorCode.INVALID_PARAMS)]
+    assert results(fake.run_tests(1, [])) == [("err", ErrorCode.INVALID_PARAMS)]
+
+
+def test_abort_ends_a_test_run_as_aborted():
+    scheduler = ManualScheduler()
+    fake = FakeStationGateway(scheduler)
+    fake.connect_dut(1)
+    finished = []
+    fake.events.connect(lambda e: finished.append(e) if isinstance(e, ActivityFinished) else None)
+    activity = []
+    fake.run_tests(1, ["sample_test_1", "sample_test_2"]).then(activity.append)
+    scheduler.advance(150)
+    fake.abort_activity(activity[0])
+    scheduler.run_pending()
+    assert finished[0].ok is False and finished[0].error.code == ErrorCode.ABORTED and finished[0].results == []
+
+
+
+def _station_with_events():
+    scheduler = ManualScheduler()
+    fake = FakeStationGateway(scheduler)
+    fake.connect_dut(1)
+    events = []
+    fake.events.connect(events.append)
+    return scheduler, fake, events
+
+
+def test_a_dut_drop_ends_a_sequence_with_dut_disconnected():
+    scheduler, fake, events = _station_with_events()
+    fake.run_sequence(1, [{"type": "dut_reconnect"}] * 5)
+    scheduler.advance(500)
+    fake.drop_dut(1)
+    scheduler.run_pending()
+    finished = [e for e in events if isinstance(e, ActivityFinished)]
+    assert len(finished) == 1 and not finished[0].ok and finished[0].error.code == ErrorCode.DUT_DISCONNECTED
+    assert fake.facts[1].activity == "idle"
+
+
+def test_swallow_next_loses_one_event_and_duplicate_next_repeats_one():
+    scheduler, fake, events = _station_with_events()
+    fake.swallow_next(ActivityFinished)
+    fake.run_sequence(1, [{"type": "dut_reconnect"}])
+    scheduler.run_pending()
+    assert not [e for e in events if isinstance(e, ActivityFinished)]          # lost
+    fake.duplicate_next(ActivityFinished)
+    fake.run_sequence(1, [{"type": "dut_reconnect"}])
+    scheduler.run_pending()
+    assert len([e for e in events if isinstance(e, ActivityFinished)]) == 2    # the next one arrives twice
+
+
+def test_a_station_restart_ends_everything_and_drops_every_dut():
+    scheduler, fake, events = _station_with_events()
+    fake.connect_dut(2)
+    fake.run_sequence(1, [{"type": "dut_reconnect"}] * 5)
+    fake.chamber_wait_stable("chamber1", 0.5, 60)
+    sub_ids = []
+    fake.watch(1, ["BUFC.LPMODE"], 0.5).then(sub_ids.append)
+    scheduler.advance(300)
+    fake.restart_station()
+    finished = [e for e in events if isinstance(e, ActivityFinished)]
+    assert len(finished) == 2 and all(e.error.message == "Station service restarted" for e in finished)
+    assert sorted(e.position for e in events if isinstance(e, DutDisconnected)) == [1, 2]
+    assert not any(f.dut_connected or f.watching for f in fake.facts.values())
+    before = len(events)
+    scheduler.advance(5000)                                  # nothing keeps ticking after the restart
+    assert not [e for e in events[before:] if isinstance(e, (ActivityFinished, WatchValues))]

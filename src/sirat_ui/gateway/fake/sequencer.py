@@ -27,11 +27,13 @@ class FakeActivity:
 
 class FakeSequencer:
     def __init__(self, scheduler: Scheduler, emit: Callable[[Any], None],
-                 execute: Callable[[int, Dict[str, Any]], Any], on_done: Callable[[FakeActivity], None]) -> None:
+                 execute: Callable[[int, Dict[str, Any]], Any], on_done: Callable[[FakeActivity], None],
+                 dut_connected: Callable[[int], bool] = lambda position: True) -> None:
         self._scheduler = scheduler
         self._emit = emit
         self._execute = execute
         self._on_done = on_done
+        self._dut_connected = dut_connected
         self.activities: Dict[str, FakeActivity] = {}
 
     def start(self, activity: FakeActivity) -> None:
@@ -43,9 +45,19 @@ class FakeSequencer:
         if activity and not activity.finished:
             activity.aborted = True
 
+    def end_all(self, error: ApiError) -> None:
+        for activity in list(self.activities.values()):
+            if not activity.finished:
+                self._finish(activity, False, error)
+
     def _next(self, activity: FakeActivity) -> None:
+        if activity.finished:
+            return
         if activity.aborted:
             self._finish(activity, False, ApiError(ErrorCode.ABORTED, "Aborted by user"))
+            return
+        if not self._dut_connected(activity.position):
+            self._finish(activity, False, ApiError(ErrorCode.DUT_DISCONNECTED, f"DUT {activity.position} disconnected"))
             return
         if activity.step >= len(activity.ops):
             self._finish(activity, True)

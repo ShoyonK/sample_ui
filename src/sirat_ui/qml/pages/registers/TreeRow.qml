@@ -9,6 +9,7 @@ Rectangle {
     id: row
     signal activated()
     signal readAllRequested()
+    signal dumpRequested()
 
     readonly property bool isPeripheral: model.kind === "peripheral"
 
@@ -28,11 +29,20 @@ Rectangle {
         onTapped: contextMenu.popup()
     }
 
-    Menu {
+    AppMenu {
         id: contextMenu
-        MenuItem {
+        objectName: "treeMenu_" + model.fullName
+        AppMenuItem {
+            objectName: "treeMenuReadAll_" + model.fullName
             text: "Read all registers"
+            iconName: "refresh"
             onTriggered: row.readAllRequested()
+        }
+        AppMenuItem {
+            objectName: "treeMenuDump_" + model.fullName
+            text: "Take a dump of " + model.fullName + "…"
+            iconName: "save"
+            onTriggered: row.dumpRequested()
         }
     }
 

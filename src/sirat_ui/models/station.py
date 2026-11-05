@@ -270,8 +270,16 @@ class ActivityProgress:
     step: int
     total: int
     message: str
-    group: str = ""          # the action the current op came from (automation.seq.run)
+    group: str = ""          # the action the current op came from (automation.seq.run); the test id (tests.run)
     instrument_id: str = ""
+    result: Optional[Dict[str, Any]] = None  # tests.run: set once the step's test has finished (StationTestResult)
+
+
+@dataclass
+class StationTest:
+    """One test the station can run (tests.list)."""
+    id: str
+    name: str
 
 
 @dataclass

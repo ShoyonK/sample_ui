@@ -184,6 +184,11 @@ class DumpService:
         if self.job is not None and not self.job.finished:
             self.job.cancelled = True
 
+    def stop(self, reason: str) -> None:
+        """Ends the job as stopped (nothing is saved), e.g. when the user switches DUT."""
+        if self.job is not None and not self.job.finished:
+            self.job.stopped_reason = reason
+
     def new_dump(self, job: DumpJob, name: str, description: str = "") -> RegisterDump:
         addresses = {r.full_name: r.address for r in job.registers if r.full_name in job.values}
         return RegisterDump(name, self._clock(), description, dict(job.values), addresses)
@@ -222,7 +227,7 @@ class DumpService:
 
         def failed(error: ApiError) -> None:
             job.failed += 1
-            if error.code in _STOP_CODES:
+            if error.code in _STOP_CODES and not job.stopped_reason:   # keep the first reason (e.g. a DUT switch)
                 job.stopped_reason = error.message
             advance()
 

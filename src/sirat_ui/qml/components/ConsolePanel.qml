@@ -7,6 +7,7 @@ Rectangle {
     id: panel
     property var model
     property string title: "Console"
+    property bool clearable: true
     signal clearRequested()
 
     radius: Theme.radius
@@ -23,6 +24,7 @@ Rectangle {
     }
     AbstractButton {
         objectName: "consoleClear_" + panel.title
+        visible: panel.clearable
         anchors.right: parent.right
         anchors.rightMargin: 8
         y: 4

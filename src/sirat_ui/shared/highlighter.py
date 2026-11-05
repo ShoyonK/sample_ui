@@ -9,6 +9,7 @@ from __future__ import annotations
 import keyword
 from typing import Dict, List, Optional, Tuple
 
+from PyQt5 import sip
 from PyQt5.QtCore import QObject, QRegularExpression
 from PyQt5.QtGui import QColor, QFont, QSyntaxHighlighter, QTextCharFormat, QTextDocument
 
@@ -76,7 +77,8 @@ class PythonHighlighter(QSyntaxHighlighter):
 
 
 class HighlighterHost:
-    """Keeps one highlighter per document alive (Qt doesn't own it from Python's side)."""
+    """Keeps one highlighter per document alive (Qt doesn't own it from Python's side). A highlighter goes with
+    its document, e.g. when its page pops out into another window, so deleted ones are dropped first."""
 
     def __init__(self) -> None:
         self._highlighters: List[PythonHighlighter] = []
@@ -85,6 +87,7 @@ class HighlighterHost:
         document = quick_document.textDocument() if hasattr(quick_document, "textDocument") else None
         if not isinstance(document, QTextDocument):
             return
+        self._highlighters = [h for h in self._highlighters if not sip.isdeleted(h)]
         for h in self._highlighters:
             if h.document() is document:
                 h.set_dark(dark)

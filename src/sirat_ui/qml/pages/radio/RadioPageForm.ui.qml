@@ -3,6 +3,7 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import "../../theme"
 import "../../components"
+import "../../shell"
 
 // Radio and PHY: Load LPW PHY and PRS signal routing on the left (req 23, req 24), WiFi PHY on the right (req 23).
 ScrollView {
@@ -22,9 +23,10 @@ ScrollView {
             Layout.maximumWidth: 600
             spacing: 10
             LpwPhyCard { Layout.fillWidth: true }
-            PrsCard { Layout.fillWidth: true }
+            ToolSlot { toolKey: "prs"; Layout.fillWidth: true }
         }
-        WifiPhyCard {
+        ToolSlot {
+            toolKey: "wifiPhy"
             Layout.alignment: Qt.AlignTop
             Layout.fillWidth: true
         }

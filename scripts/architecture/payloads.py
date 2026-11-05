@@ -181,6 +181,8 @@ def capture() -> Dict[str, Dict[str, Any]]:
     act = run(lambda: fake.run_sequence(1, ops, True))
     run(lambda: fake.abort_activity(act), advance_ms=2000)
     run(lambda: fake.recover(1))
+    run(lambda: fake.list_tests())
+    run(lambda: fake.run_tests(1, ["sample_test_1", "sample_test_3"]), advance_ms=4000)
     fake.time_out_next("registers.write", late_ms=1500)
     out["registers.write (timeout)"] = _call(fake, events, lambda: fake.write_register(1, reg.full_name, 1), 2000)
     out["registers.write (critical, no confirm)"] = _call(

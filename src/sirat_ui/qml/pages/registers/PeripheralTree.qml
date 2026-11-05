@@ -11,6 +11,7 @@ PeripheralTreeForm {
     list.delegate: TreeRow {
         onActivated: vm.activate(index)
         onReadAllRequested: vm.readAll(index)
+        onDumpRequested: app.dumps.dumpPeripheral(model.fullName)
     }
 
     Connections {

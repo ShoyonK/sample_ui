@@ -14,7 +14,7 @@ from sirat_ui.gateway.call import Call
 from sirat_ui.models.facts import InstrumentFacts
 from sirat_ui.models.station import (ApiTree, CapturePage, CaptureSpec, ChamberReading, EcaSources, ExecResult,
                                      InvokeRes, LoadPhyResult, MemoryBlock, MemoryWriteRes, NameInfo, PhySpec,
-                                     ProbeResult, PrsRoute, PrsSignalCatalog, RpcAddress, SiggenConfig)
+                                     ProbeResult, PrsRoute, PrsSignalCatalog, RpcAddress, SiggenConfig, StationTest)
 
 
 class EventSource(Protocol):
@@ -69,6 +69,12 @@ class AutomationPort(ActivityPort, Protocol):
     def run_sequence(self, position: int, ops: List[Dict[str, Any]], stop_on_error: bool = True) -> Call: ...
 
 
+class TestsPort(ActivityPort, Protocol):
+    """Req 33. A run is an activity: one progress event as each test starts and one with its result as it ends."""
+    def list_tests(self) -> Call[List[StationTest]]: ...
+    def run_tests(self, position: int, test_ids: List[str]) -> Call[str]: ...   # -> activity id
+
+
 class InstrumentsPort(ActivityPort, Protocol):
     """Req 25-30. Chamber waits and ECA captures are activities."""
     def list_instruments(self) -> Call[List[InstrumentFacts]]: ...
@@ -106,6 +112,6 @@ class AdvancedPort(Protocol):
                            kwargs: Dict[str, Any]) -> Call[InvokeRes]: ...
 
 
-class StationGateway(SystemPort, DutPort, RfPort, RegistersPort, AutomationPort, InstrumentsPort, MemoryPort,
-                     AdvancedPort, Protocol):
+class StationGateway(SystemPort, DutPort, RfPort, RegistersPort, AutomationPort, TestsPort, InstrumentsPort,
+                     MemoryPort, AdvancedPort, Protocol):
     """Everything. Only the composition root and the backends need the whole station."""

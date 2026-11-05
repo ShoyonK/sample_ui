@@ -123,6 +123,10 @@ class FakeBench:
         self._emit(ActivityFinished(activity.activity_id, 0, ok, error=error, instrument_id=activity.instrument_id,
                                     result=result))
 
+    def end_all(self, error: ApiError) -> None:
+        for activity in list(self._activities.values()):
+            self._finish(activity, False, error=error)
+
     def abort(self, activity_id: str) -> bool:
         """True when the id was one of the bench's activities."""
         activity = self._activities.get(activity_id)

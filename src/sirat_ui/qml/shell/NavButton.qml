@@ -3,7 +3,8 @@ import QtQuick.Controls 2.15
 import "../theme"
 import "../components"
 
-// A nav rail tab. Right-click: open the page in its own window, show that window, or bring it back.
+// A nav rail tab. Right-click: open the page in its own window, show that window, or bring it back; then the
+// same for each of the page's parts (domains/shell/tools.py), such as the data logger on Watch.
 AbstractButton {
     id: control
     property string pageKey: ""
@@ -13,9 +14,15 @@ AbstractButton {
     property bool current: false
     property bool ready: true
     property bool poppedOut: false
+    property var parts: []          // {kind, arg, key, title}
+    property var openKeys: []       // app.windows.openKeys
     signal popOutRequested()
     signal showWindowRequested()
     signal dockRequested()
+    signal partPopOutRequested(string kind, string arg)
+    signal partDockRequested(string key)
+
+    function partOpen(key) { return control.openKeys.indexOf(key) >= 0 }
 
     objectName: "nav_" + pageKey
     implicitWidth: 60
@@ -82,24 +89,42 @@ AbstractButton {
         objectName: "navMenu_" + control.pageKey
         AppMenuItem {
             objectName: "navMenuPopOut_" + control.pageKey
-            text: "Open in new window"
+            text: "Open page in new window"
             iconName: "export"
             visible: !control.poppedOut
             onTriggered: control.popOutRequested()
         }
         AppMenuItem {
             objectName: "navMenuShow_" + control.pageKey
-            text: "Show its window"
+            text: "Show page window"
             iconName: "export"
             visible: control.poppedOut
             onTriggered: control.showWindowRequested()
         }
         AppMenuItem {
             objectName: "navMenuDock_" + control.pageKey
-            text: "Bring back to main window"
+            text: "Bring page back"
             iconName: "download"
             visible: control.poppedOut
             onTriggered: control.dockRequested()
+        }
+        MenuSeparator {
+            visible: control.parts.length > 0
+            height: visible ? implicitHeight : 0
+            contentItem: Rectangle { implicitHeight: 1; color: Theme.border }
+        }
+        Instantiator {
+            model: control.parts
+            delegate: AppMenuItem {
+                objectName: "navMenuPart_" + modelData.key
+                text: control.partOpen(modelData.key) ? "Bring back " + modelData.title
+                                                      : "Open " + modelData.title + " in new window"
+                iconName: control.partOpen(modelData.key) ? "download" : "export"
+                onTriggered: control.partOpen(modelData.key) ? control.partDockRequested(modelData.key)
+                                                             : control.partPopOutRequested(modelData.kind, modelData.arg)
+            }
+            onObjectAdded: menu.insertItem(menu.count, object)
+            onObjectRemoved: menu.removeItem(object)
         }
     }
 

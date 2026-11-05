@@ -80,7 +80,7 @@ class CustomFunctionsViewModel(BaseViewModel):
             return f"Running {self._service.running}…"
         if not self._state.connected:
             return "Connect a DUT to run functions"
-        return "Shares variables with the console · Ctrl+Enter runs"
+        return "Shares variables with the console"
 
     @pyqtSlot(int)
     def select(self, index: int) -> None:

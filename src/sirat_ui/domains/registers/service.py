@@ -71,8 +71,12 @@ class RegisterService:
             return Call.failed(error)
         out: Call = Call()
         self._log.debug(f"Reading register {reg.full_name}")
+        position = self._state.position
 
         def ok(value: int) -> None:
+            if self._state.position != position:   # the user switched DUT while this read was out
+                out.reject(ApiError(ErrorCode.WRONG_STATE, f"Switched away from DUT {position}"))
+                return
             self._store(reg.full_name, value)
             if manual:
                 self._history.record("READ", reg.full_name, value)
@@ -87,7 +91,7 @@ class RegisterService:
                 self._errors.present(error, f"Read {reg.full_name}")
             out.reject(error)
 
-        self._gateway.read_register(self._state.position, reg.full_name).then(ok, failed)
+        self._gateway.read_register(position, reg.full_name).then(ok, failed)
         return out
 
     # ---- writes ----------------------------------------------------------------

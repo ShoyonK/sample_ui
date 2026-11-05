@@ -44,6 +44,7 @@ DutControlToolForm {
     }
 
     onVisibleChanged: if (visible) vm.load()
+    Component.onCompleted: if (visible) vm.load()   // opened straight into its own window
     Connections {
         target: tool.vm
         function onChanged() { if (tool.visible) tool.vm.load() }

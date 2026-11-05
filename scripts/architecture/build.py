@@ -200,7 +200,7 @@ flowchart TB
         r3["Only app/ and gateway/ name StationGateway"]
         r4["One Qt property style: qprop or @pyqtProperty"]
         r5[".ui.qml forms: no handlers; every control has an objectName"]
-        r6["No Python file over 600 lines"]
+        r6["No Python file over 900 lines (aim for 600)"]
         r1 ~~~ r2 ~~~ r3 ~~~ r4 ~~~ r5 ~~~ r6
     end
     stack ~~~ rules

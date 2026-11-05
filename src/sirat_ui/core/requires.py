@@ -41,6 +41,8 @@ METHOD_REQUIRES: Dict[str, Tuple[str, ...]] = {
     "instruments.eca.sources": ("instrument:eca",),
     "instruments.eca.capture": ("instrument:eca", "idle"),
     "automation.seq.run": ("dut", "idle", "no_fault"),
+    "tests.list": (),
+    "tests.run": ("dut", "idle", "no_fault"),
     "advanced.console.open": ("dut",),
     "advanced.console.exec": ("dut",),
     "advanced.custom_function": ("dut", "idle"),

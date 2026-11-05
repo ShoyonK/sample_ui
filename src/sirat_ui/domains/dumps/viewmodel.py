@@ -8,7 +8,7 @@ peripheral picker (picker_viewmodel.py), the progress dialog (progress_viewmodel
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
@@ -117,6 +117,14 @@ class DumpsViewModel(BaseViewModel):
 
     @pyqtSlot()
     def openPicker(self) -> None:  # noqa: N802
+        self._open_picker(lambda name: self._dump_checked.get(name, False))
+
+    @pyqtSlot(str)
+    def dumpPeripheral(self, peripheral: str) -> None:  # noqa: N802
+        """Right-click a peripheral in the register tree: Take a dump with just that one checked."""
+        self._open_picker(lambda name: name == peripheral)
+
+    def _open_picker(self, checked: Callable[[str], bool]) -> None:
         if not self._can_read:
             self._interactions.toast("error", "Connect to a DUT to take a dump")
             return
@@ -128,8 +136,7 @@ class DumpsViewModel(BaseViewModel):
             periph = self._catalog.peripheral(name)
             return f"{name} ({count(len(readable(periph.registers)) if periph else 0, 'register')})"
 
-        self._picker.open("dump", DUMP_WORDING, {n: self._dump_checked.get(n, False) for n in names}, label,
-                          self._take)
+        self._picker.open("dump", DUMP_WORDING, {n: checked(n) for n in names}, label, self._take)
 
     def _take(self, chosen: List[str]) -> None:
         self._dump_checked = self._picker.checked()

@@ -30,7 +30,7 @@ Contents
 
 ## 1. The service at a glance
 
-One process per station, reached over TCP on loopback. 47 functions in 9 areas, 7 kinds of event,
+One process per station, reached over TCP on loopback. 49 functions in 10 areas, 7 kinds of event,
 facts for 4 DUT positions and the instruments. Every call goes through the same pipeline.
 
 ```mermaid
@@ -195,14 +195,14 @@ Event
     "message": "registers.write didn't answer in time",
     "data": {
       "still_running": true,
-      "request_id": 51
+      "request_id": 53
     }
   }
 }
 {
   "event": "call.late",
   "data": {
-    "request_id": 51,
+    "request_id": 53,
     "ok": true,
     "result": {
       "value_written": 1,
@@ -353,6 +353,8 @@ sequenceDiagram
 | `rf.paths` | `instrument:rf_switch` |
 | `rf.prs_route` | `dut` |
 | `rf.prs_signals` | `dut` |
+| `tests.list` | — |
+| `tests.run` | `dut`, `idle`, `no_fault` |
 
 ## 6. Functions to implement
 
@@ -1607,7 +1609,7 @@ Reply (error)
     "message": "registers.write didn't answer in time",
     "data": {
       "still_running": true,
-      "request_id": 51
+      "request_id": 53
     }
   }
 }
@@ -1619,7 +1621,7 @@ Events it causes
 {
   "event": "call.late",
   "data": {
-    "request_id": 51,
+    "request_id": 53,
     "ok": true,
     "result": {
       "value_written": 1,
@@ -3350,6 +3352,185 @@ Events it causes
 
 </details>
 
+### tests: Test execution
+
+| Function | Requires | Called by |
+|---|---|---|
+| `tests.list` | — | nothing yet (see contract gaps) |
+| `tests.run` | `dut`, `idle`, `no_fault` | nothing yet (see contract gaps) |
+
+#### `tests.list`
+
+```python
+tests.list() -> list[StationTest]
+```
+
+Proposed, not agreed: the tests that can be run, as id and name.
+
+- **Errors:** —
+- **Changes:** —
+- **Called by:** nothing yet (see contract gaps)
+
+<details><summary>Example payloads</summary>
+
+Request
+
+```json
+{
+  "id": 7,
+  "method": "tests.list",
+  "params": {}
+}
+```
+
+Reply
+
+```json
+{
+  "id": 7,
+  "ok": true,
+  "result": [
+    {
+      "id": "sample_test_1",
+      "name": "Sample test 1"
+    },
+    {
+      "id": "sample_test_2",
+      "name": "Sample test 2"
+    },
+    "… 2 more"
+  ]
+}
+```
+
+</details>
+
+#### `tests.run`
+
+```python
+tests.run(pos: Position, test_ids: list[str]) -> ActivityRef
+```
+
+Proposed, not agreed. Runs the tests in the order given as one activity (each test is one `execute()`). `activity.progress` as each test starts (`group` = its id) and again with `result` (passed, started, duration_s, notes, output) as it ends.
+
+- **Errors:** `invalid_params` (empty list, unknown id); in `activity.finished.error`: `aborted`, `dut_disconnected`
+- **Changes:** Position `activity`; two `activity.progress` per test, `activity.finished` once
+- **Called by:** nothing yet (see contract gaps)
+
+<details><summary>Example payloads</summary>
+
+Request
+
+```json
+{
+  "id": 7,
+  "method": "tests.run",
+  "params": {
+    "pos": 1,
+    "test_ids": [
+      "sample_test_1",
+      "sample_test_3"
+    ]
+  }
+}
+```
+
+Reply
+
+```json
+{
+  "id": 7,
+  "ok": true,
+  "result": "t1"
+}
+```
+
+Events it causes
+
+```json
+{
+  "event": "status.changed",
+  "data": {
+    "release_id": "fake-2026.10",
+    "positions": [
+      {
+        "position": 1,
+        "dut_connected": true,
+        "phy": "PHY_WIFI_5G_HP",
+        "watching": false,
+        "rf_path": null,
+        "activity": "executing",
+        "fault": null
+      },
+      {
+        "position": 2,
+        "dut_connected": false,
+        "phy": null,
+        "watching": false,
+        "rf_path": null,
+        "activity": "idle",
+        "fault": null
+      },
+      "… 2 more"
+    ],
+    "instruments": [
+      {
+        "id": "siggen1",
+        "kind": "signal_generator",
+        "connected": true,
+        "model": "SMBV100B",
+        "activity": "idle"
+      },
+      {
+        "id": "switch1",
+        "kind": "rf_switch",
+        "connected": true,
+        "model": "RF switch matrix",
+        "activity": "idle"
+      },
+      "… 2 more"
+    ],
+    "claim": null
+  }
+}
+{
+  "event": "activity.progress",
+  "data": {
+    "activity_id": "t1",
+    "step": 1,
+    "total": 2,
+    "message": "Sample test 1",
+    "pos": 1,
+    "group": "sample_test_1"
+  }
+}
+{
+  "event": "activity.progress",
+  "data": {
+    "activity_id": "t1",
+    "step": 1,
+    "total": 2,
+    "message": "Sample test 1",
+    "pos": 1,
+    "group": "sample_test_1"
+  }
+}
+{
+  "event": "activity.progress",
+  "data": {
+    "activity_id": "t1",
+    "step": 2,
+    "total": 2,
+    "message": "Sample test 3",
+    "pos": 1,
+    "group": "sample_test_3"
+  }
+}
+```
+… and 3 more events of the same kinds
+
+</details>
+
 ### activity: Activities
 
 | Function | Requires | Called by |
@@ -4200,7 +4381,7 @@ Captured examples (one of each kind the GUI receives):
 {
   "event": "call.late",
   "data": {
-    "request_id": 51,
+    "request_id": 53,
     "ok": true,
     "result": {
       "value_written": 1,
@@ -4516,7 +4697,7 @@ pointed at the real service after slice 1 and keep using the fake for the rest.
 ```mermaid
 %%{init: {"flowchart": {"curve": "stepAfter"}}}%%
 flowchart TB
-    s0["1. Connect and registers<br/>14 functions"] --> s1["2. Live values<br/>2 functions"] --> s2["3. Actions and sequences<br/>3 functions"] --> s3["4. Radio<br/>3 functions"] --> s4["5. Advanced<br/>9 functions"] --> s5["6. Instruments<br/>15 functions"]
+    s0["1. Connect and registers<br/>14 functions"] --> s1["2. Live values<br/>2 functions"] --> s2["3. Actions and sequences<br/>3 functions"] --> s3["3b. Tests<br/>2 functions"] --> s4["4. Radio<br/>3 functions"] --> s5["5. Advanced<br/>9 functions"] --> s6["6. Instruments<br/>15 functions"]
 ```
 
 | Slice | Screens that start working | Functions |
@@ -4524,6 +4705,7 @@ flowchart TB
 | 1. Connect and registers | Registers page, connection sheet, system info, history, Read All, favorites | `sys.hello`, `sys.subscribe`, `sys.status`, `dut.connect`, `dut.disconnect`, `dut.reconnect`, `dut.info`, `dut.probe`, `dut.set_rpc_timeout`, `registers.tree`, `registers.read`, `registers.read_many`, `registers.write`, `registers.write_field` |
 | 2. Live values | Watch list, data logger; dumps and Radio Calculator diff already work from slice 1 | `registers.watch`, `registers.unwatch` |
 | 3. Actions and sequences | Actions page, Sequences page, every Add to Actions, Recover after a fault | `automation.seq.run`, `activity.abort`, `sys.recover` |
+| 3b. Tests | Tests page | `tests.list`, `tests.run` |
 | 4. Radio | Radio and PHY page | `dut.load_phy`, `rf.prs_signals`, `rf.prs_route` |
 | 5. Advanced | Console, custom functions, DUT control explorer, memory viewer | `advanced.console.open`, `advanced.console.exec`, `advanced.console.names`, `advanced.console.close`, `advanced.custom_function`, `advanced.dut_control.describe`, `advanced.dut_control.invoke`, `memory.read`, `memory.write` |
 | 6. Instruments | Instruments page | `instruments.connect`, `rf.paths`, `rf.connect`, `rf.disconnect`, `instruments.siggen.get`, `instruments.siggen.set`, `instruments.siggen.waveforms`, `instruments.siggen.trigger`, `instruments.siggen.rf`, `instruments.chamber.read`, `instruments.chamber.set_temp`, `instruments.chamber.wait_stable`, `instruments.eca.sources`, `instruments.eca.capture`, `instruments.eca.result` |

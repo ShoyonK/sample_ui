@@ -3,16 +3,25 @@ import QtQuick.Layouts 1.15
 import "../../theme"
 import "../../components"
 
-// Req 21 colors (match green, mismatch red, error orange) sit on the Status cell only, so the values stay
-// readable; rows come sorted with mismatches first. Widths match RadioHeader.
+// Req 21 colors: a mismatch row is tinted red and an error row orange, with an edge in the same color, so
+// problems stand out; matches stay plain (green on the Status cell). Rows come sorted with mismatches first.
+// Widths match RadioHeader.
 Rectangle {
     id: row
     readonly property string tone: model.status === "match" ? "ok" : model.status === "mismatch" ? "danger" : "warn"
+    readonly property bool problem: model.status !== "match"
 
     objectName: "radio_" + model.peripheral + "." + model.register + "." + model.field
     width: ListView.view ? ListView.view.width : 1000
     height: 32
-    color: Theme.surface
+    color: problem ? Theme.toneBg(tone) : Theme.surface
+
+    Rectangle {
+        visible: row.problem
+        width: 3
+        height: parent.height
+        color: Theme.toneFg(row.tone)
+    }
 
     RowLayout {
         anchors.fill: parent
@@ -23,7 +32,7 @@ Rectangle {
         Text { text: model.register; font.family: Theme.fontMono; font.pixelSize: Theme.fontSm; color: Theme.textPrimary; elide: Text.ElideRight; Layout.preferredWidth: 160 }
         Text { text: model.field; font.family: Theme.fontMono; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold; color: Theme.textPrimary; elide: Text.ElideRight; Layout.preferredWidth: 170 }
         Text { text: model.expected; font.family: Theme.fontMono; font.pixelSize: Theme.fontSm; color: Theme.textPrimary; elide: Text.ElideRight; Layout.preferredWidth: 200 }
-        Text { text: model.actual; font.family: Theme.fontMono; font.pixelSize: Theme.fontSm; color: Theme.textPrimary; elide: Text.ElideRight; Layout.preferredWidth: 220 }
+        Text { text: model.actual; font.family: Theme.fontMono; font.pixelSize: Theme.fontSm; font.weight: model.status === "mismatch" ? Font.DemiBold : Font.Normal; color: model.status === "mismatch" ? Theme.dangerFg : Theme.textPrimary; elide: Text.ElideRight; Layout.preferredWidth: 220 }
         RowLayout {
             spacing: 6
             Layout.fillWidth: true

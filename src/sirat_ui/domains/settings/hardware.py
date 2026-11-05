@@ -60,10 +60,11 @@ class HardwareConfigService:
     def save(self, config: HardwareConfig) -> Call:
         """Writes the file, applies the timeout to the station and selects the DUT position."""
         self.config = config
-        self._store.save(config.to_json())
+        saved = self._store.save(config.to_json())       # a failed write is reported by the store's handler
         self._state.set_position(config.dut_position)
         where = f"{config.rpc_host}:{config.rpc_port}" if config.rpc_override else "workspace config address"
-        self._log.info(f"Hardware configuration saved ({where}, {config.rpc_timeout} s, DUT {config.dut_position})")
+        if saved:
+            self._log.info(f"Hardware configuration saved ({where}, {config.rpc_timeout} s, DUT {config.dut_position})")
         self.config_changed.emit()
         return self._gateway.set_rpc_timeout(config.rpc_timeout)
 

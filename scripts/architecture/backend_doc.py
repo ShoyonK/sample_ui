@@ -197,6 +197,15 @@ F = {
                            "the appendix.",
                            "In `activity.finished.error`: the failing op's error; `aborted`",
                            "Position `activity`; `activity.progress` per op, `activity.finished` once"),
+    "tests.list": ("tests.list() -> list[StationTest]",
+                   "Proposed, not agreed: the tests that can be run, as id and name.", "—", "—"),
+    "tests.run": ("tests.run(pos: Position, test_ids: list[str]) -> ActivityRef",
+                  "Proposed, not agreed. Runs the tests in the order given as one activity (each test is one "
+                  "`execute()`). `activity.progress` as each test starts (`group` = its id) and again with "
+                  "`result` (passed, started, duration_s, notes, output) as it ends.",
+                  "`invalid_params` (empty list, unknown id); in `activity.finished.error`: `aborted`, "
+                  "`dut_disconnected`",
+                  "Position `activity`; two `activity.progress` per test, `activity.finished` once"),
     "activity.abort": ("activity.abort(activity_id: str) -> Empty",
                        "Cooperative: takes effect at the next wrapped hardware call and ends in the safe state. The "
                        "activity still sends exactly one `activity.finished` (with `aborted`).",
@@ -241,7 +250,7 @@ NOT_IN_FRONTEND = {
 }
 AREAS = [("sys", "Handshake and station status"), ("dut", "DUT connection"), ("registers", "Registers"),
          ("memory", "Memory"), ("rf", "RF switch and PRS"), ("instruments", "Instruments"),
-         ("automation", "Running actions"), ("activity", "Activities"), ("advanced", "Python and DUT control")]
+         ("automation", "Running actions"), ("tests", "Test execution"), ("activity", "Activities"), ("advanced", "Python and DUT control")]
 SLICES = [
     ("1. Connect and registers", "Registers page, connection sheet, system info, history, Read All, favorites",
      ["sys.hello", "sys.subscribe", "sys.status", "dut.connect", "dut.disconnect", "dut.reconnect", "dut.info",
@@ -251,6 +260,7 @@ SLICES = [
      ["registers.watch", "registers.unwatch"]),
     ("3. Actions and sequences", "Actions page, Sequences page, every Add to Actions, Recover after a fault",
      ["automation.seq.run", "activity.abort", "sys.recover"]),
+    ("3b. Tests", "Tests page", ["tests.list", "tests.run"]),
     ("4. Radio", "Radio and PHY page", ["dut.load_phy", "rf.prs_signals", "rf.prs_route"]),
     ("5. Advanced", "Console, custom functions, DUT control explorer, memory viewer",
      ["advanced.console.open", "advanced.console.exec", "advanced.console.names", "advanced.console.close",

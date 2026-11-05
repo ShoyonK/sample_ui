@@ -65,6 +65,11 @@ class ReadAllService:
         if self.job is not None and not self.job.finished:
             self.job.cancelled = True
 
+    def stop(self, reason: str) -> None:
+        """Ends the job as stopped, e.g. when the user switches DUT."""
+        if self.job is not None and not self.job.finished:
+            self.job.stopped_reason = reason
+
     def _next(self) -> None:
         job = self.job
         if job is None or job.finished:
@@ -85,7 +90,7 @@ class ReadAllService:
 
         def failed(error: ApiError) -> None:
             job.failed += 1
-            if error.code in _STOP_CODES:
+            if error.code in _STOP_CODES and not job.stopped_reason:   # keep the first reason (e.g. a DUT switch)
                 job.stopped_reason = error.message
             advance()
 

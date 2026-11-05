@@ -11,7 +11,7 @@ ModalDialog {
     objectName: "dumpPicker"
     readonly property var vm: app.dumpPicker
 
-    visible: vm.pickerOpen
+    shown: vm.pickerOpen
     dialogWidth: 440
 
     contentItem: ColumnLayout {

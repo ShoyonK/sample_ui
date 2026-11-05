@@ -11,7 +11,7 @@ ModalDialog {
     readonly property var vm: app.dialogs
     readonly property var req: vm.alert
 
-    visible: req.title !== undefined
+    shown: req.title !== undefined
     dialogWidth: 460
 
     contentItem: ColumnLayout {

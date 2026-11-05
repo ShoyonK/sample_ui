@@ -166,6 +166,8 @@ class SequenceService:
         return self.plan(name)[0]
 
     def run(self, name: str) -> Call:
+        if self.current is not None and self.current.running:   # e.g. Run double-clicked
+            return Call.failed(ApiError(ErrorCode.BUSY, f"Sequence {self.current.name} is already running"))
         try:
             steps, ops = self.plan(name, wire=True)
         except WireError as exc:

@@ -18,16 +18,25 @@ CheckBox {
         x: control.leftPadding
         y: (control.height - height) / 2
         radius: 4
-        color: control.checked ? Theme.checkOn : (control.hovered ? Theme.bitHover : Theme.surface)
+        readonly property bool partial: control.checkState === Qt.PartiallyChecked
+        color: control.checked || partial ? Theme.checkOn : (control.hovered ? Theme.bitHover : Theme.surface)
         border.color: control.visualFocus ? Theme.focusRing
-                    : control.checked || control.hovered ? Theme.checkOnBorder : Theme.borderStrong
+                    : control.checked || partial || control.hovered ? Theme.checkOnBorder : Theme.borderStrong
         border.width: control.visualFocus ? 2 : 1
         Behavior on color { ColorAnimation { duration: 120 } }
         Icon {
             anchors.centerIn: parent
-            visible: control.checked
+            visible: control.checkState === Qt.Checked
             name: "check"
             size: 10
+            color: Theme.checkMark
+        }
+        Rectangle {   // some, not all (a tristate box)
+            anchors.centerIn: parent
+            visible: parent.partial
+            width: 8
+            height: 2
+            radius: 1
             color: Theme.checkMark
         }
     }

@@ -1,25 +1,28 @@
-"""Pop-out windows: any page from the nav rail, the watch list, the data logger, or one logger graph in its own
-window. QML creates one Window per row of `model`; closing a window brings its content back to the main window.
+"""Pop-out windows: any page from the nav rail, one of a page's parts (the watch list, the data logger, a tool
+such as the DUT control explorer), or one logger graph in its own window. QML creates one Window per row of
+`model`; closing a window brings its content back to the main window.
 
-Window keys: "page:<key>", "watchList", "logger", "graph:<field name>".
+Window keys: "page:<key>", "watchList", "logger", "tool:<key>" (domains/shell/tools.py), "graph:<field name>".
 """
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from sirat_ui.domains.shell.pages import PAGES
+from sirat_ui.domains.shell.tools import TOOLS, tool
 from sirat_ui.shared.qt import pyqtProperty
 from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel
 
-PAGE, WATCH_LIST, LOGGER, GRAPH = "page", "watchList", "logger", "graph"
-_SINGLE_TITLES = {WATCH_LIST: "Watch list", LOGGER: "Data logger"}
+PAGE, WATCH_LIST, LOGGER, GRAPH, TOOL = "page", "watchList", "logger", "graph", "tool"
+_SINGLE_TITLES = {t.kind: t.title for t in TOOLS if t.kind != TOOL}
+_SIZES = {PAGE: (1400, 820), WATCH_LIST: (1100, 820), LOGGER: (560, 820), GRAPH: (760, 420)}
 
 
 def window_key(kind: str, arg: str = "") -> str:
-    return f"{kind}:{arg}" if kind in (PAGE, GRAPH) else kind
+    return f"{kind}:{arg}" if kind in (PAGE, GRAPH, TOOL) else kind
 
 
 class WindowsViewModel(BaseViewModel):
@@ -28,8 +31,8 @@ class WindowsViewModel(BaseViewModel):
 
     def __init__(self, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
-        self._model = DictListModel(["key", "kind", "arg", "title"], self)
-        self._open: Dict[str, Dict[str, str]] = {}
+        self._model = DictListModel(["key", "kind", "arg", "title", "width", "height"], self)
+        self._open: Dict[str, Dict[str, Any]] = {}
 
     @pyqtProperty(QObject, constant=True)
     def model(self) -> QObject:
@@ -44,6 +47,9 @@ class WindowsViewModel(BaseViewModel):
             return next((p["title"] for p in PAGES if p["key"] == arg), None)
         if kind == GRAPH:
             return f"Graph · {arg}" if arg else None
+        if kind == TOOL:
+            found = tool(arg)
+            return found.title if found else None
         return _SINGLE_TITLES.get(kind)
 
     @pyqtSlot(str, str)
@@ -56,7 +62,9 @@ class WindowsViewModel(BaseViewModel):
         title = self._title(kind, arg)
         if title is None:
             return
-        self._open[key] = {"key": key, "kind": kind, "arg": arg, "title": title}
+        found = tool(arg) if kind == TOOL else None
+        width, height = (found.width, found.height) if found else _SIZES.get(kind, (900, 700))
+        self._open[key] = {"key": key, "kind": kind, "arg": arg, "title": title, "width": width, "height": height}
         self._publish()
 
     @pyqtSlot(str)
@@ -84,8 +92,8 @@ class WindowsViewModel(BaseViewModel):
         self._publish()
 
     def _publish(self) -> None:
+        self.changed.emit()   # first, so a closing window hides (and hands back its dialogs) before it's destroyed
         self._model.set_items(list(self._open.values()))
-        self.changed.emit()
 
     def open_keys(self) -> List[str]:
         return list(self._open)

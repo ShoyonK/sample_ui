@@ -33,7 +33,7 @@ The rules the tests enforce (`tests/unit/test_architecture.py`) apply to everyth
   for computed ones. No lambda properties.
 - `.ui.qml` forms contain layout only: no handlers, functions, `app.` or `vm.`; every interactive control has
   an `objectName`; every form has a wrapper `.qml` next to it; font sizes come from `Theme`.
-- No Python file over 600 lines. `models/` imports only the standard library and other models.
+- Aim for Python files of about 600 lines; 900 is the hard limit. `models/` imports only the standard library and other models.
 
 ---
 
@@ -48,6 +48,7 @@ windows and the "every page loads" test all read the table.
 | `qml/pages/<key>/<Name>Page.qml` | Wrapper: binds the form to `app.<vm>` and calls slots | required |
 | `qml/pages/<key>/<Name>PageForm.ui.qml` | Form: layout only, `property alias` for every control the wrapper touches | required |
 | ViewModels for the page | See [2. A ViewModel](#2-a-viewmodel-and-its-qml) | required |
+| `domains/shell/tools.py` | A `Tool` row for each part that should open in its own window (title, QML file, window size; `fill=True` if it fills the window rather than keeping a card's height). Put `ToolSlot { toolKey: "<key>" }` in the form where the part goes: it shows the part, or a placeholder while it's popped out. The nav rail's right-click menu lists the parts | optional |
 | `qml/components/Icon.qml` | Only if no existing glyph fits (`glyphs` map) | optional |
 | `app/commands.py` | A Ctrl+K entry that opens the page ([8](#8-a-ctrlk-command)) | optional |
 | `tests/e2e/test_journeys.py` | A journey through the page; the load test picks the page up from `pages.py` already | recommended |
@@ -170,7 +171,7 @@ A custom dialog:
 
 | File | Change | |
 |---|---|---|
-| `qml/dialogs/<Name>Dialog.qml` | Built on `ModalDialog`, `visible: vm.isOpen` | required |
+| `qml/dialogs/<Name>Dialog.qml` | Built on `ModalDialog`, `shown: vm.isOpen` (not `visible`: a dialog reopened during its closing animation would stay closed) | required |
 | `qml/shell/DialogHost.qml` | Add `<Name>Dialog { }` | required |
 | a ViewModel | `isOpen` property and open/close slots; register it in the container | required |
 
