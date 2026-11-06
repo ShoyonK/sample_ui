@@ -2,7 +2,8 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import "../theme"
 
-// variants: primary (one per view), secondary (default), ghost, danger, run (starts something: Run, Start, Execute)
+// variants: run (starts something that keeps going), primary (one main action per card), danger (delete, remove,
+// stop), secondary (default), ghost (minor helpers). The rule, with examples, is in docs/EXTENDING.md.
 Button {
     id: control
     property string variant: "secondary"

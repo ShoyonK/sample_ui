@@ -106,7 +106,7 @@ Card {
             Layout.fillWidth: true
             Layout.margins: Theme.s2
             AppButton { id: recordButton; objectName: "loggerRecordButton"; text: "Stop"; iconName: "stop"; small: true }
-            AppButton { id: clearButton; objectName: "loggerClearButton"; text: "Clear data"; small: true; variant: "ghost" }
+            AppButton { id: clearButton; objectName: "loggerClearButton"; text: "Clear data"; small: true; variant: "danger" }
             Item { Layout.fillWidth: true }
             AppButton { id: exportButton; objectName: "loggerExportButton"; text: "Export CSV"; iconName: "save"; small: true }
         }

@@ -91,7 +91,7 @@ Card {
                 Text { text: "°C for"; font.pixelSize: Theme.fontSm; color: Theme.textMuted }
                 AppTextField { id: holdField; objectName: "chHoldField"; mono: true; selectOnFocus: true; placeholderText: "60"; Layout.preferredWidth: 60 }
                 Text { text: "s"; font.pixelSize: Theme.fontSm; color: Theme.textMuted }
-                AppButton { id: waitButton; objectName: "chWaitButton"; text: "Wait for stable"; iconName: "pause" }
+                AppButton { id: waitButton; objectName: "chWaitButton"; text: "Wait for stable"; iconName: "pause"; variant: "run" }
                 AppButton { id: stopButton; objectName: "chStopButton"; text: "Stop"; iconName: "stop"; variant: "danger" }
             }
             Text { id: waitLabel; objectName: "chWaitText"; text: ""; visible: text !== ""; font.pixelSize: Theme.fontXs; color: Theme.textMuted; wrapMode: Text.WordWrap; Layout.fillWidth: true }

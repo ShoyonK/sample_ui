@@ -79,7 +79,7 @@ RowLayout {
                 AppButton { id: compareWithButton; objectName: "compareWithButton"; text: "Compare with…"; iconName: "compare"; small: true }
                 AppButton { id: compareFilesButton; objectName: "compareFilesButton"; text: "Compare files…"; iconName: "upload"; small: true }
                 AppButton { id: radioButton; objectName: "radioDiffButton"; text: "Radio Calculator diff…"; iconName: "antenna"; small: true }
-                AppButton { id: deleteButton; objectName: "deleteDumpButton"; text: "Delete"; iconName: "delete"; small: true; variant: "ghost" }
+                AppButton { id: deleteButton; objectName: "deleteDumpButton"; text: "Delete"; iconName: "delete"; small: true; variant: "danger" }
             }
         }
     }

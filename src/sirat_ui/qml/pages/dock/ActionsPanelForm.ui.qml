@@ -105,7 +105,7 @@ Card {
             AppButton { id: upButton; objectName: "actionUpButton"; text: "Up"; iconName: "up"; small: true }
             AppButton { id: downButton; objectName: "actionDownButton"; text: "Down"; iconName: "down"; small: true }
             AppButton { id: addToSequenceButton; objectName: "actionAddToSequenceButton"; text: "Add checked to sequence…"; iconName: "list"; small: true }
-            AppButton { id: deleteButton; objectName: "actionDeleteButton"; text: "Delete"; iconName: "delete"; small: true }
+            AppButton { id: deleteButton; objectName: "actionDeleteButton"; text: "Delete"; iconName: "delete"; small: true; variant: "danger" }
             AppButton { id: deleteAllButton; objectName: "actionDeleteAllButton"; text: "Delete all"; small: true; variant: "danger" }
         }
 

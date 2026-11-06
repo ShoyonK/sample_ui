@@ -52,9 +52,9 @@ Card {
                 spacing: Theme.s2
                 Text { id: selectionLabel; text: "2 selected"; font.pixelSize: Theme.fontSm; color: Theme.textPrimary; anchors.verticalCenter: parent.verticalCenter }
                 AppButton { id: addSelectedButton; objectName: "watchAddSelectedButton"; text: "Add to logger"; iconName: "chart"; small: true }
-                AppButton { id: deleteSelectedButton; objectName: "watchDeleteSelectedButton"; text: "Remove"; iconName: "delete"; small: true }
+                AppButton { id: deleteSelectedButton; objectName: "watchDeleteSelectedButton"; text: "Remove"; iconName: "delete"; small: true; variant: "danger" }
             }
-            AppButton { id: addAllButton; objectName: "watchAddAllButton"; text: "Add all to logger"; iconName: "chart"; small: true; variant: "primary" }
+            AppButton { id: addAllButton; objectName: "watchAddAllButton"; text: "Add all to logger"; iconName: "chart"; small: true }
             IconButton { id: densityToggle; objectName: "watchDensityToggle"; iconName: "textSize"; tip: "Large values, readable from the bench" }
             IconButton { id: clearButton; objectName: "watchClearButton"; iconName: "delete"; tip: "Clear all" }
             IconButton { id: popOutButton; objectName: "watchPopOutButton"; iconName: "export"; tip: "Open the watch list in its own window" }

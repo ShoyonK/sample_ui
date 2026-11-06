@@ -55,7 +55,7 @@ Card {
             RowLayout {
                 spacing: 8
                 AppButton { id: connectButton; objectName: "rfConnectButton"; text: "Connect path"; iconName: "plug"; variant: "primary" }
-                AppButton { id: disconnectButton; objectName: "rfDisconnectButton"; text: "Disconnect"; iconName: "close" }
+                AppButton { id: disconnectButton; objectName: "rfDisconnectButton"; text: "Disconnect"; iconName: "close"; variant: "danger" }
                 AppButton { id: addButton; objectName: "rfAddToActionsButton"; text: "Add to Actions"; iconName: "bolt" }
             }
         }

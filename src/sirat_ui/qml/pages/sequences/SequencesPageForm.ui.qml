@@ -57,7 +57,7 @@ RowLayout {
                 spacing: 6
                 AppButton { id: renameButton; objectName: "renameSequenceButton"; text: "Rename"; iconName: "edit"; small: true }
                 AppButton { id: toActionsButton; objectName: "sequenceToActionsButton"; text: "Add to Actions"; iconName: "bolt"; small: true }
-                AppButton { id: deleteButton; objectName: "deleteSequenceButton"; text: "Delete"; iconName: "delete"; small: true; variant: "ghost" }
+                AppButton { id: deleteButton; objectName: "deleteSequenceButton"; text: "Delete"; iconName: "delete"; small: true; variant: "danger" }
             }
         }
     }
@@ -133,7 +133,7 @@ RowLayout {
                     Layout.fillWidth: true
                 }
                 AppButton { id: addActionButton; objectName: "addStepButton"; text: "Add action…"; iconName: "add"; small: true }
-                AppButton { id: removeStepButton; objectName: "removeStepButton"; text: "Remove"; iconName: "delete"; small: true }
+                AppButton { id: removeStepButton; objectName: "removeStepButton"; text: "Remove"; iconName: "delete"; small: true; variant: "danger" }
                 AppButton { id: stepUpButton; objectName: "stepUpButton"; text: "Up"; iconName: "up"; small: true }
                 AppButton { id: stepDownButton; objectName: "stepDownButton"; text: "Down"; iconName: "down"; small: true }
             }

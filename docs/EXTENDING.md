@@ -35,6 +35,18 @@ The rules the tests enforce (`tests/unit/test_architecture.py`) apply to everyth
   an `objectName`; every form has a wrapper `.qml` next to it; font sizes come from `Theme`.
 - Aim for Python files of about 600 lines; 900 is the hard limit. `models/` imports only the standard library and other models.
 
+Button colors (`AppButton` `variant`) follow one rule, so color tells the user what a button does:
+
+| Variant | Looks | Use for |
+|---|---|---|
+| `run` | solid red | Starts something on the DUT or an instrument that keeps going until it ends or is stopped: Run, Run checked, Execute, Start capture, Start recording, Infinite trigger, Wait for stable |
+| `primary` | solid black | The one main action of a card or dialog: Apply, Save, Connect, Load PHY, Write, OK, Take a dump. At most one per card. Reads can be black this way, but never red: they don't change the DUT |
+| `danger` | red text | Destructive or stopping: Delete, Remove, Clear all, Clear data (the logger's samples), Stop, Disconnect |
+| `secondary` | white (default) | Everything else, including one-shot actions like Single trigger |
+| `ghost` | text only | Minor helpers that lose nothing: Collapse all, Reset zoom, Clear (a result view) |
+
+A button that turns into its own Stop while running switches `run` to `danger` (Sequences, the logger).
+
 ---
 
 ## 1. A page
