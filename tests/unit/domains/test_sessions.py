@@ -24,7 +24,7 @@ def test_save_session_writes_the_req_34_file_format(harness):
     harness.shell.sessions.saveSession()
     prompt = harness.ix.prompts[-1]
     assert prompt.fields[0].value.startswith("Session_") and "4 actions" in prompt.message
-    saved = json.loads((harness.home / ".sirat" / "sessions" / "Bring-up day 1.json").read_text())
+    saved = json.loads((harness.home / ".sibench" / "sessions" / "Bring-up day 1.json").read_text())
     assert set(saved) == {"session_name", "created", "modified", "dumps", "field_notes", "formulas", "actions",
                           "favorites", "history"}
     assert saved["session_name"] == "Bring-up day 1" and saved["dumps"] == []
@@ -36,7 +36,7 @@ def test_save_session_writes_the_req_34_file_format(harness):
 def test_saving_over_an_existing_name_asks_and_keeps_the_created_time(harness):
     harness.ix.answer_next({"name": "s1"})
     harness.shell.sessions.saveSession()
-    path = harness.home / ".sirat" / "sessions" / "s1.json"
+    path = harness.home / ".sibench" / "sessions" / "s1.json"
     created = json.loads(path.read_text())["created"]
     harness.ix.answer_next({"name": "s1"})
     harness.ix.answer_next(True)  # replace
@@ -95,20 +95,20 @@ def test_browser_lists_newest_first_previews_and_deletes(harness):
     harness.ix.answer_next(True)
     sessions.deleteSelected()
     assert session_names(harness) == ["second"]
-    assert not (harness.home / ".sirat" / "sessions" / "first.json").exists()
+    assert not (harness.home / ".sibench" / "sessions" / "first.json").exists()
 
 
 def test_names_with_odd_characters_are_saved_safely(harness):
     harness.ix.answer_next({"name": "rx/tx: 2026?"})
     harness.shell.sessions.saveSession()
     assert session_names(harness) == ["rx/tx: 2026?"]
-    assert (harness.home / ".sirat" / "sessions" / "rx_tx_ 2026_.json").exists()
+    assert (harness.home / ".sibench" / "sessions" / "rx_tx_ 2026_.json").exists()
 
 
 @pytest.mark.req("34.autosave")
 def test_autosave_runs_every_5_minutes(harness):
     make_history(harness)
-    autosave = harness.home / ".sirat" / "autosave.json"
+    autosave = harness.home / ".sibench" / "autosave.json"
     assert not autosave.exists()
     harness.scheduler.advance(5 * 60 * 1000)
     data = json.loads(autosave.read_text())
@@ -127,7 +127,7 @@ def test_history_comes_back_on_the_next_launch(qapp, tmp_path):
 
 
 def test_a_broken_autosave_file_is_ignored(qapp, tmp_path):
-    (tmp_path / ".sirat").mkdir(parents=True)
-    (tmp_path / ".sirat" / "autosave.json").write_text("{ not json")
+    (tmp_path / ".sibench").mkdir(parents=True)
+    (tmp_path / ".sibench" / "autosave.json").write_text("{ not json")
     h = Harness(tmp_path)
     assert h.services.history.entries == []

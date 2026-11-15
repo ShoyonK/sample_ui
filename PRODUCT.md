@@ -21,12 +21,12 @@ Both are expert users who know the chip's register map and work at the bench for
 
 ## Product Purpose
 
-SiRAT (Silicon Labs Register Access Tool) gives engineers direct, safe access to a connected DUT at one of a
+SiBench (the Silicon Labs register and bench tool, formerly SiRAT) gives engineers direct, safe access to a connected DUT at one of a
 station's four positions. They can browse and edit registers, watch and log values over time, take and
 compare dumps, load PHYs, control instruments, and capture repeatable work as actions, sequences, sessions
 and generated Python test code.
 
-The new SiRAT replaces the original floating-dialog GUI. It succeeds when engineers:
+SiBench replaces the original floating-dialog SiRAT GUI. It succeeds when engineers:
 - get **safer hardware access**: the Station API service enforces requires rules, critical-write
   confirmation and read-back verification, so a stale or buggy GUI can't put a DUT in a bad state;
 - have a **faster daily workflow**: one window with pages instead of about 15 floating dialogs, and quicker
@@ -62,8 +62,9 @@ switch or DUT-control libraries directly.
   - Every visual unit is split into `XxxForm.ui.qml` (layout only, editable in Qt Design Studio) and
     `Xxx.qml` (wiring).
   - Strong typing at boundaries (pyrefly), and pydantic validation of everything read from disk.
-- **Compatibility.** Settings files keep the original SiRAT formats and locations (`~/.sirat_*.json`,
-  `~/.sirat/*.json`), so the old and new GUIs can share a home folder.
+- **Compatibility.** Settings files keep the original SiRAT formats, in one folder, `~/.sibench/`. On the first
+  launch, the files the old SiRAT GUI saved (`~/.sirat_*.json`, `~/.sirat/*.json`, its sessions) are copied
+  there once and left in place (`stores/legacy_import.py`). Settings exports from SiRAT still import.
 - **Testing.** Behavior-focused unit, integration and e2e tests against the fake backend. Any QML warning
   fails an e2e test.
 - **Windows.** Main pages, the watch list, the data logger and individual graphs can pop out into their own
@@ -78,8 +79,8 @@ switch or DUT-control libraries directly.
 
 ## Brand Commitments
 
-- The product name is SiRAT, a Silicon Labs internal tool.
-- The visual direction was set from the "Sequence Editor" mockup (`docs/mockups/sirat_mockup.html`), and the
+- The product name is SiBench, a Silicon Labs internal tool.
+- The visual direction was set from the "Sequence Editor" mockup (`docs/mockups/sibench_mockup.html`), and the
   current app implements it in the QML `Theme` singleton. This is an existing direction, not a recorded
   DESIGN.md.
 
@@ -90,7 +91,7 @@ switch or DUT-control libraries directly.
   (exact shapes, generated), `docs/BACKEND_GUIDE.md` (how to build the station service), `docs/API_DESIGN.md`
   (the design's reasoning) and the original `SiRAT Station API Design Document.pdf`.
 - Plans and status: `docs/FRONTEND_PLAN.md` and `docs/GAP_REVIEW.md`.
-- Look and samples: the screenshots in `docs/screenshots`, the mockup in `docs/mockups/sirat_mockup.html`,
+- Look and samples: the screenshots in `docs/screenshots`, the mockup in `docs/mockups/sibench_mockup.html`,
   and the sample Radio Calculator config in `docs/samples/PHY_demo.cfg`.
 - **No real hardware data or user research.** Everything runs against the fake backend. Don't fabricate
   user quotes, adoption numbers or performance claims.

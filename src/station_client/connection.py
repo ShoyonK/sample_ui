@@ -1,7 +1,7 @@
 """Connection: one TCP connection to the station, with its requests in flight.
 
 A reader thread turns bytes into frames and hands each frame to `post`, which runs it on the owner's thread (in
-the SiRAT GUI, the GUI thread). Everything else (sending, matching replies, deadlines, the closed state) happens
+the SiBench GUI, the GUI thread). Everything else (sending, matching replies, deadlines, the closed state) happens
 on that thread too, so only the socket is shared with the reader.
 
 A request's outcome arrives through its `done(result, error)` callback: the raw JSON result and None, or None and

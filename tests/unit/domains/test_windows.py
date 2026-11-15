@@ -1,6 +1,6 @@
 """Pop-out windows: pages, the watch list, the data logger and single graphs."""
 
-from sirat_ui.domains.shell.windows import WindowsViewModel
+from sibench_ui.domains.shell.windows import WindowsViewModel
 
 
 def test_open_close_and_keys(qapp):
@@ -45,18 +45,28 @@ def test_every_nav_page_can_pop_out(harness):
 
 def test_a_tool_opens_in_its_own_window_at_its_size(qapp):
     vm = WindowsViewModel()
-    vm.open("tool", "dutControl")
+    vm.open("tool", "memory")
     vm.open("tool", "nope")
-    assert vm.openKeys == ["tool:dutControl"]
+    assert vm.openKeys == ["tool:memory"]
     row = vm.model.items[0]
-    assert (row["title"], row["width"], row["height"]) == ("DUT control API explorer", 1200, 800)
+    assert (row["title"], row["width"], row["height"]) == ("Memory viewer", 800, 600)
+
+
+def test_a_page_window_uses_the_page_size_when_it_has_one(qapp):
+    vm = WindowsViewModel()
+    vm.open("page", "dut_control")
+    vm.open("page", "watch")
+    sizes = {row["key"]: (row["title"], row["width"], row["height"]) for row in vm.model.items}
+    assert sizes["page:dut_control"] == ("DUT control API explorer", 1200, 800)   # req 22
+    assert sizes["page:watch"][1:] == (1400, 820)
 
 
 def test_each_page_lists_the_parts_that_open_in_their_own_window():
-    from sirat_ui.domains.shell.pages import PAGES
+    from sibench_ui.domains.shell.pages import PAGES
     parts = {p["key"]: [part["title"] for part in p["parts"]] for p in PAGES}
     assert parts["watch"] == ["Watch list", "Data logger"]
-    assert parts["advanced"] == ["Python console", "Custom functions", "DUT control API explorer", "Memory viewer"]
+    assert parts["advanced"] == ["Python console", "Custom functions", "Memory viewer"]
+    assert parts["dut_control"] == []   # the page is the explorer; it opens in its own window as a page
     assert parts["instruments"] == ["Signal generator", "BLE packet", "GFSK packet", "RF switch",
                                     "Temperature chamber", "ECA capture"]
     assert parts["radio"] == ["PRS signal routing", "WiFi PHY configuration"]

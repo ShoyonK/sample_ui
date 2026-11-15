@@ -1,4 +1,4 @@
-# SiRAT frontend architecture
+# SiBench frontend architecture
 
 Generated from the code by `scripts/architecture/build.py`; rerun it after changing classes or station calls. Class boxes list public methods with their signatures. An arrow
 `A --> B : name` means A's constructor takes a B called `name`; each diagram's full constructors are listed
@@ -46,7 +46,7 @@ flowchart TB
     fake["<b>FakeStationGateway</b><br/>in memory, today"]
     api["<b>ApiStationGateway</b><br/>JSON-RPC 2.0 over TCP · gateway/api"]
     state["<b>State</b> · state/<br/>StationState · SelectionState<br/>PreferencesState · StatusLine"]
-    base["<b>Shared helpers</b><br/>models/ dataclasses · core/ pure functions<br/>stores/ ~/.sirat JSON files"]
+    base["<b>Shared helpers</b><br/>models/ dataclasses · core/ pure functions<br/>stores/ ~/.sibench JSON files"]
 
     qml -->|"properties, slots"| vm
     vm -->|"method calls"| svc
@@ -103,7 +103,7 @@ flowchart TB
     launch --> container["ServiceContainer(gateway, home, scheduler)"]
     subgraph init["ServiceContainer.__init__"]
         direction TB
-        stores["UserStores.in_home(home)<br/>~/.sirat JSON files"]
+        stores["UserStores.in_home(home)<br/>~/.sibench JSON files"]
         st["PreferencesState → StationState<br/>SelectionState · StatusLine"]
         services["_build_services() → Services<br/>LogService, ErrorPresenter, ActivityTracker,<br/>RegisterCatalog, RegisterService, …"]
         subgraph vms["_build_viewmodels()"]
@@ -300,7 +300,7 @@ the protocol's; events become GatewayEvents (`gateway/wire/events.py`). What's t
 dropped link becomes DutDisconnected per position and a fresh status, and call.late is decoded with the method
 that timed out. Messages are posted to the GUI thread (`app/qt_post.py`). `FakeStationServer`
 (`gateway/fake/server.py`) puts the fake behind a socket, checking params with the protocol's types and running
-on one `ThreadScheduler` thread. `sirat --backend fake-tcp` runs the whole app over the wire; `--backend api
+on one `ThreadScheduler` thread. `sibench --backend fake-tcp` runs the whole app over the wire; `--backend api
 --host --port` connects to a station service. The contract is docs/STATION_API.md.
 
 ## 8. Shared state
@@ -796,7 +796,7 @@ Constructor arrows between services.
 flowchart TB
     classDef box text-align:left,fill:#f8f8ff,stroke:#6a6ab0,color:#1c1c1c
     classDef stub fill:#ffffff,stroke:#6a6ab0,stroke-dasharray:4 3,color:#1c1c1c
-    ConnectionService["<b>ConnectionService</b><hr/>+start() Call<br/>+refresh_status() Call<br/>+connect(position: int, config_type: str='EFR32', config_file: str='', rpc: RpcAddress?=None) Call<br/>+reconnect(position: int) Call<br/>+dut_info() Call<br/>+recover(position: int) Call<br/>+disconnect(position: int) Call<br/>+load_phy(position: int, phy: PhySpec) Call[LoadPhyResult]"]:::box
+    ConnectionService["<b>ConnectionService</b><hr/>+start() Call<br/>+refresh_status() Call<br/>+connect(position: int, config_type: str='EFR32', config_file: str='', rpc: RpcAddress?=None) Call<br/>+reconnect(position: int) Call<br/>+dut_info() Call<br/>+recover(position: int) Call<br/>+disconnect(position: int) Call<br/>+show_position(position: int)<br/>+load_phy(position: int, phy: PhySpec) Call[LoadPhyResult]"]:::box
     HardwareConfigService["<b>HardwareConfigService</b><hr/>+reload()<br/>+save(config: HardwareConfig) Call<br/>+test_connection(config: HardwareConfig) Call"]:::box
     SessionService["<b>SessionService</b><hr/>+snapshot(name: str, created: str?=None) Dict[str,Any]<br/>+apply(data: Dict[str,Any])<br/>+path_for(name: str) Path<br/>+exists(name: str) bool<br/>+list() List[SessionInfo]<br/>+save(name: str) SessionInfo<br/>+load(name: str) SessionInfo<br/>+delete(name: str)<br/>+preview(name: str) Dict[str,Any]<br/>+start_autosave(interval_ms: int=AUTOSAVE_MS)<br/>+stop_autosave()<br/>+autosave()<br/>+restore_autosave() int"]:::box
     SettingsTransfer["<b>SettingsTransfer</b><hr/>+export(path: Path) List[str]<br/>+import_(path: Path) Tuple[List of str,List of Problem]<br/>+clear_all()"]:::box

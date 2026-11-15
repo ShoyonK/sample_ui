@@ -1,4 +1,4 @@
-# SiRAT Station API: design, revision 2 (draft)
+# SiBench Station API: design, revision 2 (draft)
 
 > **The current contract is [STATION_API.md](STATION_API.md)** (protocol 2), with its generated [reference](STATION_API_REFERENCE.md). This file is revision 2 of the design and the reasoning behind it; where they differ, STATION_API.md wins (its section 13 lists how).
 
@@ -16,10 +16,10 @@ how read-sensitive registers are handled (section 12).
 
 ## Frontend status
 
-The SiRAT frontend and its fake backend implement this revision for every feature that exists today:
+The SiBench frontend and its fake backend implement this revision for every feature that exists today:
 `RpcAddress` on `dut.connect`, `dut.reconnect`, `dut.probe`, `WriteRes.verified`, `include_read_sensitive`,
 `activity.abort`, instrument facts in `sys.status`, timeouts with `still_running` and `call.late`, and the
-wire ops for `automation.seq.run` (`src/sirat_ui/core/wire_ops.py`). The Instruments page uses `rf.paths`,
+wire ops for `automation.seq.run` (`src/sibench_ui/core/wire_ops.py`). The Instruments page uses `rf.paths`,
 `rf.connect`, `rf.disconnect`, `instruments.connect` and every `instruments.siggen/chamber/eca` method, with
 chamber waits and ECA captures as instrument activities (`instrument_id`, `ActivityFinished.result`). Two
 frontend choices to confirm: ECA pages carry int16 little-endian samples in mV, and a capture holds at most
@@ -387,7 +387,7 @@ class CustomFunctionOp(Model):   type: Literal["custom_function"]; function_name
 class SignalGeneratorOp(Model):  type: Literal["signal_generator"]; instrument_id: str; config: SiggenConfig
 class RfSwitchOp(Model):         type: Literal["rf_switch"]; path: str
 class GfskPacketOp(Model):       type: Literal["gfsk_packet"]; code: str
-...                              # the others follow src/sirat_ui/stores/schemas/operations.py
+...                              # the others follow src/sibench_ui/stores/schemas/operations.py
 ```
 
 - The client builds `ops[]` from the user's actions and sequences. It expands a sequence into its actions'
@@ -542,7 +542,7 @@ Library exceptions are mapped to these codes at the domain-service boundary. `ha
 
 ## 10. Open questions carried over
 
-1. **Debug mode attach.** Is there a `dut.attach(pos)` so SiRAT uses the `dut` a paused test already
+1. **Debug mode attach.** Is there a `dut.attach(pos)` so SiBench uses the `dut` a paused test already
    connected? Or does the test hand it to the service?
 2. **pandas and NI drivers in one process.** The service startup check decides.
 3. **One service or several per station.** Affects `sys.hello` and `claim`.
@@ -556,8 +556,8 @@ The requirements were written from a demo a validation engineer built, so they'r
 to get done, not as a spec to copy.
 
 1. **Actions belong to the GUI.** Decided. `automation.actions.list` is removed. Actions and sequences are
-   each user's saved macros, kept in their own files and edited in SiRAT; the service only *runs* the ops
-   it's given. If something other than SiRAT (a test, or the hub later) ever needs to run actions by name,
+   each user's saved macros, kept in their own files and edited in SiBench; the service only *runs* the ops
+   it's given. If something other than SiBench (a test, or the hub later) ever needs to run actions by name,
    a station-side library can be added then, as its own domain.
 2. **`radio.*` is not in v1.** Decided. The requirements have no RX/TX setup screen: "RX or TX" only
    appears as the mode inside the WiFi PHY form (req 23, sent with `dut.load_phy`), and RSSI only appears

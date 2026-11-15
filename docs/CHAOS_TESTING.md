@@ -1,7 +1,7 @@
 # Chaos testing strategy
 
 **Date:** 2026-11-05
-**Scope:** what can go wrong in the SiRAT frontend that the tests don't cover yet, and how we'll test it.
+**Scope:** what can go wrong in the SiBench frontend that the tests don't cover yet, and how we'll test it.
 
 The app talks to a station that can drop a DUT, lose an instrument, time out, restart or send events late. The
 fake backend (`gateway/fake/`) can already simulate some of this. This document lists what's covered, what isn't,
@@ -47,7 +47,7 @@ Fault switches the fake has: `fail_next`, `time_out_next`, `set_latency`, `drop_
 
 | | Gap | What happens |
 |---|---|---|
-| ✅ | **No crash safety net.** | Fixed: `app/crash_guard.py` logs the traceback to the session log, shows an error toast and keeps SiRAT running. Installed by `sirat` / `python -m sirat_ui` only, so pytest-qt still fails a test on an exception. |
+| ✅ | **No crash safety net.** | Fixed: `app/crash_guard.py` logs the traceback to the session log, shows an error toast and keeps SiBench running. Installed by `sibench` / `python -m sibench_ui` only, so pytest-qt still fails a test on an exception. |
 | ✅ | **The fake ignored a DUT drop during a sequence.** | Fixed: the fake's sequencer ends the run with `dut_disconnected`, and the Sequences page shows Failed with "DUT 1 disconnected". |
 | ✅ | **Saving can fail** (full disk, denied permission, file locked). | Fixed: `JsonStore.save` reports to the app, which shows "Couldn't save <file>: <reason>" and logs it; the change stays on screen and the next save tries again. Exports: every one already said "Couldn't…" except ECA Save CSV, fixed in phase 2. |
 | ✅ | **DUT drops mid-operation**: action runs, dumps, the radio diff, Read all registers, custom functions, memory reads, the data logger. | Tested: each stops, says why, and saves nothing partial (a dump says "Dump stopped … Nothing was saved"). No app changes were needed. |
@@ -58,7 +58,7 @@ Fault switches the fake has: `fail_next`, `time_out_next`, `set_latency`, `drop_
 
 | | Gap |
 |---|---|
-| ✅ | **Switching DUT position mid-operation.** Found and fixed: a dump and Read all carried on reading from the new DUT and saved a mix of both; the watch list kept showing DUT 1's values. Now switching stops the watch list and logger (with a toast), stops a dump, radio diff or Read all ("stopped: you switched to DUT 2", nothing saved), clears cached values, and ignores a read that returns from the old DUT. Sequences and test runs carry on on their own DUT. |
+| ✅ | **Switching DUT position mid-operation.** Found and fixed: a dump and Read all carried on reading from the new DUT and saved a mix of both; the watch list kept showing DUT 1's values. Now switching stops the watch list and logger (with a toast), stops a dump, radio diff or Read all ("stopped: you switched to DUT 2", nothing saved), clears cached values, ignores a read that returns from the old DUT, and loads the new DUT's register tree (each DUT can be a different chip; in the fake each position has its own registers). Sequences and test runs carry on on their own DUT. |
 | 🟡 | **Late replies**: after switching DUT and after leaving the page are tested. After a pop-out closed and after a reconnect are not yet. |
 | ✅ | **Odd events**: a duplicated `activity.finished` finishes once; events for an unknown activity are ignored; a drop on a DUT you aren't viewing opens its recovery dialog. A lost `activity.finished` is the watchdog gap above. |
 | ✅ | **Double clicks.** Found and fixed: a second Run on a sequence started a second run that the station refused, and the page lost track of the first; a second Run on an action failed with an error. Run is now ignored while a run is going. |
@@ -79,8 +79,8 @@ when it is.
 | | Gap |
 |---|---|
 | ✅ | Saving fails: settings files (phase 1); History, Log and Settings exports and ECA Save CSV are tested (ECA was fixed). |
-| 🟡 | `C:\temp\sirat` isn't writable, so there's no session log. |
-| 🟡 | Two copies of SiRAT open at once, writing the same `~/.sirat*` files. |
+| 🟡 | `C:\temp\sibench` isn't writable, so there's no session log. |
+| 🟡 | Two copies of SiBench open at once, writing the same `~/.sibench` files. |
 | 🟡 | Closing the app while something runs: tested that it closes cleanly and auto-saves; the run carries on on the station. Whether to abort it is open question 2. |
 
 ### 5. Scale and long sessions
@@ -142,7 +142,7 @@ calls, timeouts, slow calls, duplicated events). Everything comes from one seed,
   tests, a chamber wait, an ECA capture); a DUT drop, instrument drop or restart leaves a warning or error in the
   log at once; nothing raises out of a step (that would have been a crash).
 - **Checked every 8 steps, once everything has settled**: nothing shows busy while the station is idle; Run
-  buttons match the station's facts (`core/requires.py`); every `~/.sirat*` file is valid JSON.
+  buttons match the station's facts (`core/requires.py`); every `~/.sibench` file is valid JSON.
 - **Two variants**: against the ViewModels (fast: 500 seeds of 300 steps take about 2.5 minutes), and against the
   real window (`test_chaos_with_the_real_window`), where any QML warning fails it. The real-window variant skips
   the radio diff, because it opens Windows' own file dialog.
@@ -174,4 +174,4 @@ out, the settled checks alone missed it; with the every-step check it failed on 
 1. What should the app do with an activity that never finishes: a timeout per activity type, or only a visible
    "no news for N seconds" hint?
 2. On closing the app mid-run, should it abort the activity, ask first, or leave it running on the station?
-3. Should two SiRAT copies on one PC be prevented (a lock file), or allowed with a warning?
+3. Should two SiBench copies on one PC be prevented (a lock file), or allowed with a warning?

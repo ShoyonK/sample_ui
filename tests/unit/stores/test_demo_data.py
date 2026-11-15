@@ -2,9 +2,9 @@
 
 import datetime as dt
 
-from sirat_ui.core.dumps import compare, read_csv
-from sirat_ui.gateway.fake.chip import build_chip
-from sirat_ui.stores.demo_data import DEMO_WATCH, seed_demo_dumps
+from sibench_ui.core.dumps import compare, read_csv
+from sibench_ui.gateway.fake.chip import build_chip
+from sibench_ui.stores.demo_data import DEMO_WATCH, seed_demo_dumps
 
 DAY = dt.date(2026, 11, 14)
 

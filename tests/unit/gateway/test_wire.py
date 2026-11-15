@@ -13,23 +13,23 @@ from station_protocol import advanced, common, dut, instruments, memory, registe
 from station_protocol import tests as station_tests
 from station_protocol.catalog import BY_WIRE
 from station_protocol.registers import RegisterTree
-from sirat_ui.gateway.api.client import ApiStationGateway
-from sirat_ui.gateway.errors import ApiError, ErrorCode
-from sirat_ui.gateway.fake.chip import build_chip
-from sirat_ui.gateway.fake.fake_station import FakeStationGateway
-from sirat_ui.gateway.port import CLIENT, PROTOCOL, StationGateway
-from sirat_ui.gateway.wire.bindings import BY_ATTR, BY_WIRE_NAME
-from sirat_ui.gateway.wire.codec import CodecError, decode, encode, to_wire
-from sirat_ui.gateway.wire.events import BY_NAME, decode_event, encode_event
-from sirat_ui.models import facts, radio
-from sirat_ui.models import registers as app_registers
-from sirat_ui.models import station as app_station
-from sirat_ui.models.radio import WifiAdvanced, WifiPhyConfig, WifiTxParams
-from sirat_ui.models.registers import PeripheralDef
-from sirat_ui.models.station import (ActivityFinished, ActivityProgress, CallLate, DutDisconnected, LogLine,
+from sibench_ui.gateway.api.client import ApiStationGateway
+from sibench_ui.gateway.errors import ApiError, ErrorCode
+from sibench_ui.gateway.fake.chip import build_chip
+from sibench_ui.gateway.fake.fake_station import FakeStationGateway
+from sibench_ui.gateway.port import CLIENT, PROTOCOL, StationGateway
+from sibench_ui.gateway.wire.bindings import BY_ATTR, BY_WIRE_NAME
+from sibench_ui.gateway.wire.codec import CodecError, decode, encode, to_wire
+from sibench_ui.gateway.wire.events import BY_NAME, decode_event, encode_event
+from sibench_ui.models import facts, radio
+from sibench_ui.models import registers as app_registers
+from sibench_ui.models import station as app_station
+from sibench_ui.models.radio import WifiAdvanced, WifiPhyConfig, WifiTxParams
+from sibench_ui.models.registers import PeripheralDef
+from sibench_ui.models.station import (ActivityFinished, ActivityProgress, CallLate, DutDisconnected, LogLine,
                                      LpwPhy, PhySpec, ReadManyItem, StationStatus, StatusChanged, WatchValues,
                                      WifiPhy)
-from sirat_ui.models.facts import PositionFacts
+from sibench_ui.models.facts import PositionFacts
 
 
 def _json(value):
@@ -98,7 +98,7 @@ def test_events_write_the_position_as_pos_and_watch_values_as_a_list():
 
 
 def test_every_gateway_event_type_has_a_wire_name():
-    from sirat_ui.models.station import GatewayEvent
+    from sibench_ui.models.station import GatewayEvent
     assert set(GatewayEvent.__args__) == set(BY_NAME.values())   # type: ignore[attr-defined]
 
 
@@ -108,7 +108,7 @@ def _gateway_methods():
     """Every method StationGateway declares (gateway/port.py)."""
     names = set()
     for cls in StationGateway.__mro__:
-        if cls.__module__ == "sirat_ui.gateway.port":
+        if cls.__module__ == "sibench_ui.gateway.port":
             names |= {n for n, v in vars(cls).items() if inspect.isfunction(v) and not n.startswith("_")}
     return names
 
@@ -128,7 +128,7 @@ def test_parameters_match_both_backends(binding):
 
 
 def test_the_server_answers_in_the_protocols_result_shapes():
-    from sirat_ui.gateway.fake.server import FakeStationServer
+    from sibench_ui.gateway.fake.server import FakeStationServer
     result = FakeStationServer._result
     assert result(BY_WIRE_NAME["registers.read"], 3) == {"value": 3}
     assert result(BY_WIRE_NAME["automation.seq.run"], "a1") == {"activity_id": "a1"}
@@ -137,7 +137,7 @@ def test_the_server_answers_in_the_protocols_result_shapes():
 
 
 def test_the_register_tree_travels_in_the_contracts_shape_and_round_trips():
-    from sirat_ui.gateway.wire.shapes import tree_from_wire, tree_to_wire
+    from sibench_ui.gateway.wire.shapes import tree_from_wire, tree_to_wire
     chip = build_chip()
     wire = _json(tree_to_wire(chip))
     peripheral = wire["peripherals"][0]

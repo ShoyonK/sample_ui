@@ -3,7 +3,7 @@
 import pytest
 from PyQt5.QtCore import Qt
 from pages import Dialogs, RegistersPage, Ui
-from sirat_ui.domains.shell.pages import PAGES as PAGE_TABLE
+from sibench_ui.domains.shell.pages import PAGES as PAGE_TABLE
 
 PAGES = [p["key"] for p in PAGE_TABLE]   # a new page row is load-tested without touching this file
 
@@ -45,7 +45,7 @@ def test_type_a_value_and_write_it(running, qtbot):
     page.open_register("BUFC.LPMODE")
     page.write("0x3")
     assert page.value_text() == "0x00000003"
-    assert running.h.fake.memory.values["BUFC.LPMODE"] == 3
+    assert running.h.fake.board(1).memory.values["BUFC.LPMODE"] == 3
 
 
 @pytest.mark.req("7.critical-cancel")
@@ -56,7 +56,7 @@ def test_cancelled_bit_toggle_on_a_critical_register_sends_nothing(running, qtbo
     page.wait_for(dialogs.confirm_open)
     dialogs.cancel_confirm()
     page.wait_for(lambda: not dialogs.confirm_open())
-    assert running.h.fake.memory.values["CMU.CLKEN0"] == 0xF07
+    assert running.h.fake.board(1).memory.values["CMU.CLKEN0"] == 0xF07
     assert page.value_text() == "0x00000F07"
 
 
@@ -93,7 +93,7 @@ def test_double_click_a_field_value_and_press_enter(running, qtbot):
     QTest.mouseDClick(running.window, Qt.LeftButton, Qt.NoModifier, center)
     page.settle()
     page.type_text("fieldValueEditor_OPMODE", "1")
-    page.wait_for(lambda: running.h.fake.memory.values["MODEM.CTRL"] & 0x3 == 1)
+    page.wait_for(lambda: running.h.fake.board(1).memory.values["MODEM.CTRL"] & 0x3 == 1)
 
 
 @pytest.mark.req("8.favorites")
@@ -295,7 +295,7 @@ def test_generate_code_opens_the_code_dialog(running, qtbot):
     ui = Ui(running.app, qtbot)
     ui.click("actionsCodeButton")
     ui.wait_for(lambda: ui.visible("codeDialog"))
-    assert "Generated code from SiRAT Actions" in ui.find("codeText").property("text") or \
+    assert "Generated code from SiBench Actions" in ui.find("codeText").property("text") or \
         "Generated" in ui.find("codeText").property("text")
     ui.click("codeCloseButton")
     ui.wait_for(lambda: not ui.visible("codeDialog"))
@@ -578,10 +578,9 @@ def test_advanced_console_and_custom_function_share_variables(running, qtbot):
     ui.wait_for(lambda: "84" in _output(shell.customFunctions))
 
 
-def test_advanced_dut_control_executes_a_method(running, qtbot):
+def test_the_dut_control_page_executes_a_method(running, qtbot):
     ui = Ui(running.app, qtbot)
-    ui.navigate("advanced")
-    ui.click("segment_DUT control")
+    ui.click("nav_dut_control")
     ui.wait_for(lambda: ui.exists("api_LPW"))
     ui.click("api_LPW")
     ui.click("api_lpw.radio")
@@ -600,7 +599,7 @@ def test_advanced_memory_read_and_confirmed_write(running, qtbot):
     ui.wait_for(lambda: ui.enabled("memoryReadButton"))
     ui.click("memoryReadButton")
     ui.wait_for(lambda: running.h.shell.memory.rows.count == 16)
-    assert "SiRAT fake RAM" in running.h.shell.memory.rows.items[0]["ascii"]
+    assert "SiBench fake RAM" in running.h.shell.memory.rows.items[0]["ascii"]
     ui.click("segment_DWords")
     ui.type_text("memoryWriteValueField", "0x12345678", enter=False)
     ui.click("memoryWriteButton")
@@ -770,27 +769,25 @@ def _open_nav_menu(ui, page):
 
 
 @pytest.mark.req("22.window")
-def test_right_click_advanced_to_open_the_dut_control_explorer_with_its_results(running, qtbot):
+def test_right_click_dut_control_to_open_the_explorer_with_its_results(running, qtbot):
     ui = Ui(running.app, qtbot)
-    ui.navigate("advanced")
-    running.h.shell.advanced.setTab(2)
-    _open_nav_menu(ui, "advanced")
-    assert ui.text("navMenuPart_tool:dutControl") == "Open DUT control API explorer in new window"
-    ui.click("navMenuPart_tool:dutControl")
-    ui.wait_for(lambda: _popout("tool:dutControl") is not None)
-    window = _popout("tool:dutControl")
+    ui.navigate("dut_control")
+    _open_nav_menu(ui, "dut_control")
+    ui.click("navMenuPopOut_dut_control")
+    ui.wait_for(lambda: _popout("page:dut_control") is not None)
+    window = _popout("page:dut_control")
+    assert (window.width(), window.height()) == (1200, 800)               # req 22's window size
     ui.wait_for(lambda: _in_window(window, "apiExecuteButton") is not None and _in_window(window, "apiLines") is not None)
-    ui.wait_for(lambda: ui.visible("toolPlaceholder_dutControl"))         # the page shows where it went
+    ui.wait_for(lambda: ui.visible("pagePlaceholder_dut_control"))       # the page shows where it went
     dc = running.h.shell.dutControl
     dc.setFilter("SetPower")
     dc.activate(next(i for i, r in enumerate(dc.rows.items) if r["key"] == "lpw.radio.SetPower"))
     dc.setParam("power_dbm", "10")
-    _click_in(_active_popout(ui, qtbot, "tool:dutControl"), _in_window(window, "apiExecuteButton"), qtbot)
+    _click_in(_active_popout(ui, qtbot, "page:dut_control"), _in_window(window, "apiExecuteButton"), qtbot)
     ui.wait_for(lambda: _in_window(window, "apiLines").property("count") > 0)   # its own console shows the result
-    _open_nav_menu(ui, "advanced")
-    assert ui.text("navMenuPart_tool:dutControl") == "Bring back DUT control API explorer"
-    ui.click("navMenuPart_tool:dutControl")
-    ui.wait_for(lambda: _popout("tool:dutControl") is None and ui.exists("apiExecuteButton"))
+    _open_nav_menu(ui, "dut_control")
+    ui.click("navMenuDock_dut_control")
+    ui.wait_for(lambda: _popout("page:dut_control") is None and ui.exists("apiExecuteButton"))
 
 
 @pytest.mark.req("17.window")
@@ -918,7 +915,7 @@ def test_a_dialog_open_in_a_pop_out_that_closes_can_open_again(running, qtbot):
 @pytest.mark.req("ui.popout")
 def test_a_dialog_open_in_a_pop_out_moves_to_the_main_window_when_the_pop_out_closes(running, qtbot):
     """Found by the chaos runner: the dialog stayed in the hidden pop-out, modal but out of sight."""
-    from sirat_ui.models.dialogs import Alert
+    from sibench_ui.models.dialogs import Alert
     ui = Ui(running.app, qtbot)
     running.h.shell.windows.open("page", "dumps")
     ui.wait_for(lambda: _popout("page:dumps") is not None

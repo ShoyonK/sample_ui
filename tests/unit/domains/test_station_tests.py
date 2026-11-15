@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from sirat_ui.gateway.errors import ErrorCode
+from sibench_ui.gateway.errors import ErrorCode
 
 
 def page(h):
@@ -130,7 +130,7 @@ def test_export_writes_json_with_timestamps_status_and_output(harness, tmp_path)
     target = tmp_path / "results.json"
     harness.ix.answer_save(str(target))
     vm.exportResults()
-    assert harness.ix.save_requests[-1][1].startswith("sirat_tests_")
+    assert harness.ix.save_requests[-1][1].startswith("sibench_tests_")
     data = json.loads(target.read_text(encoding="utf-8"))
     assert data["started"] and data["finished"] and data["dut_position"] == 1
     assert [(t["id"], t["status"]) for t in data["tests"]] == [("sample_test_1", "pass"), ("sample_test_3", "fail")]

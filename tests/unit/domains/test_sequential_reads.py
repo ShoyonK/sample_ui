@@ -2,9 +2,9 @@
 
 import sys
 
-from sirat_ui.domains.registers.sequential import RegisterReadJob, read_one_by_one
-from sirat_ui.gateway.call import Call
-from sirat_ui.models.registers import RegisterDef
+from sibench_ui.domains.registers.sequential import RegisterReadJob, read_one_by_one
+from sibench_ui.gateway.call import Call
+from sibench_ui.models.registers import RegisterDef
 
 
 class InstantRegisters:

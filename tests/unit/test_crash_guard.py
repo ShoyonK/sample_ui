@@ -1,10 +1,10 @@
-"""The crash guard: an unexpected error is logged and shown instead of closing SiRAT (docs/CHAOS_TESTING.md)."""
+"""The crash guard: an unexpected error is logged and shown instead of closing SiBench (docs/CHAOS_TESTING.md)."""
 
 import sys
 
-from sirat_ui.app.crash_guard import make_hook
-from sirat_ui.domains.logs.service import LogService
-from sirat_ui.shared.interactions import ScriptedInteractions
+from sibench_ui.app.crash_guard import make_hook
+from sibench_ui.domains.logs.service import LogService
+from sibench_ui.shared.interactions import ScriptedInteractions
 
 
 def raised(exc):

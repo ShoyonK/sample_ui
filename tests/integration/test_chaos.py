@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from sirat_ui.gateway.errors import ErrorCode
-from sirat_ui.models.station import ActivityFinished, ActivityProgress
+from sibench_ui.gateway.errors import ErrorCode
+from sibench_ui.models.station import ActivityFinished, ActivityProgress
 
 SAMPLE_CFG = Path(__file__).resolve().parents[2] / "docs" / "samples" / "PHY_demo.cfg"
 
@@ -282,4 +282,4 @@ def test_closing_the_app_mid_run_does_not_fail(harness):
     harness.container.stop()
     harness.scheduler.run_pending()
     assert harness.fake.facts[1].activity == "idle" and not harness.fake.calls_to("activity.abort")
-    assert json.loads((harness.home / ".sirat" / "autosave.json").read_text(encoding="utf-8"))
+    assert json.loads((harness.home / ".sibench" / "autosave.json").read_text(encoding="utf-8"))

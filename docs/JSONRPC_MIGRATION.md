@@ -162,14 +162,14 @@ miss one.
 - dispatches requests through the method table, encoding the fake's `Call` result or `ApiError`;
 - forwards the fake's events (`fake.events`) to every connection as notifications;
 - maps the fake's internal request ids in `timeout` errors and `call.late` events to the JSON-RPC `id`;
-- runs standalone: `python -m sirat_ui.gateway.fake.server --port 47800 --scenario happy`.
+- runs standalone: `python -m sibench_ui.gateway.fake.server --port 47800 --scenario happy`.
 
 The fake's test knobs (`fail_next`, `time_out_next`, `drop_dut`, latency...) keep working because they act on
 the same `FakeStationGateway`.
 
 ## 5. Running the app on it
 
-`sirat --backend`:
+`sibench --backend`:
 
 - `fake` (default): the in-process fake, as today.
 - `api --host H --port P`: connect to a station service (or a standalone fake server) at that address.

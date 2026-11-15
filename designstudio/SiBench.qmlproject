@@ -1,0 +1,27 @@
+import QmlProject 1.1
+
+// Open this in Qt Design Studio to edit the *Form.ui.qml files visually.
+// Wrappers (*.qml without .ui) reference the Python `app` object, so preview the Form files directly.
+Project {
+    mainFile: "../src/sibench_ui/qml/pages/registers/RegisterDetailForm.ui.qml"
+
+    QmlFiles {
+        directory: "../src/sibench_ui/qml"
+    }
+    JavaScriptFiles {
+        directory: "../src/sibench_ui/qml"
+    }
+    ImageFiles {
+        directory: "../src/sibench_ui/qml/assets"
+    }
+    Files {
+        filter: "qmldir"
+        directory: "../src/sibench_ui/qml"
+    }
+
+    importPaths: [ "../src/sibench_ui/qml" ]
+
+    // PyQt5 is Qt 5.15: keep the project in Qt 5 mode and use versioned imports.
+    qt6Project: false
+    qdsVersion: "4.0"
+}

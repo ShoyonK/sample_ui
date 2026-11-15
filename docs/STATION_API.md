@@ -1,7 +1,7 @@
-# SiRAT Station API — specification (protocol 2)
+# SiBench Station API — specification (protocol 2)
 
 The contract between the **station service** (the process that owns a test station's hardware: up to four DUT
-positions and the bench instruments) and every tool that talks to it. The SiRAT GUI is one such tool; the debug
+positions and the bench instruments) and every tool that talks to it. The SiBench GUI is one such tool; the debug
 harness is another. They all speak this one API.
 
 | Document | What it is | Authority |
@@ -12,7 +12,7 @@ harness is another. They all speak this one API.
 | [station_api.schema.json](station_api.schema.json) | The same shapes as JSON Schema 2020-12 | Normative, generated from code |
 | `src/station_client/` | A client any tool can use: the connection, reconnecting, the heartbeat | Reference client |
 | `tests/contract/` | The conformance suite: drives a station through `station_client` and checks every reply and event against `station_protocol` | Conformance |
-| `src/sirat_ui/gateway/fake/` | The fake station: a working implementation of this spec, in memory | Reference behaviour, except what it doesn't model (below) |
+| `src/sibench_ui/gateway/fake/` | The fake station: a working implementation of this spec, in memory | Reference behaviour, except what it doesn't model (below) |
 | [API_DESIGN.md](API_DESIGN.md) | Revision 2 of the design, with the reasoning behind it | Background; this file wins |
 
 If this file and the generated reference disagree, the reference is what the code really sends and accepts (a test
@@ -34,12 +34,12 @@ For those, this file is the only reference.
 
 ## 1. The system
 
-SiRAT is a register access and bench-control tool for validation engineers testing Silicon Labs chips. An engineer
+SiBench is a register access and bench-control tool for validation engineers testing Silicon Labs chips. An engineer
 sits at a station PC with DUTs (devices under test) on up to four positions and shared bench instruments: a
 signal generator, an RF switch, a temperature chamber and an ECA (a multi-channel capture instrument).
 
 ```
- SiRAT GUI (PyQt5/QML)  ──TCP loopback, JSON-RPC 2.0──►  station service  ──►  DUT library (rm, rpc_io,
+ SiBench GUI (PyQt5/QML)  ──TCP loopback, JSON-RPC 2.0──►  station service  ──►  DUT library (rm, rpc_io,
    all presentation, files,                               facts, locks,          dut_control, configurators,
    code generation, history                               activities, events     pti_prs) per position
                                                                           ──►  instrument drivers
@@ -134,7 +134,7 @@ event         {"jsonrpc":"2.0", "method":"registers.watch", "params":{"seq":912,
 connect ─► sys.hello(client, protocol) ─► sys.subscribe(topics) ─► sys.status() ─► calls … ◄─ events
 ```
 
-1. **`sys.hello`** — the client says who it is (`client`: `"sirat-gui"`, `"debug-harness"`...) and which protocol
+1. **`sys.hello`** — the client says who it is (`client`: `"sibench-gui"`, `"debug-harness"`...) and which protocol
    it speaks (`2`, `station_protocol.PROTOCOL_VERSION`); both are required. The service answers its `release_id`,
    its `protocol` and `server_time`. A client and service with different protocol numbers aren't compatible; the
    GUI shows the release in its status bar.
@@ -178,7 +178,7 @@ InstrumentFacts { id: str, kind: "signal_generator"|"rf_switch"|"chamber"|"eca",
 ### Requires
 
 Each method lists **tags** that must hold, checked before it runs. The GUI enables buttons from the same table
-(`src/sirat_ui/core/requires.py`), so a stale GUI is still safe. A call whose tags don't hold fails with
+(`src/sibench_ui/core/requires.py`), so a stale GUI is still safe. A call whose tags don't hold fails with
 `wrong_state` and `data.missing: [tags…]` (always tags, never fact names).
 
 | Tag | Holds when |
@@ -459,12 +459,12 @@ Where this spec departs from [API_DESIGN.md](API_DESIGN.md) revision 2, and why.
    `include_read_sensitive`) is a placeholder until the validation engineers decide.
 2. **`tests.*`** is a frontend proposal: where tests come from (the station or files), what a test sequence is,
    where Notes come from, and whether a failure stops the run.
-3. **Debug-mode attach:** whether SiRAT can use a `dut` a paused test already connected.
+3. **Debug-mode attach:** whether SiBench can use a `dut` a paused test already connected.
 4. **Authentication:** loopback without auth or tokens, while `advanced.console` runs arbitrary code on a shared
    station. Out of scope for now.
 5. **`dut_control` argument types:** JSON only, or do some methods need typed objects?
 6. **One service per station** or several (affects `sys.hello` and `claim`).
 7. **The `session` group** belongs to other tools: a session groups several test runs (the debug harness). It is
-   not SiRAT's `dut.connect`, and SiRAT doesn't call it. Its methods are to be designed with that tool.
-8. **`tests` and the debug harness:** SiRAT's `tests.list` / `tests.run` and the harness's test discovery and
+   not SiBench's `dut.connect`, and SiBench doesn't call it. Its methods are to be designed with that tool.
+8. **`tests` and the debug harness:** SiBench's `tests.list` / `tests.run` and the harness's test discovery and
    runs should become one set of methods in `tests`. Settle together with item 2.

@@ -12,13 +12,13 @@ from typing import Any, Callable, List
 
 import pytest
 
-from sirat_ui.gateway.api.client import OPEN, ApiStationGateway
-from sirat_ui.gateway.call import Call
-from sirat_ui.gateway.errors import ErrorCode
-from sirat_ui.gateway.fake.fake_station import FakeStationGateway
-from sirat_ui.gateway.fake.server import FakeStationServer
-from sirat_ui.gateway.thread_scheduler import ThreadScheduler
-from sirat_ui.models.station import CallLate, DutDisconnected, LogLine, LpwPhy, StatusChanged, WatchValues
+from sibench_ui.gateway.api.client import OPEN, ApiStationGateway
+from sibench_ui.gateway.call import Call
+from sibench_ui.gateway.errors import ErrorCode
+from sibench_ui.gateway.fake.fake_station import FakeStationGateway
+from sibench_ui.gateway.fake.server import FakeStationServer
+from sibench_ui.gateway.thread_scheduler import ThreadScheduler
+from sibench_ui.models.station import CallLate, DutDisconnected, LogLine, LpwPhy, StatusChanged, WatchValues
 
 
 class Gui:
@@ -86,7 +86,7 @@ def connected(gui):
 
 def test_replies_decode_into_the_apps_models(connected):
     tree = connected.result(connected.client.register_tree(1))
-    assert tree == connected.server_clock.run(lambda: connected.fake.peripherals)
+    assert tree == connected.server_clock.run(lambda: connected.fake.board(1).peripherals)
     assert connected.result(connected.client.load_phy(1, LpwPhy("BLE_1M"))).name == "BLE_1M"
     assert connected.result(connected.client.write_register(1, "BUFC.LPMODE", 1)).value_written == 1
     assert connected.result(connected.client.read_register(1, "BUFC.LPMODE")) == 1

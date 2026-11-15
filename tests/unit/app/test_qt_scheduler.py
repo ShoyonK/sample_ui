@@ -6,8 +6,8 @@ import time
 import pytest
 from PyQt5.QtCore import QEventLoop, QTimer
 
-from sirat_ui.app.qt_scheduler import PRECISE_BELOW_MS, QtScheduler
-from sirat_ui.shared.qt import COARSE_TIMER, PRECISE_TIMER
+from sibench_ui.app.qt_scheduler import PRECISE_BELOW_MS, QtScheduler
+from sibench_ui.shared.qt import COARSE_TIMER, PRECISE_TIMER
 
 
 def _timer_of(handle):

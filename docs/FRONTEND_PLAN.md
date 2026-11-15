@@ -1,4 +1,4 @@
-# SiRAT Frontend Plan
+# SiBench Frontend Plan
 
 **Status:** Draft for review. No code written yet.
 **Date:** 2026-10-27
@@ -94,7 +94,7 @@ flowchart TB
 ```
 Sample_UI/
 ├── pyproject.toml                 # python = "==3.10.5", PyQt5 pinned
-├── designstudio/SiRAT.qmlproject  # opens src/sirat_ui/qml in Qt Design Studio
+├── designstudio/SiBench.qmlproject  # opens src/sibench_ui/qml in Qt Design Studio
 ├── src/station_protocol/          # the Station API as code, shared by every tool and the service; imports no app
 │   ├── framing.py, jsonrpc.py     # 4-byte length prefix (16 MiB); JSON-RPC 2.0 envelope and error codes
 │   ├── errors.py, validate.py     # ApiError, ErrorCode; pydantic strict-JSON validation
@@ -107,8 +107,8 @@ Sample_UI/
 │   ├── connection.py              # Connection: socket, reader thread, requests in flight
 │   ├── link.py                    # Link: reconnect with backoff, held calls, heartbeat, resubscribe, seq gaps
 │   └── timers.py, threads.py      # what it needs from its owner; ThreadScheduler for scripts and the fake
-├── src/sirat_ui/
-│   ├── __main__.py                # python -m sirat_ui --backend fake | fake-tcp | api
+├── src/sibench_ui/
+│   ├── __main__.py                # python -m sibench_ui --backend fake | fake-tcp | api
 │   ├── app/                       # bootstrap; the only code that sees every layer
 │   │   ├── application.py         # Application: Qt app, QML engine, window
 │   │   ├── container.py           # ServiceContainer: builds services, then VMs one area at a time
@@ -157,7 +157,7 @@ Sample_UI/
 │   │           sequencer.py, advanced.py, python_runner.py, dut_api.py, station_tests.py
 │   ├── shared/                    # ViewModel base + qprop, list model, InteractionService,
 │   │                              # DialogsViewModel, ErrorPresenter, selection, highlighter
-│   ├── stores/                    # JSON persistence in ~/.sirat (req §1 auto-load list) + demo data
+│   ├── stores/                    # JSON persistence in ~/.sibench (req §1 auto-load list) + demo data
 │   ├── domains/                   # one folder per feature: its services and ViewModels
 │   │   ├── shell/  connection/  registers/  annotations/  history/  monitoring/ (watch, logger)
 │   │   ├── automation/ (actions, sequences)  dumps/  radio/  instruments/  advanced/
@@ -178,7 +178,7 @@ Sample_UI/
     ├── integration/     container wired with the fake backend + real stores in tmp dir; chaos
     ├── e2e/             user journeys through page objects (pages.py), also over TCP
     ├── unit/station_protocol/, unit/station_client/   the shared packages on their own
-    ├── contract/        Station API conformance on station_client only; SIRAT_STATION=host:port runs it anywhere
+    ├── contract/        Station API conformance on station_client only; SIBENCH_STATION=host:port runs it anywhere
     ├── chaos_runner.py
     └── conftest.py      fixtures: fake_station, app, clock, interactions
 ```
@@ -191,7 +191,7 @@ Sample_UI/
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ SiRAT  [EFR32XG29 revA0]  DUT [1 ▾]  ● Connected      ⌘K Search   [Connect]  │ TopBar
+│ SiBench  [EFR32XG29 revA0]  DUT [1 ▾]  ● Connected      ⌘K Search   [Connect]  │ TopBar
 ├────┬─────────────────────────────────────────────────────────────────────────┤
 │ ▣  │                                                                         │
 │ ◎  │                         Active page (Loader, lazy)                      │
@@ -219,8 +219,9 @@ The 35 features group into 11 pages. Each page loads the first time it's opened 
 | **Sequences** | Sequence list + editor (reorder, add/remove), run/abort with progress | 14 |
 | **Diffs** | Take dump, compare dumps, diff vs live, Radio Calculator diff | 12, 21 |
 | **Radio** | Load LPW/WiFi PHY, PRS routing | 23, 24 |
+| **DUT control** | DUT control API explorer: browse, call and record dut.dut_control methods | 22 |
 | **Instruments** | Signal generator, BLE packet config, GFSK generator, RF switch, temp chamber, ECA | 25–30 |
-| **Advanced** | Python console, custom functions, DUT control API explorer, memory viewer | 15, 19, 20, 22 |
+| **Advanced** | Python console, custom functions, memory viewer | 15, 19, 20 |
 | **Tests** | Test executor, debug harness | 33 |
 | **Settings** | Preferences, hardware config, import/export/clear user settings, system info, about | 31, 32, 34 |
 
@@ -689,7 +690,7 @@ classDiagram
     SettingsBundle --> JsonStore
 ```
 
-Stores keep the file names from req §1: `~/.sirat_favorites.json`, `~/.sirat/field_notes.json`, and so on. Existing users keep their data. `ActionsStore` runs the legacy-format migration from req §13 on load.
+Stores keep the file names from req §1: `~/.sibench/favorites.json`, `~/.sibench/field_notes.json`, and so on. Existing users keep their data. `ActionsStore` runs the legacy-format migration from req §13 on load.
 
 ### 6.3 ViewModels (Registers slice shown in full, others in outline)
 
@@ -938,7 +939,7 @@ If the read-back differs, the gateway returns `verify_failed` with `written` and
   - `auto_resolve = False` + `release()`
   - `drop_dut(1, "power cycle")`
   - `calls` (assert what the UI sent)
-- **Named scenarios** for manual runs and E2E: `python -m sirat_ui --backend fake --scenario flaky_dut`. Scenarios include `happy`, `disconnected_at_start`, `flaky_dut`, `slow_rpc`, `critical_writes`, and `long_sequence`. A non-frontend person can then click through any situation without hardware.
+- **Named scenarios** for manual runs and E2E: `python -m sibench_ui --backend fake --scenario flaky_dut`. Scenarios include `happy`, `disconnected_at_start`, `flaky_dut`, `slow_rpc`, `critical_writes`, and `long_sequence`. A non-frontend person can then click through any situation without hardware.
 - **Later**: a `FakeStationServer` that speaks the real TCP/JSON framing, so the real client SDK can be E2E-tested before the real service exists. This is optional and can wait until the contracts package lands.
 
 ### 7.4 What tests read like
@@ -998,7 +999,7 @@ def test_user_recovers_after_dut_power_cycle(running_app):
 
 - `pytest -m "not bench"` runs everything headless (`QT_QPA_PLATFORM=offscreen`).
 - Coverage targets: core ≥ 95%, services/ViewModels ≥ 85%. No target for QML; it's covered by the load checks and E2E.
-- Import rules (from the API doc, applied to the GUI): `sirat_ui` never imports NI drivers, pandas, BenchUtils, or dut_control, and `core/` never imports Qt.
+- Import rules (from the API doc, applied to the GUI): `sibench_ui` never imports NI drivers, pandas, BenchUtils, or dut_control, and `core/` never imports Qt.
 - A requirements-coverage report lists the `req(...)` markers against the requirement IDs.
 
 ---
@@ -1008,7 +1009,7 @@ def test_user_recovers_after_dut_power_cycle(running_app):
 | Phase | Deliverable | Done when |
 |---|---|---|
 | **0. Spikes** (1–2 days) | Confirm: your Qt Design Studio version opens Qt 5 / QtQuick 2.15 `.ui.qml`; Qt 5.15 `TableView` + `HorizontalHeaderView` behave in PyQt5 5.15; plot choice for logger (PyQtChart QML vs custom `QQuickPaintedItem`); `launch_viewer_async` threading on Windows | Short written findings; plan adjusted |
-| **1. Skeleton** | `Application`, `ServiceContainer`, `AppState`, `Theme`, core components, Component Gallery, app shell (TopBar, NavRail, BottomDock, StatusBar), `FakeStationGateway` + fixture, test harness with one test of each layer | `python -m sirat_ui --backend fake` opens the styled shell; CI green |
+| **1. Skeleton** | `Application`, `ServiceContainer`, `AppState`, `Theme`, core components, Component Gallery, app shell (TopBar, NavRail, BottomDock, StatusBar), `FakeStationGateway` + fixture, test harness with one test of each layer | `python -m sibench_ui --backend fake` opens the styled shell; CI green |
 | **2. First vertical slice** (matches the API doc's slice) | Connect sheet, status-driven enabling, peripheral tree + search, register detail (read/write/bits/fields), confirm + verify dialogs, disconnect recovery, history panel, log panel | E2E journeys 1–6 and 12 pass against the fake |
 | **3. Personal data** | Favorites, notes, formulas, preferences, import/export/clear settings | Journeys 7–8 |
 | **4. Monitoring** | Watch list, data logger (shared subscription) | Journey 9 |

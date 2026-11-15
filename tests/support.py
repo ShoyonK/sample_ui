@@ -5,13 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from sirat_ui.app.container import ServiceContainer
-from sirat_ui.gateway.fake import FakeStationGateway
-from sirat_ui.gateway.scheduler import ManualScheduler
-from sirat_ui.models.registers import ChipInfo
-from sirat_ui.shared.interactions import ScriptedInteractions
-from sirat_ui.stores.demo_data import seed_demo_data
-from sirat_ui.stores.json_store import UserStores
+from sibench_ui.app.container import ServiceContainer
+from sibench_ui.gateway.fake import FakeStationGateway
+from sibench_ui.gateway.scheduler import ManualScheduler
+from sibench_ui.models.registers import ChipInfo
+from sibench_ui.shared.interactions import ScriptedInteractions
+from sibench_ui.stores.demo_data import seed_demo_data
+from sibench_ui.stores.json_store import UserStores
 
 
 class Harness:
@@ -25,7 +25,7 @@ class Harness:
         self.scheduler = ManualScheduler()
         self.fake = FakeStationGateway(self.scheduler)
         if chip is not None:  # e.g. an Everest chip for WiFi PHYs
-            self.fake.chip = chip
+            self.fake.set_chip(chip)
         self.ix = ScriptedInteractions()
         # real_dialogs: E2E tests answer the actual QML dialogs; other tests script the answers
         self.container = ServiceContainer(self.fake, home, self.scheduler, "test", None if real_dialogs else self.ix)

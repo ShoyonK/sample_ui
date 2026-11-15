@@ -1,10 +1,10 @@
 """The fake must behave like the API contract, or the UI tests built on it would lie."""
 
-from sirat_ui.gateway.errors import ErrorCode
-from sirat_ui.gateway.fake import FakeStationGateway
-from sirat_ui.gateway.scheduler import ManualScheduler
-from sirat_ui.models.station import ActivityFinished, ActivityProgress, DutDisconnected, WatchValues
-from sirat_ui.models.station import CallLate, LpwPhy, RpcAddress
+from sibench_ui.gateway.errors import ErrorCode
+from sibench_ui.gateway.fake import FakeStationGateway
+from sibench_ui.gateway.scheduler import ManualScheduler
+from sibench_ui.models.station import ActivityFinished, ActivityProgress, DutDisconnected, WatchValues
+from sibench_ui.models.station import CallLate, LpwPhy, RpcAddress
 
 
 def results(call):
@@ -98,7 +98,7 @@ def test_sequences_run_step_by_step_and_block_writes_while_running():
     assert results(fake.write_register(1, "BUFC.LPMODE", 1)) == [("err", ErrorCode.WRONG_STATE)]
     scheduler.run_pending()
     assert finished and finished[0].ok
-    assert fake.memory.values["BUFC.LPMODE"] == 0
+    assert fake.board(1).memory.values["BUFC.LPMODE"] == 0
 
 
 def test_abort_ends_a_sequence_as_aborted():
@@ -174,10 +174,10 @@ def test_a_timed_out_call_finishes_late_and_says_so():
     errors = []
     fake.write_register(1, "BUFC.LPMODE", 3).then(None, errors.append)
     assert errors[0].code == ErrorCode.TIMEOUT and errors[0].data["still_running"]
-    assert fake.memory.values["BUFC.LPMODE"] != 3 and late == []
+    assert fake.board(1).memory.values["BUFC.LPMODE"] != 3 and late == []
     scheduler.advance(1000)
     assert late[0].ok and late[0].request_id == errors[0].data["request_id"]
-    assert fake.memory.values["BUFC.LPMODE"] == 3  # the write did happen
+    assert fake.board(1).memory.values["BUFC.LPMODE"] == 3  # the write did happen
 
 
 def test_read_sensitive_registers_need_an_opt_in_for_bulk_reads():

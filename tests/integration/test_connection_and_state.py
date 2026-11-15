@@ -2,7 +2,7 @@
 
 import pytest
 
-from sirat_ui.gateway.errors import ErrorCode
+from sibench_ui.gateway.errors import ErrorCode
 
 
 @pytest.mark.req("3.connect")

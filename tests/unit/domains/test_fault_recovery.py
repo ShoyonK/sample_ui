@@ -43,7 +43,7 @@ def test_recover_asks_first_and_clears_the_fault(harness):
     assert not vm.hasFault and harness.ix.toasts[-1] == ("success", "DUT 1 recovered")
 
     run(harness, HARMLESS)
-    assert harness.fake.memory.values["BUFC.LPMODE"] == 1      # runs work again
+    assert harness.fake.board(1).memory.values["BUFC.LPMODE"] == 1      # runs work again
 
 
 def test_no_fault_means_nothing_to_recover(harness):
@@ -57,7 +57,7 @@ def test_no_fault_means_nothing_to_recover(harness):
 # ---- chaos phase 1 (docs/CHAOS_TESTING.md) ----------------------------------------------------------
 
 def test_a_failed_save_is_shown_and_the_change_is_kept_until_the_next_save(harness, monkeypatch):
-    import sirat_ui.stores.json_store as json_store
+    import sibench_ui.stores.json_store as json_store
     real_replace = json_store.os.replace
 
     def locked(src, dst):
@@ -68,7 +68,7 @@ def test_a_failed_save_is_shown_and_the_change_is_kept_until_the_next_save(harne
     favorites.toggle("SYNTH.CHCTRL")                       # must not raise out of the click
     assert "SYNTH.CHCTRL" in favorites.names                # still on screen
     level, text = harness.ix.toasts[-1]
-    assert level == "error" and text.startswith("Couldn't save .sirat_favorites.json: Permission denied")
+    assert level == "error" and text.startswith("Couldn't save favorites.json: Permission denied")
     assert "Couldn't save" in harness.services.log.lines[-1].text
 
     monkeypatch.setattr(json_store.os, "replace", real_replace)

@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from sirat_ui.stores import formats
-from sirat_ui.stores.json_store import UserStores
+from sibench_ui.stores import formats
+from sibench_ui.stores.json_store import UserStores
 
 # The examples below are copied from sirat_requirements.txt.
 ORIGINAL_FAVORITES = {"favorites": ["MODEM.CTRL", "CMU.CLKEN0", "GPIO.PA_DOUT"]}
@@ -67,17 +67,17 @@ def test_app_writes_original_formats_to_disk(harness):
     harness.shell.registerShortcuts.addToLogger(harness.shell.detail.fields.get(0)["fullName"])
     harness.shell.watch.setIntervalText("2.5")
     home = harness.home
-    assert "GPIO.PA_DOUT" in json.loads((home / ".sirat_favorites.json").read_text())["favorites"]
-    watch = json.loads((home / ".sirat_watch_list.json").read_text())
+    assert "GPIO.PA_DOUT" in json.loads((home / ".sibench/favorites.json").read_text())["favorites"]
+    watch = json.loads((home / ".sibench/watch_list.json").read_text())
     assert "GPIO.PA_DOUT.DOUT" in watch["watched_fields"] and watch["refresh_rate"] == 2.5
-    logger = json.loads((home / ".sirat_data_logger.json").read_text())
+    logger = json.loads((home / ".sibench/data_logger.json").read_text())
     assert "GPIO.PA_DOUT.DOUT" in logger["tracked_fields"] and "sample_rate" in logger
 
 
 def test_sequence_descriptions_survive_edits(harness):
     seqs = harness.services.sequences
     seqs.move_step("ble_rx_bringup", 0, 1)
-    saved = json.loads((harness.home / ".sirat_sequences.json").read_text())
+    saved = json.loads((harness.home / ".sibench/sequences.json").read_text())
     assert saved["ble_rx_bringup"]["description"].startswith("Reconnect")
     assert saved["ble_rx_bringup"]["action_names"][1] == "reconnect_rpc"
 
@@ -103,5 +103,5 @@ def test_app_saves_formulas_in_the_original_format(harness):
     harness.shell.formulaEditor.setExpr("x * 3.3 / 4096")
     harness.shell.formulaEditor.setUnit("V")
     harness.shell.formulaEditor.save()
-    saved = json.loads((harness.home / ".sirat" / "field_formulas.json").read_text(encoding="utf-8"))
+    saved = json.loads((harness.home / ".sibench" / "field_formulas.json").read_text(encoding="utf-8"))
     assert saved["GPIO.PA_DOUT.DOUT"] == {"formula": "x * 3.3 / 4096", "unit": "V"}

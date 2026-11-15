@@ -3,12 +3,12 @@
 import base64
 from array import array
 
-from sirat_ui.core.bits import bit_reverse
-from sirat_ui.core.eca import decimate, decode, format_ms, measure
-from sirat_ui.core.instruments import parse_overrides, siggen_action_name, siggen_problems
-from sirat_ui.core.requires import check_requires
-from sirat_ui.models.facts import InstrumentFacts, PositionFacts
-from sirat_ui.models.instruments import BlePacket, SiggenSettings
+from sibench_ui.core.bits import bit_reverse
+from sibench_ui.core.eca import decimate, decode, format_ms, measure
+from sibench_ui.core.instruments import parse_overrides, siggen_action_name, siggen_problems
+from sibench_ui.core.requires import check_requires
+from sibench_ui.models.facts import InstrumentFacts, PositionFacts
+from sibench_ui.models.instruments import BlePacket, SiggenSettings
 
 
 def test_instrument_idle_checks_the_instrument_not_the_position():

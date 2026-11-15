@@ -4,7 +4,7 @@ import ast
 import re
 from pathlib import Path
 
-PACKAGE = Path(__file__).resolve().parents[2] / "src" / "sirat_ui"
+PACKAGE = Path(__file__).resolve().parents[2] / "src" / "sibench_ui"
 FORBIDDEN_EVERYWHERE = ("pandas", "nidaqmx", "pyvisa", "BenchUtils", "SwitchUtils", "dut_control")
 
 
@@ -76,12 +76,12 @@ def test_core_has_no_qt():
     assert offenders == []
 
 
-MODEL_DEPENDENCIES = ("sirat_ui.models", "sirat_ui.core.bits", "sirat_ui.core.formatting", "sirat_ui.gateway.errors")
+MODEL_DEPENDENCIES = ("sibench_ui.models", "sibench_ui.core.bits", "sibench_ui.core.formatting", "sibench_ui.gateway.errors")
 
 
 def test_models_import_only_the_standard_library_and_each_other():
     """Any layer can use models/ without import cycles, so models/ must not reach back up into them."""
-    def imported(path: Path):   # "from sirat_ui.core import bits" counts as sirat_ui.core.bits
+    def imported(path: Path):   # "from sibench_ui.core import bits" counts as sibench_ui.core.bits
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.Import):
                 yield from (a.name for a in node.names)
@@ -89,7 +89,7 @@ def test_models_import_only_the_standard_library_and_each_other():
                 yield from (f"{node.module}.{a.name}" for a in node.names)
 
     offenders = [(p.name, m) for p in _py_files("models") for m in imported(p)
-                 if m.startswith(("sirat_ui", "PyQt5", "pydantic")) and not m.startswith(MODEL_DEPENDENCIES)]
+                 if m.startswith(("sibench_ui", "PyQt5", "pydantic")) and not m.startswith(MODEL_DEPENDENCIES)]
     assert offenders == []
 
 
@@ -114,7 +114,7 @@ def test_viewmodels_reach_the_station_only_through_services():
     """Errors have one owner: services make station calls and report unexpected failures (ErrorPresenter);
     ViewModels show results inline or toast input and file problems, and never call the gateway."""
     offenders = [(p.name, m) for p in PACKAGE.rglob("*viewmodel*.py") for m in _imports(p)
-                 if m.startswith(("sirat_ui.gateway.port", "sirat_ui.shared.error_presenter"))]
+                 if m.startswith(("sibench_ui.gateway.port", "sibench_ui.shared.error_presenter"))]
     assert offenders == []
 
 
@@ -134,7 +134,7 @@ def test_frontend_never_imports_hardware_or_test_libraries():
 
 def test_viewmodels_never_touch_the_gateway_directly():
     vm_files = [p for p in PACKAGE.rglob("*viewmodel*.py")]
-    offenders = [(p.name, m) for p in vm_files for m in _imports(p) if m.startswith("sirat_ui.gateway.fake")]
+    offenders = [(p.name, m) for p in vm_files for m in _imports(p) if m.startswith("sibench_ui.gateway.fake")]
     assert offenders == []
 
 

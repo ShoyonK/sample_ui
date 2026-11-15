@@ -1,8 +1,8 @@
-"""The whole app over the real wire: `sirat --backend fake-tcp` (docs/JSONRPC_MIGRATION.md section 5)."""
+"""The whole app over the real wire: `sibench --backend fake-tcp` (docs/JSONRPC_MIGRATION.md section 5)."""
 
 from pages import RegistersPage
-from sirat_ui.app.launch import build_app
-from sirat_ui.gateway.api.client import ApiStationGateway
+from sibench_ui.app.launch import build_app
+from sibench_ui.gateway.api.client import ApiStationGateway
 
 
 def test_the_app_connects_and_reads_a_register_over_tcp(qapp, qtbot, tmp_path):

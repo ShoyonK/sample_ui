@@ -15,8 +15,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
-from sirat_ui.gateway.errors import ErrorCode
-from sirat_ui.models.station import ActivityFinished, WatchValues
+from sibench_ui.gateway.errors import ErrorCode
+from sibench_ui.models.station import ActivityFinished, WatchValues
 from support import Harness
 
 SAMPLE_CFG = Path(__file__).resolve().parents[1] / "docs" / "samples" / "PHY_demo.cfg"
@@ -203,7 +203,7 @@ def pop_window(run: Run) -> str:
         key = run.rng.choice(list(windows.openKeys))
         windows.close(key)
         return f"close window {key}"
-    kind, arg = run.rng.choice([("page", run.rng.choice(PAGES)), ("tool", "dutControl"), ("logger", "")])
+    kind, arg = run.rng.choice([("page", run.rng.choice(PAGES)), ("tool", "memory"), ("logger", "")])
     windows.open(kind, arg)
     return f"open window {kind}:{arg}"
 
@@ -329,7 +329,7 @@ def check_invariants(run: Run) -> None:
     if h.shell.sequences.canRun != expected or h.shell.actions.canRun != expected:
         run.fail(f"Run buttons don't match the station: can run = {expected}, sequences = "
                  f"{h.shell.sequences.canRun}, actions = {h.shell.actions.canRun}")
-    for path in [*h.home.glob(".sirat*.json"), *(h.home / ".sirat").glob("*.json")]:
+    for path in (h.home / ".sibench").glob("*.json"):
         try:
             json.loads(path.read_text(encoding="utf-8"))
         except ValueError as exc:

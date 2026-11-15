@@ -2,7 +2,7 @@
 
 import pytest
 
-from sirat_ui.core.highlight import highlight_python
+from sibench_ui.core.highlight import highlight_python
 
 
 def action_names(h):

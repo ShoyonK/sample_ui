@@ -5,7 +5,7 @@ import json
 import pytest
 from support import Harness
 
-from sirat_ui.stores.schemas import CLEANERS, Report, clean_session, validate_operation
+from sibench_ui.stores.schemas import CLEANERS, Report, clean_session, validate_operation
 
 
 def clean(name, raw):
@@ -113,29 +113,30 @@ def test_a_file_without_a_session_name_isnt_a_session():
 
 @pytest.mark.req("1.settings")
 def test_bad_entries_at_startup_are_skipped_reported_and_backed_up(qapp, tmp_path):
-    actions = tmp_path / ".sirat_actions.json"
+    actions = tmp_path / ".sibench" / "actions.json"
+    actions.parent.mkdir()
     actions.write_text(json.dumps({"ok": [{"register": "MODEM.CTRL", "value": 1}],
                                    "broken": [{"type": "prs_route", "pin": "PA0", "channel": 9, "signal": "X"}]}))
     h = Harness(tmp_path, seed=False)
     assert list(h.services.actions.actions) == ["ok"]
     level, text = h.ix.toasts[0]
-    assert level == "warning" and "Skipped 1 invalid setting in .sirat_actions.json" in text
+    assert level == "warning" and "Skipped 1 invalid setting in actions.json" in text
     assert any("broken.operations.0" in line.text for line in h.services.log.lines)
-    assert "broken" in json.loads((tmp_path / ".sirat_actions.json.bak").read_text())
+    assert "broken" in json.loads((tmp_path / ".sibench/actions.json.bak").read_text())
 
 
 def test_unreadable_json_falls_back_to_defaults_and_is_backed_up(qapp, tmp_path):
-    (tmp_path / ".sirat").mkdir()
-    (tmp_path / ".sirat" / "preferences.json").write_text("{ nope")
+    (tmp_path / ".sibench").mkdir()
+    (tmp_path / ".sibench" / "preferences.json").write_text("{ nope")
     h = Harness(tmp_path, seed=False)
     assert h.prefs.value.dark_mode is False
-    assert (tmp_path / ".sirat" / "preferences.json.bak").read_text() == "{ nope"
+    assert (tmp_path / ".sibench" / "preferences.json.bak").read_text() == "{ nope"
     assert h.ix.toasts[0][0] == "warning"
 
 
 def test_import_validates_each_file(harness, tmp_path):
     bundle = tmp_path / "export.json"
-    bundle.write_text(json.dumps({"format": "sirat-user-settings", "version": 1, "files": {
+    bundle.write_text(json.dumps({"format": "sibench-user-settings", "version": 1, "files": {
         "favorites": {"favorites": ["CMU.CLKEN0", "bad name"]},
         "mystery": {},
     }}))
@@ -147,14 +148,14 @@ def test_import_validates_each_file(harness, tmp_path):
 def test_import_rejects_a_file_that_isnt_an_export(harness, tmp_path):
     other = tmp_path / "other.json"
     other.write_text(json.dumps({"format": "something-else", "files": {}}))
-    with pytest.raises(ValueError, match="isn't a SiRAT settings export"):
+    with pytest.raises(ValueError, match="isn't a SiBench settings export"):
         harness.services.transfer.import_(other)
 
 
 def test_loading_a_session_with_bad_entries_warns(harness):
     harness.ix.answer_next({"name": "s"})
     harness.shell.sessions.saveSession()
-    path = harness.home / ".sirat" / "sessions" / "s.json"
+    path = harness.home / ".sibench" / "sessions" / "s.json"
     data = json.loads(path.read_text())
     data["favorites"].append("???")
     path.write_text(json.dumps(data))

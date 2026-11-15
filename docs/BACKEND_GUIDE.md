@@ -1,7 +1,7 @@
 # Building the station service: guide for the backend
 
 You're building the **station service**: the process on a test station PC that owns the DUT library and the bench
-instruments and answers every tool that connects to it over the Station API. The SiRAT GUI is one such tool; the
+instruments and answers every tool that connects to it over the Station API. The SiBench GUI is one such tool; the
 debug harness is another. The GUI already exists, was built in isolation against a fake station, and is done. Your
 job is the real service behind the same contract.
 
@@ -16,7 +16,7 @@ Read this file first, then [STATION_API.md](STATION_API.md) end to end.
 | [STATION_API_REFERENCE.md](STATION_API_REFERENCE.md), [station_api.schema.json](station_api.schema.json) | The same shapes, generated from `station_protocol`, with real example JSON | — |
 | `src/station_client/` (this repo, moving to yours) | The client every tool uses: connection, reconnect, heartbeat. Your service's other half; use it in your own tests | — |
 | `tests/contract/` (this repo, moving to yours) | **Your conformance suite** (section 5). It uses only `station_protocol` and `station_client` | — |
-| `src/sirat_ui/gateway/fake/` (this repo) | **Reference behaviour**: a working, tested implementation of the contract in memory. What each call returns, which error when, which events in which order, the reset rules | Its internals (it's a simulator: no real concurrency, no locks, no debounce) |
+| `src/sibench_ui/gateway/fake/` (this repo) | **Reference behaviour**: a working, tested implementation of the contract in memory. What each call returns, which error when, which events in which order, the reset rules | Its internals (it's a simulator: no real concurrency, no locks, no debounce) |
 | **The legacy GUI** (the old, vibe-coded SiRAT) | **Evidence of how the hardware is driven**: which library objects and functions are called, with which arguments and units, in which order, what they raise, what they return | Its architecture, its API shapes, its threading, its globals, its error handling. It is not a spec |
 | *Migrating the Debug Harness to the Station Service Design* | The station repository's layout, and how the debug harness moves onto the same service | Its lease and token parts: out of scope for now |
 | [API_DESIGN.md](API_DESIGN.md) | Why the contract is shaped as it is (revision 2 and its decisions) | Anything STATION_API.md changed (its section 13) |
@@ -70,7 +70,7 @@ labate-station/                   (uv workspace)
       router.py                   finds the method by wire name, checks params, checks requires, runs it
       runtime/                    built once, used by every group:
         facts.py                    the facts, reset rules, status.changed on every change
-        requires.py                 Method.requires checked against the facts (port src/sirat_ui/core/requires.py)
+        requires.py                 Method.requires checked against the facts (port src/sibench_ui/core/requires.py)
         locks.py                    one lock per position and per instrument; busy with the holder's request_id
         timeouts.py                 _meta.timeout_ms -> timeout {still_running, request_id} -> call.late
         activities.py               starting -> executing -> done, abort points, activity.finished exactly once
@@ -84,7 +84,7 @@ labate-station/                   (uv workspace)
 ```
 
 **Build the cross-cutting parts once, in `service/`, not inside a group.** Timeouts and `call.late`, activities,
-requires, locks, topics, `seq` and watch coalescing are how the service behaves for every tool. If SiRAT's group
+requires, locks, topics, `seq` and watch coalescing are how the service behaves for every tool. If SiBench's group
 modules implemented them, the debug harness would not get them. A group module only has its handlers, each
 declaring what the runtime needs to know: which lock it takes, and whether it starts an activity. Its name,
 parameters, result and `requires` already come from the `station_protocol` `Method`, so don't restate them.
@@ -120,7 +120,7 @@ Hard rules:
 
 Give the service a mode that runs with simulated adapters, seeded with the **reference fixture** the fake carries.
 You may port these, or load them from a data file you generate from them:
-- the chip in `src/sirat_ui/gateway/fake/chip.py`: the LION family, its peripherals, registers, fields and access
+- the chip in `src/sibench_ui/gateway/fake/chip.py`: the LION family, its peripherals, registers, fields and access
   types;
 - the bench in `gateway/fake/instruments.py`: `siggen1`, `switch1` with `TX_PATH`, `chamber1`, and `eca1` with its
   channels and triggers;
@@ -129,14 +129,14 @@ You may port these, or load them from a data file you generate from them:
 - the sample tests in `gateway/fake/station_tests.py`.
 
 That mode is how the conformance suite runs against you in CI. It also lets the GUI run against your real service
-without hardware (`sirat --backend api --port <yours>`).
+without hardware (`sibench --backend api --port <yours>`).
 
 ## 5. Proving conformance
 
 1. **Run the contract suite against your service** (simulation mode, reference fixture):
 
    ```bash
-   SIRAT_STATION=127.0.0.1:47800 uv run pytest tests/contract -rs
+   SIBENCH_STATION=127.0.0.1:47800 uv run pytest tests/contract -rs
    ```
 
    It drives your service through `station_client` over TCP, and checks every reply and event against
@@ -158,7 +158,7 @@ without hardware (`sirat --backend api --port <yours>`).
    - watch coalescing, and `seq` (no `seq` for dropped watch events);
    - several clients at once (the GUI and the debug harness together);
    - a call that times out while holding a lock.
-6. **Run the real GUI against you**: `python -m sirat_ui --backend api --host 127.0.0.1 --port 47800`. Connect,
+6. **Run the real GUI against you**: `python -m sibench_ui --backend api --host 127.0.0.1 --port 47800`. Connect,
    read and write a register, start a watch, run an action, open the console, take an ECA capture.
 
 ## 6. When the contract and the hardware disagree

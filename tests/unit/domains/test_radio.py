@@ -3,12 +3,12 @@
 import pytest
 from support import Harness
 
-from sirat_ui.core import wifi
-from sirat_ui.core.prs import CONSTRAINT_TEXT, channel_problem, removal_ops
-from sirat_ui.core.wifi import packet_layout, WifiSettings
-from sirat_ui.models.radio import WifiPhyConfig
-from sirat_ui.models.registers import ChipInfo
-from sirat_ui.models.station import PrsRoute
+from sibench_ui.core import wifi
+from sibench_ui.core.prs import CONSTRAINT_TEXT, channel_problem, removal_ops
+from sibench_ui.core.wifi import packet_layout, WifiSettings
+from sibench_ui.models.radio import WifiPhyConfig
+from sibench_ui.models.registers import ChipInfo
+from sibench_ui.models.station import PrsRoute
 
 EVEREST = ChipInfo("SIWG917M", "B0", "EVEREST")
 

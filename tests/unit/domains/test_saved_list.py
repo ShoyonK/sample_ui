@@ -2,8 +2,8 @@
 
 from dataclasses import dataclass
 
-from sirat_ui.domains.monitoring.saved_list import SavedList
-from sirat_ui.models.registers import RegisterDef
+from sibench_ui.domains.monitoring.saved_list import SavedList
+from sibench_ui.models.registers import RegisterDef
 
 
 class StubCatalog:

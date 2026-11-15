@@ -12,8 +12,8 @@ if sys.platform == "win32":
 
 import pytest  # noqa: E402
 
-from sirat_ui.gateway.fake import FakeStationGateway  # noqa: E402
-from sirat_ui.gateway.scheduler import ManualScheduler  # noqa: E402
+from sibench_ui.gateway.fake import FakeStationGateway  # noqa: E402
+from sibench_ui.gateway.scheduler import ManualScheduler  # noqa: E402
 from support import Harness  # noqa: E402
 
 

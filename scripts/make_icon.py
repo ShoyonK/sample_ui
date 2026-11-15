@@ -1,4 +1,4 @@
-"""Draws the SiRAT app icon (PNG for the window, ICO for the .exe). Re-run if the design changes.
+"""Draws the SiBench app icon (PNG for the window, ICO for the .exe). Re-run if the design changes.
 
     uv run python scripts/make_icon.py
 """
@@ -40,10 +40,10 @@ def draw(size: int) -> QImage:
 
 def main() -> None:
     app = QGuiApplication([])  # noqa: F841 (fonts need an application)
-    png = ROOT / "src" / "sirat_ui" / "qml" / "assets" / "sirat.png"
+    png = ROOT / "src" / "sibench_ui" / "qml" / "assets" / "sibench.png"
     png.parent.mkdir(parents=True, exist_ok=True)
     draw(256).save(str(png))
-    ico = ROOT / "packaging" / "sirat.ico"
+    ico = ROOT / "packaging" / "sibench.ico"
     ico.parent.mkdir(parents=True, exist_ok=True)
     draw(256).scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation).save(str(ico), "ICO")
     print("wrote", png, "and", ico)

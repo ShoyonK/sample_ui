@@ -16,7 +16,7 @@ os.environ.setdefault("QT_QUICK_BACKEND", "software")
 
 from PyQt5.QtCore import QEventLoop, QTimer  # noqa: E402
 
-from sirat_ui.app.launch import build_app  # noqa: E402
+from sibench_ui.app.launch import build_app  # noqa: E402
 
 
 def pump(app, ms: int) -> None:
@@ -48,7 +48,7 @@ def main() -> int:
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
 
-    home = Path(tempfile.mkdtemp(prefix="sirat_shot_"))
+    home = Path(tempfile.mkdtemp(prefix="sibench_shot_"))
     app, scenario = build_app("fake", "happy", home=home, seed_demo=True, dumps=home / "dumps")
     app.load()
     app.window.setPosition(-4000, -4000)
@@ -161,7 +161,7 @@ def main() -> int:
     pump(app, 200)
 
     # Radio Calculator diff with the sample config, sorted by status
-    from sirat_ui.core.radio_config import parse_config
+    from sibench_ui.core.radio_config import parse_config
     sample = Path(__file__).resolve().parent.parent / "docs" / "samples" / "PHY_demo.cfg"
     config = parse_config(sample.read_text(encoding="utf-8"), sample.name)
     dumps.radio_diff(config, list(config.field_counts), shell.comparison.show_radio)

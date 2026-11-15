@@ -15,8 +15,8 @@ from station_client.link import CONNECTING, LOST, OPEN, OPENED, UNREACHABLE, WAI
 from station_client.threads import ThreadScheduler
 from station_protocol import jsonrpc
 from station_protocol.errors import ErrorCode
-from sirat_ui.gateway.fake.fake_station import FakeStationGateway
-from sirat_ui.gateway.fake.server import FakeStationServer
+from sibench_ui.gateway.fake.fake_station import FakeStationGateway
+from sibench_ui.gateway.fake.server import FakeStationServer
 
 
 def _free_port() -> int:

@@ -1,6 +1,6 @@
 """ThreadScheduler: timers (station_client.timers.Timers) that run every task on one thread of its own.
 
-For a tool or test with no event loop of its own: pass it as a Link's timers. The SiRAT fake station uses it too
+For a tool or test with no event loop of its own: pass it as a Link's timers. The SiBench fake station uses it too
 (it isn't thread-safe, so FakeStationServer runs everything it does here). later(), every() and run() may be
 called from any thread.
 """

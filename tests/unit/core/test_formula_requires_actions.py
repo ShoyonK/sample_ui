@@ -1,10 +1,10 @@
 import pytest
 
-from sirat_ui.core import codegen, formula
-from sirat_ui.core.actions import migrate_actions, summarize_ops
-from sirat_ui.core.ops import op_kind
-from sirat_ui.core.requires import check_requires
-from sirat_ui.models.facts import InstrumentFacts, PositionFacts
+from sibench_ui.core import codegen, formula
+from sibench_ui.core.actions import migrate_actions, summarize_ops
+from sibench_ui.core.ops import op_kind
+from sibench_ui.core.requires import check_requires
+from sibench_ui.models.facts import InstrumentFacts, PositionFacts
 
 
 # ---- formulas (req 11) ---------------------------------------------------------------------

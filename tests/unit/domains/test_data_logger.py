@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from sirat_ui.gateway.errors import ErrorCode
+from sibench_ui.gateway.errors import ErrorCode
 
 
 def logger(h):
@@ -69,7 +69,7 @@ def test_polling_stops_with_one_message_when_the_dut_is_gone(harness):
 def test_rate_and_fields_persist_in_the_original_file(harness):
     harness.shell.logger.setRateText("0.25")
     harness.shell.logger.remove(0)
-    saved = json.loads((harness.home / ".sirat_data_logger.json").read_text())
+    saved = json.loads((harness.home / ".sibench/data_logger.json").read_text())
     assert saved == {"tracked_fields": ["AGC.RSSI.RSSI"], "sample_rate": 0.25}
     harness.shell.logger.remove(0)
     restarted = harness.restart()

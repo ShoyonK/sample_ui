@@ -1,6 +1,6 @@
-# Extending the SiRAT frontend
+# Extending the SiBench frontend
 
-How to add the common kinds of feature, and every file each one touches. Paths are under `src/sirat_ui/`
+How to add the common kinds of feature, and every file each one touches. Paths are under `src/sibench_ui/`
 unless they start with `tests/`, `docs/` or `scripts/`. See [ARCHITECTURE.md](ARCHITECTURE.md) for how the
 pieces fit together.
 
@@ -14,7 +14,7 @@ flowchart TD
     start -->|"Add to Actions on a page"| rec["4. Add to Actions"]
     start -->|"logic that calls the station"| svc["5. A service"]
     start -->|"a call the station must answer"| ep["6. A station endpoint"]
-    start -->|"something saved in ~/.sirat"| store["7. A settings file"]
+    start -->|"something saved in ~/.sibench"| store["7. A settings file"]
     start -->|"an entry in Ctrl+K"| cmd["8. A Ctrl+K command"]
     start -->|"a confirm, prompt or custom dialog"| dlg["9. A dialog"]
     page --> vm
@@ -91,7 +91,7 @@ A new area builder method also needs adding to the tuple in `ServiceContainer._b
 
 ## 3. An operation kind
 
-Operations are the steps saved in an action (`~/.sirat_actions.json`) and sent with `automation.seq.run`.
+Operations are the steps saved in an action (`~/.sibench/actions.json`) and sent with `automation.seq.run`.
 Each kind is defined once in `core/ops.py`; `tests/unit/core/test_ops.py` fails until the schema and the
 color exist.
 
@@ -155,7 +155,7 @@ behaviour the real backend won't have.
 
 ## 7. A settings file
 
-Files in `~/.sirat/` (or `~/.sirat_*.json` for formats shared with the old GUI) are loaded through pydantic
+Files in `~/.sibench/` (or `~/.sibench_*.json` for formats shared with the old GUI) are loaded through pydantic
 cleaners, so a bad entry is skipped and reported instead of crashing.
 
 | File | Change | |

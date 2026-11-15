@@ -49,7 +49,7 @@ def test_logger_export_writes_csv(harness):
     logger.toggleRecording()
     harness.scheduler.advance(1000)
     logger.exportCsv()
-    exported = list((harness.home / ".sirat" / "exports").glob("*.csv"))
+    exported = list((harness.home / ".sibench" / "exports").glob("*.csv"))
     assert exported and "SYNTH.FREQ.FREQ" in exported[0].read_text()
 
 
@@ -76,7 +76,7 @@ def test_run_checked_actions_executes_them_in_order(harness):
     ops = harness.fake.calls_to("automation.seq.run")[-1].params["ops"]
     # reduced to the wire model and tagged with the action it came from (core/wire_ops.py)
     assert ops[0] == {"type": "register_write", "register": "BUFC.LPMODE", "value": 3, "group": "lpmode_on"}
-    assert harness.fake.memory.values["MODEM.CTRL"] & 0x3 == 2
+    assert harness.fake.board(1).memory.values["MODEM.CTRL"] & 0x3 == 2
 
 
 @pytest.mark.req("13.reorder")

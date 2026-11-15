@@ -12,10 +12,10 @@ sys.path[:0] = [str(HERE), "src"]
 import callgraph  # noqa: E402
 import flowstyle  # noqa: E402
 import sigs  # noqa: E402
-from sirat_ui.core.requires import METHOD_REQUIRES  # noqa: E402
+from sibench_ui.core.requires import METHOD_REQUIRES  # noqa: E402
 
-D = "sirat_ui.domains"
-G = "sirat_ui.gateway"
+D = "sibench_ui.domains"
+G = "sibench_ui.gateway"
 
 FIXES = {   # signatures the extractor can't read (**kwargs, *args)
     ("PreferencesState", "+update()"): "+update(**changes)",
@@ -114,7 +114,7 @@ def subsystem(title: str, intro: str, services: list, viewmodels: list, extra_se
 sections = []
 
 # --------------------------------------------------------------------------------------------- overview
-sections.append("""# SiRAT frontend architecture
+sections.append("""# SiBench frontend architecture
 
 Generated from the code by `scripts/architecture/build.py`; rerun it after changing classes or station calls. Class boxes list public methods with their signatures. An arrow
 `A --> B : name` means A's constructor takes a B called `name`; each diagram's full constructors are listed
@@ -162,7 +162,7 @@ flowchart TB
     fake["<b>FakeStationGateway</b><br/>in memory, today"]
     api["<b>ApiStationGateway</b><br/>JSON-RPC 2.0 over TCP · gateway/api"]
     state["<b>State</b> · state/<br/>StationState · SelectionState<br/>PreferencesState · StatusLine"]
-    base["<b>Shared helpers</b><br/>models/ dataclasses · core/ pure functions<br/>stores/ ~/.sirat JSON files"]
+    base["<b>Shared helpers</b><br/>models/ dataclasses · core/ pure functions<br/>stores/ ~/.sibench JSON files"]
 
     qml -->|"properties, slots"| vm
     vm -->|"method calls"| svc
@@ -219,7 +219,7 @@ flowchart TB
     launch --> container["ServiceContainer(gateway, home, scheduler)"]
     subgraph init["ServiceContainer.__init__"]
         direction TB
-        stores["UserStores.in_home(home)<br/>~/.sirat JSON files"]
+        stores["UserStores.in_home(home)<br/>~/.sibench JSON files"]
         st["PreferencesState → StationState<br/>SelectionState · StatusLine"]
         services["_build_services() → Services<br/>LogService, ErrorPresenter, ActivityTracker,<br/>RegisterCatalog, RegisterService, …"]
         subgraph vms["_build_viewmodels()"]
@@ -427,7 +427,7 @@ the protocol's; events become GatewayEvents (`gateway/wire/events.py`). What's t
 dropped link becomes DutDisconnected per position and a fresh status, and call.late is decoded with the method
 that timed out. Messages are posted to the GUI thread (`app/qt_post.py`). `FakeStationServer`
 (`gateway/fake/server.py`) puts the fake behind a socket, checking params with the protocol's types and running
-on one `ThreadScheduler` thread. `sirat --backend fake-tcp` runs the whole app over the wire; `--backend api
+on one `ThreadScheduler` thread. `sibench --backend fake-tcp` runs the whole app over the wire; `--backend api
 --host --port` connects to a station service. The contract is docs/STATION_API.md.
 """)
 
@@ -435,9 +435,9 @@ sections.append(class_diagram(
     "8. Shared state",
     "Four small stores, each with its own change event, so a status message doesn't refresh pages that only "
     "care about the DUT. `Event` is the plain-Python signal the services and stores use (Qt-free).",
-    ["sirat_ui.state.station:StationState", "sirat_ui.state.selection:SelectionState",
-     "sirat_ui.state.preferences:PreferencesState", "sirat_ui.state.status:StatusLine",
-     "sirat_ui.core.observable:Event"],
+    ["sibench_ui.state.station:StationState", "sibench_ui.state.selection:SelectionState",
+     "sibench_ui.state.preferences:PreferencesState", "sibench_ui.state.status:StatusLine",
+     "sibench_ui.core.observable:Event"],
     extra=["    StationState ..> Event : changed, disconnected, position_changed",
            "    SelectionState ..> Event : changed",
            "    PreferencesState ..> Event : changed", "    StatusLine ..> Event : changed"]))
@@ -446,7 +446,7 @@ sections.append(class_diagram(
     "9. Shell: pages, navigation, Ctrl+K",
     "`domains/shell/pages.py` holds the page table (key, title, icon, QML file). `with_children()` turns "
     "every registered ViewModel into a constant `app.<name>` property. `app/commands.py` builds the Ctrl+K list.",
-    ["sirat_ui.app.container:ServiceContainer", f"{D}.shell.viewmodels:ShellViewModel",
+    ["sibench_ui.app.container:ServiceContainer", f"{D}.shell.viewmodels:ShellViewModel",
      f"{D}.shell.viewmodels:StateViewModel", f"{D}.shell.command_palette:CommandPaletteViewModel",
      f"{D}.shell.dock:DockViewModel", f"{D}.shell.windows:WindowsViewModel"],
     extra=["    class pages_py {", "        <<module domains/shell/pages.py>>", "        +PAGES List~Dict~",
@@ -488,8 +488,8 @@ sections.append(class_diagram(
     "`code_lines(op, functions)` (code generation) and `to_wire(op, functions)` (automation.seq.run). "
     "Pages that offer Add to Actions depend on `ActionRecorder`.",
     [f"{D}.automation.actions:ActionService", f"{D}.automation.sequences:SequenceService",
-     f"{D}.automation.recorder:ActionRecorder", "sirat_ui.gateway.activities:ActivityTracker",
-     "sirat_ui.core.ops:OpKind", f"{D}.automation.actions_viewmodel:ActionsViewModel",
+     f"{D}.automation.recorder:ActionRecorder", "sibench_ui.gateway.activities:ActivityTracker",
+     "sibench_ui.core.ops:OpKind", f"{D}.automation.actions_viewmodel:ActionsViewModel",
      f"{D}.automation.sequences_viewmodel:SequencesViewModel",
      f"{D}.automation.action_editor:ActionEditorViewModel"],
     extra=["    class ops_py {", "        <<module core/ops.py>>", "        +KINDS Dict~str,OpKind~",
@@ -549,7 +549,7 @@ sections.append(subsystem(
     "`ErrorPresenter` is how services report station failures: one log line and one toast.",
     [f"{D}.connection.service:ConnectionService", f"{D}.settings.hardware:HardwareConfigService",
      f"{D}.sessions.service:SessionService", f"{D}.settings.transfer:SettingsTransfer",
-     "sirat_ui.shared.error_presenter:ErrorPresenter", f"{D}.logs.service:LogService"],
+     "sibench_ui.shared.error_presenter:ErrorPresenter", f"{D}.logs.service:LogService"],
     [f"{D}.connection.viewmodels:ConnectionViewModel", f"{D}.connection.viewmodels:DisconnectRecoveryViewModel",
      f"{D}.connection.system_info_viewmodel:SystemInfoViewModel", f"{D}.settings.viewmodels:SettingsViewModel",
      f"{D}.settings.viewmodels:HardwareConfigViewModel", f"{D}.sessions.viewmodel:SessionsViewModel",

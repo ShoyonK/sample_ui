@@ -10,7 +10,7 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
-SRC = Path("src/sirat_ui")
+SRC = Path("src/sibench_ui")
 
 # ---- gateway method -> API name, from the fake (which names every call it answers)
 api_name = {}

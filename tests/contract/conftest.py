@@ -3,11 +3,11 @@
 Each test talks to a station through station_client.Link and checks every reply and every event against
 station_protocol's types: a result or event that doesn't fit fails the test. Nothing here uses the GUI.
 
-By default each test starts this repository's fake station behind FakeStationServer. Set SIRAT_STATION=host:port
+By default each test starts this repository's fake station behind FakeStationServer. Set SIBENCH_STATION=host:port
 to run the same tests against another station service instead (the backend's conformance run,
 docs/BACKEND_GUIDE.md):
 
-    SIRAT_STATION=127.0.0.1:47800 uv run pytest tests/contract
+    SIBENCH_STATION=127.0.0.1:47800 uv run pytest tests/contract
 
 Against another station, tests that need the fake's test knobs (forcing a timeout, dropping a DUT, looking inside
 the station) skip with the reason. The tests assume the reference fixture the fake carries: a LION chip with
@@ -40,7 +40,7 @@ TIMEOUT_MS = 5000
 
 
 def _external() -> Optional[Tuple[str, int]]:
-    value = os.environ.get("SIRAT_STATION", "").strip()
+    value = os.environ.get("SIBENCH_STATION", "").strip()
     if not value:
         return None
     host, _, port = value.rpartition(":")
@@ -48,7 +48,7 @@ def _external() -> Optional[Tuple[str, int]]:
 
 
 EXTERNAL = _external()
-FAKE_ONLY = "needs the fake station's test knobs; runs only without SIRAT_STATION"
+FAKE_ONLY = "needs the fake station's test knobs; runs only without SIBENCH_STATION"
 
 
 # ---- the local station (this repository's fake) ---------------------------------------------------------------
@@ -57,8 +57,8 @@ class LocalStation:
     """The fake station on its own thread, behind a TCP server on a free port."""
 
     def __init__(self) -> None:
-        from sirat_ui.gateway.fake.fake_station import FakeStationGateway
-        from sirat_ui.gateway.fake.server import FakeStationServer
+        from sibench_ui.gateway.fake.fake_station import FakeStationGateway
+        from sibench_ui.gateway.fake.server import FakeStationServer
         self.clock = ThreadScheduler("contract-station").start()
         self.fake = self.clock.run(lambda: FakeStationGateway(self.clock))
         self.server = FakeStationServer(self.fake, self.clock).start()

@@ -1,0 +1,126 @@
+"""SignalGeneratorService (req 25): apply a configuration, trigger, RF on/off, load from the instrument, waveforms.
+
+The settings persist in ~/.sibench/signal_generator.json (MHz, as the original wrote them); the wire takes Hz.
+"""
+
+from __future__ import annotations
+
+from typing import List, Optional
+
+from sibench_ui.core.instruments import siggen_action_name, siggen_op
+from sibench_ui.core.observable import Event
+from sibench_ui.core.ops import DEFAULT_SIGGEN
+from sibench_ui.domains.automation.recorder import ActionRecorder
+from sibench_ui.domains.instruments.bench import InstrumentBench, InstrumentService
+from sibench_ui.domains.logs.service import LogService
+from sibench_ui.gateway.call import Call
+from sibench_ui.gateway.port import InstrumentsPort
+from sibench_ui.models.actions import Action
+from sibench_ui.models.instruments import SiggenSettings
+from sibench_ui.models.station import SiggenConfig
+from sibench_ui.shared.error_presenter import ErrorPresenter
+from sibench_ui.state.station import StationState
+from sibench_ui.stores.json_store import JsonStore
+
+
+
+def to_config(s: SiggenSettings) -> SiggenConfig:
+    """The GUI's settings (MHz) as the wire's config (Hz)."""
+    return SiggenConfig(s.sg_type, s.input_config_name, s.frequency_mhz * 1e6, s.power_dbm, dict(s.overrides))
+
+
+def from_config(c: SiggenConfig) -> SiggenSettings:
+    """The wire's config (Hz) as the GUI's settings (MHz)."""
+    return SiggenSettings(c.sg_type, c.input_config_name, round(c.frequency_hz / 1e6, 6), c.power_dbm,
+                          dict(c.overrides))
+
+
+class SignalGeneratorService(InstrumentService):
+    """The signal generator: settings (persisted), apply, triggers, RF, waveforms, Add to Actions."""
+
+    KIND = "signal_generator"
+
+    def __init__(self, gateway: InstrumentsPort, state: StationState, bench: InstrumentBench, store: JsonStore,
+                 actions: ActionRecorder, errors: ErrorPresenter, log: LogService) -> None:
+        super().__init__(state, bench)
+        self._gateway = gateway
+        self._store = store
+        self._actions = actions
+        self._errors = errors
+        self._log = log
+        self.settings = SiggenSettings.from_json(store.load())
+        self.waveforms: List[str] = []
+        self.rf_on: Optional[bool] = None       # unknown until the GUI switches it
+        self.trigger_mode = ""
+        self.changed = Event()
+        self._watch_connection()
+
+    def _connection_changed(self, connected: bool, was_connected: bool) -> None:
+        if connected and not was_connected:
+            self.load_waveforms()
+        elif not connected and was_connected:
+            self.rf_on, self.trigger_mode = None, ""   # unknown again until the GUI sets them
+            self.changed.emit()
+
+    def reload(self) -> None:
+        """After a settings import or clear."""
+        self.settings = SiggenSettings.from_json(self._store.load())
+        self.changed.emit()
+
+    def remember(self, settings: SiggenSettings) -> None:
+        """Req 25 "Configuration persists across sessions"."""
+        self.settings = settings
+        self._store.save(settings.to_json())
+
+    def load_waveforms(self, reload: bool = False) -> Call[List[str]]:
+        def loaded(names: List[str]) -> None:
+            self.waveforms = list(names)
+            if reload:
+                self._log.info(f"Signal generator waveforms reloaded ({len(names)} found)")
+            self.changed.emit()
+
+        return self._gateway.siggen_waveforms(self.instrument_id, reload).then(
+            loaded, lambda e: self._errors.present(e, "Signal generator waveforms"))
+
+    def apply(self, settings: SiggenSettings) -> Call[None]:
+        def done(_: None) -> None:
+            self.remember(settings)
+            self._log.success(f"Signal generator configured: {settings.input_config_name}, "
+                              f"{settings.frequency_mhz:g} MHz, {settings.power_dbm:g} dBm")
+            self.changed.emit()
+
+        return self._gateway.siggen_set(self.instrument_id, to_config(settings)).then(
+            done, lambda e: self._errors.present(e, "Apply configuration"))
+
+    def load_from_instrument(self) -> Call[SiggenConfig]:
+        def loaded(config: SiggenConfig) -> None:
+            self.remember(from_config(config))
+            self._log.info(f"Loaded the configuration from {self.instrument_id}")
+            self.changed.emit()
+
+        return self._gateway.siggen_get(self.instrument_id).then(
+            loaded, lambda e: self._errors.present(e, "Load from signal generator"))
+
+    def trigger(self, mode: str) -> Call[None]:
+        def done(_: None) -> None:
+            self.trigger_mode = mode
+            self.changed.emit()
+
+        label = "Infinite trigger" if mode == "infinite" else "Single trigger"
+        return self._gateway.siggen_trigger(self.instrument_id, mode).then(
+            done, lambda e: self._errors.present(e, label))
+
+    def set_rf(self, on: bool) -> Call[None]:
+        def done(_: None) -> None:
+            self.rf_on = on
+            self._log.info(f"Signal generator RF {'on' if on else 'off'}")
+            self.changed.emit()
+
+        return self._gateway.siggen_rf(self.instrument_id, on).then(
+            done, lambda e: self._errors.present(e, "RF ON" if on else "RF OFF"))
+
+    def add_action(self, settings: SiggenSettings) -> Action:
+        self.remember(settings)
+        instrument_id = self.instrument_id or DEFAULT_SIGGEN
+        # Unchecked, like the seeded siggen action: Run checked shouldn't start the generator unless asked to.
+        return self._actions.add(siggen_action_name(settings), [siggen_op(settings, instrument_id)], enabled=False)

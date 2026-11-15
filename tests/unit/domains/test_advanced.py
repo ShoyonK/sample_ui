@@ -101,7 +101,7 @@ def test_create_edit_and_persist_a_function(harness):
     fn.newFunction()
     assert fn.selectedName == "read_rssi" and "return rssi" in fn.code
     fn.setCode("return 7\n")
-    saved = json.loads((harness.home / ".sirat_custom_functions.json").read_text())
+    saved = json.loads((harness.home / ".sibench/custom_functions.json").read_text())
     assert saved == [{"name": "read_rssi", "code": "return 7\n"}]
     assert harness.restart().shell.customFunctions.code == "return 7\n"
 
@@ -255,10 +255,10 @@ def test_read_shows_a_hex_dump_and_saves_the_address(harness):
     mem.setField("size", "32")
     mem.read()
     rows = mem.rows.items
-    assert rows[0]["address"] == "0x20000000" and rows[0]["ascii"] == "SiRAT fake RAM.."
-    assert [c["t"] for c in rows[0]["cells"]][:4] == ["53", "69", "52", "41"]
+    assert rows[0]["address"] == "0x20000000" and rows[0]["ascii"] == "SiBench fake RAM"
+    assert [c["t"] for c in rows[0]["cells"]][:4] == ["53", "69", "42", "65"]
     assert "aligned from 0x20000002" in mem.headerText
-    saved = json.loads((harness.home / ".sirat" / "memory_viewer.json").read_text())
+    saved = json.loads((harness.home / ".sibench" / "memory_viewer.json").read_text())
     assert saved == {"last_address": "0x20000002"}
     assert harness.restart().shell.memory.address == "0x20000002"
 
@@ -269,7 +269,7 @@ def test_words_and_dwords_are_little_endian(harness):
     mem.setField("size", "32")
     mem.read()
     mem.setFormat(2)
-    assert [c["t"] for c in mem.rows.items[0]["cells"]][:1] == ["0x41526953"]   # "SiRA"
+    assert [c["t"] for c in mem.rows.items[0]["cells"]][:1] == ["0x65426953"]   # "SiBe"
     mem.setFormat(1)
     assert len(mem.rows.items[0]["cells"]) == 8
 

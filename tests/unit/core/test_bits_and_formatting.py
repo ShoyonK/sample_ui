@@ -2,8 +2,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from sirat_ui.core import bits
-from sirat_ui.core.formatting import ValueFormat, format_value, parse_value
+from sibench_ui.core import bits
+from sibench_ui.core.formatting import ValueFormat, format_value, parse_value
 
 
 @given(value=st.integers(0, 2**32 - 1), lsb=st.integers(0, 31), data=st.data())
