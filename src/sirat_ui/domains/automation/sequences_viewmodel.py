@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from sirat_ui.domains.automation.actions import ActionService
-from sirat_ui.domains.automation.actions_viewmodel import show_code
-from sirat_ui.domains.automation.sequences import SequenceService
+from sirat_ui.domains.automation.sequences import SequenceRun, SequenceService, Step
 from sirat_ui.models.dialogs import ConfirmRequest, PromptField, PromptRequest
 from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
@@ -18,6 +17,8 @@ from sirat_ui.state.station import StationState
 
 
 class SequencesViewModel(BaseViewModel):
+    """The Sequences page: the list, the selected sequence's steps (live while it runs), editing, Run/Abort."""
+
     changed = pyqtSignal()
 
     def __init__(self, sequences: SequenceService, actions: ActionService, state: StationState,
@@ -35,6 +36,7 @@ class SequencesViewModel(BaseViewModel):
         self._running = False
         self._progress = 0.0
         self._status_text = ""
+        self._status_tone = "mute"
         self._message = ""
         self._can_run = state.can("automation.seq.run")
         sequences.changed.connect(self._rebuild)
@@ -49,6 +51,7 @@ class SequencesViewModel(BaseViewModel):
     running = qprop(bool, "_running", changed)
     progress = qprop(float, "_progress", changed)
     statusText = qprop(str, "_status_text", changed)
+    statusTone = qprop(str, "_status_tone", changed)   # Theme tone for the status chip
     message = qprop(str, "_message", changed)
     canRun = qprop(bool, "_can_run", changed)
 
@@ -86,22 +89,27 @@ class SequencesViewModel(BaseViewModel):
         if self._selected_step >= len(steps):
             self._selected_step = len(steps) - 1
         self._steps.set_items([self._step_row(i, s) for i, s in enumerate(steps)])
-        runnable = [s for s in steps if s.runnable]
-        done = sum(1 for s in runnable if s.state in ("done", "failed"))
-        current = next((i + 1 for i, s in enumerate(runnable) if s.state == "running"), done)
-        if run is not None and run.running:
-            status = f"Running · action {current} of {len(runnable)}"
-        elif run is not None and run.ok is not None:
-            status = "Finished" if run.ok else "Failed"
-        else:
-            skipped = len(steps) - len(runnable)
-            status = f"Ready · {len(runnable)} to run" + (f", {skipped} skipped" if skipped else "")
+        status, tone, progress = self._status(run, steps)
         self._update(selected=self._selected, running=run is not None and run.running,
-                     progress=(done / len(runnable)) if runnable and showing_run else 0.0,
-                     status_text=status, message=run.message if run is not None else "")
+                     progress=progress if showing_run else 0.0, status_text=status, status_tone=tone,
+                     message=run.message if run is not None else "")
         self.changed.emit()
 
-    def _step_row(self, i: int, step) -> Dict[str, Any]:
+    @staticmethod
+    def _status(run: Optional[SequenceRun], steps: List[Step]) -> Tuple[str, str, float]:
+        """The status line, its tone and the progress fraction for the shown steps."""
+        runnable = [s for s in steps if s.runnable]
+        done = sum(1 for s in runnable if s.state in ("done", "failed"))
+        progress = done / len(runnable) if runnable else 0.0
+        if run is not None and run.running:
+            current = next((i + 1 for i, s in enumerate(runnable) if s.state == "running"), done)
+            return f"Running · action {current} of {len(runnable)}", "info", progress
+        if run is not None and run.ok is not None:
+            return ("Finished", "ok", progress) if run.ok else ("Failed", "danger", progress)
+        skipped = len(steps) - len(runnable)
+        return f"Ready · {len(runnable)} to run" + (f", {skipped} skipped" if skipped else ""), "mute", progress
+
+    def _step_row(self, i: int, step: Step) -> Dict[str, Any]:
         duration = f"{step.duration:.1f} s" if step.duration is not None else ("…" if step.state == "running" else "—")
         return {"num": f"{i + 1:02d}", "title": step.title, "kind": step.kind, "detail": step.detail,
                 "state": step.state, "durationText": duration, "selected": i == self._selected_step}
@@ -140,7 +148,7 @@ class SequencesViewModel(BaseViewModel):
 
     @pyqtSlot()
     def newSequence(self) -> None:  # noqa: N802
-        def answered(values) -> None:
+        def answered(values: Optional[Dict[str, Any]]) -> None:
             if values and values.get("name", "").strip():
                 self._selected = self._sequences.create(values["name"], [])  # req 14: starts empty
                 self._rebuild()
@@ -155,7 +163,7 @@ class SequencesViewModel(BaseViewModel):
         if not old:
             return
 
-        def answered(values) -> None:
+        def answered(values: Optional[Dict[str, Any]]) -> None:
             if not values:
                 return
             try:
@@ -188,7 +196,7 @@ class SequencesViewModel(BaseViewModel):
             self._interactions.toast("error", "Create a sequence and at least one action first")
             return
 
-        def answered(values) -> None:
+        def answered(values: Optional[Dict[str, Any]]) -> None:
             if values and values.get("action") in self._actions.actions:
                 self._sequences.add_steps(self._selected, [values["action"]])
 
@@ -214,4 +222,4 @@ class SequencesViewModel(BaseViewModel):
 
     @pyqtSlot()
     def generateCode(self) -> None:  # noqa: N802
-        show_code(self._interactions, f"Code for {self._selected}", self._sequences.generate_code(self._selected))
+        self._interactions.show_code(f"Code for {self._selected}", self._sequences.generate_code(self._selected))

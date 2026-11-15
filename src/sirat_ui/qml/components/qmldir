@@ -24,3 +24,4 @@ AppMenuItem 1.0 AppMenuItem.qml
 OutputView 1.0 OutputView.qml
 CodeEditor 1.0 CodeEditor.qml
 ConsoleInput 1.0 ConsoleInput.qml
+FocusRing 1.0 FocusRing.qml

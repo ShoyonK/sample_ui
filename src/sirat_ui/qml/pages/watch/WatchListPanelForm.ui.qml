@@ -24,6 +24,10 @@ Card {
     property alias popOutButton: popOutButton
     property alias list: list
     property alias emptyState: emptyState
+    // One column table for the header and the rows (WatchRow): each width is a share of the list's width, after
+    // `reserve` pixels for the margins.
+    readonly property var columns: ({ reserve: 80, name: 0.3, value: 0.12, enumName: 0.13, calc: 0.15,
+                                      changed: 0.1, trend: 0.12 })
 
     ColumnLayout {
         anchors.fill: parent
@@ -65,10 +69,11 @@ Card {
             Layout.leftMargin: Theme.s3
             height: 30
             Repeater {
-                model: [{ t: "Register / field", w: 0.3 }, { t: "Value", w: 0.12 }, { t: "Enum", w: 0.13 },
-                        { t: "Calculated", w: 0.15 }, { t: "Changed", w: 0.1 }, { t: "Trend", w: 0.12 }]
+                model: [{ t: "Register / field", w: root.columns.name }, { t: "Value", w: root.columns.value },
+                        { t: "Enum", w: root.columns.enumName }, { t: "Calculated", w: root.columns.calc },
+                        { t: "Changed", w: root.columns.changed }, { t: "Trend", w: root.columns.trend }]
                 delegate: Text {
-                    width: (list.width - 80) * modelData.w
+                    width: (list.width - root.columns.reserve) * modelData.w
                     height: 30
                     text: modelData.t
                     verticalAlignment: Text.AlignVCenter
@@ -88,7 +93,7 @@ Card {
             Layout.fillHeight: true
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: AppScrollBar {}
-            delegate: WatchRow {}
+            delegate: WatchRow { columns: root.columns }
 
             EmptyState {
                 id: emptyState

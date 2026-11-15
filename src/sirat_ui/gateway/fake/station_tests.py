@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Protocol
 
 from sirat_ui.gateway.call import Call
 from sirat_ui.gateway.errors import ApiError, ErrorCode
@@ -20,24 +20,33 @@ from sirat_ui.gateway.scheduler import Scheduler
 from sirat_ui.models.facts import PositionFacts
 from sirat_ui.models.station import ActivityFinished, ActivityProgress, StationTest
 
-# id -> (name, run time in ms, passes, note when it fails, printed output)
-_SAMPLES: Dict[str, Tuple[str, int, bool, str, List[str]]] = {
-    "sample_test_1": ("Sample test 1", 600, True, "", ["sample_test_1: done"]),
-    "sample_test_2": ("Sample test 2", 800, True, "", ["sample_test_2: done"]),
-    "sample_test_3": ("Sample test 3", 700, False, "AssertionError: sample failure",
-                      ["sample_test_3: started", "AssertionError: sample failure"]),
-    "sample_test_4": ("Sample test 4", 900, True, "", ["sample_test_4: done"]),
+class _Sample(NamedTuple):
+    name: str
+    run_ms: int
+    passes: bool
+    note: str               # the failure note
+    output: List[str]       # what it prints
+
+
+_SAMPLES: Dict[str, _Sample] = {
+    "sample_test_1": _Sample("Sample test 1", 600, True, "", ["sample_test_1: done"]),
+    "sample_test_2": _Sample("Sample test 2", 800, True, "", ["sample_test_2: done"]),
+    "sample_test_3": _Sample("Sample test 3", 700, False, "AssertionError: sample failure",
+                             ["sample_test_3: started", "AssertionError: sample failure"]),
+    "sample_test_4": _Sample("Sample test 4", 900, True, "", ["sample_test_4: done"]),
 }
-CATALOGUE: List[StationTest] = [StationTest(test_id, sample[0]) for test_id, sample in _SAMPLES.items()]
+CATALOGUE: List[StationTest] = [StationTest(test_id, sample.name) for test_id, sample in _SAMPLES.items()]
 
 
 class TestsHost(Protocol):
+    """What FakeStationTests needs from the station."""
     facts: Dict[int, PositionFacts]
     clock: Callable[[], float]
 
 
 @dataclass
 class TestRunState:
+    """One tests.run in the fake: the tests, how far it got, the results."""
     activity_id: str
     position: int
     test_ids: List[str]
@@ -47,6 +56,8 @@ class TestRunState:
 
 
 class FakeStationTests:
+    """tests.list and tests.run for the fake station (see the module docstring)."""
+
     def __init__(self, respond: Callable[..., Call], host: TestsHost, scheduler: Scheduler,
                  emit: Callable[[Any], None], emit_status: Callable[[], None]) -> None:
         self._respond = respond
@@ -88,7 +99,7 @@ class FakeStationTests:
 
     def _progress(self, activity: TestRunState, test_id: str, result: Optional[Dict[str, Any]] = None) -> None:
         self._emit(ActivityProgress(activity.activity_id, activity.position, activity.index + 1,
-                                    len(activity.test_ids), _SAMPLES[test_id][0], test_id, result=result))
+                                    len(activity.test_ids), _SAMPLES[test_id].name, test_id, result=result))
 
     def _start_next(self, activity: TestRunState) -> None:
         if self._stopped(activity):
@@ -99,7 +110,7 @@ class FakeStationTests:
         test_id = activity.test_ids[activity.index]
         started = self._host.clock()
         self._progress(activity, test_id)
-        self._scheduler.later(_SAMPLES[test_id][1], lambda: self._end_test(activity, test_id, started))
+        self._scheduler.later(_SAMPLES[test_id].run_ms, lambda: self._end_test(activity, test_id, started))
 
     def _end_test(self, activity: TestRunState, test_id: str, started: float) -> None:
         if self._stopped(activity):

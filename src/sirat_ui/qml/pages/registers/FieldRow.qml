@@ -106,7 +106,7 @@ Rectangle {
             text: model.description
             verticalAlignment: Text.AlignVCenter
             wrapMode: Text.WordWrap
-            rightPadding: 8
+            rightPadding: Theme.s2
             font.family: Theme.fontUi; font.pixelSize: Theme.fontMd; color: Theme.textMuted
         }
         Row {
@@ -145,8 +145,8 @@ Rectangle {
                 id: noteInput
                 objectName: "noteInput_" + model.name
                 anchors.fill: parent
-                anchors.leftMargin: 8
-                anchors.rightMargin: 8
+                anchors.leftMargin: Theme.s2
+                anchors.rightMargin: Theme.s2
                 verticalAlignment: TextInput.AlignVCenter
                 text: model.note
                 clip: true

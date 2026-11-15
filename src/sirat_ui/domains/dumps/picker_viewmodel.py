@@ -5,7 +5,7 @@ Whoever opens it supplies the wording, the labels and what Start does, so the pi
 
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
@@ -14,6 +14,8 @@ from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
 
 
 class PeripheralPickerViewModel(BaseViewModel):
+    """The peripheral checklist dialog; the caller supplies the wording and what Start does."""
+
     changed = pyqtSignal()
 
     def __init__(self, parent: Optional[QObject] = None) -> None:
@@ -39,8 +41,17 @@ class PeripheralPickerViewModel(BaseViewModel):
     pickerOpen = qprop(bool, "_picker_open", changed)
     checkedCount = qprop(int, "_checked_count", changed)
 
-    def open(self, mode: str, wording: tuple, checked: Dict[str, bool], label: Callable[[str], str],
+    def open(self, mode: str, wording: Tuple[str, str, str], checked: Dict[str, bool], label: Callable[[str], str],
              on_start: Callable[[List[str]], None]) -> None:
+        """Opens the picker.
+
+        Args:
+            mode: "dump" or "radio" (picks the Start button's icon).
+            wording: (title, message, Start button text).
+            checked: Every peripheral to list -> whether it starts checked, in list order.
+            label: The row text for a peripheral (e.g. with its register count).
+            on_start: Gets the checked names, in list order, when Start is pressed.
+        """
         title, message, confirm = wording
         self._names, self._checked = list(checked), dict(checked)
         self._label, self._on_start = label, on_start

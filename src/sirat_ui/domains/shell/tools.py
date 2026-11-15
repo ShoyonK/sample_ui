@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 
 @dataclass(frozen=True)
 class Tool:
+    """A part of a page that can open in its own window (see the module docstring)."""
     key: str
     title: str
     page: str
@@ -46,6 +47,7 @@ TOOLS: List[Tool] = [
 
 
 def tool(key: str) -> Optional[Tool]:
+    """The "tool" kind part with that key (not the watch list or logger, which have their own window kinds)."""
     return next((t for t in TOOLS if t.key == key and t.kind == "tool"), None)
 
 
@@ -54,7 +56,7 @@ def page_parts(page: str) -> List[Dict[str, Any]]:
     parts = []
     for t in TOOLS:
         if t.page == page:
-            arg = t.key if t.kind == "tool" else ""
-            parts.append({"kind": t.kind, "arg": arg, "key": f"tool:{t.key}" if t.kind == "tool" else t.kind,
-                          "title": t.title})
+            is_tool = t.kind == "tool"
+            parts.append({"kind": t.kind, "arg": t.key if is_tool else "",
+                          "key": f"tool:{t.key}" if is_tool else t.kind, "title": t.title})
     return parts

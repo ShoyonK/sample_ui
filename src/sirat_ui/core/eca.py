@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import datetime as dt
+import sys
 from array import array
 from typing import List, Optional, Sequence, Tuple
 
@@ -20,15 +21,26 @@ def decode(page_channel: str) -> List[int]:
     """One channel of a CapturePage: base64 little-endian int16 -> sample values (mV)."""
     samples = array("h")
     samples.frombytes(base64.b64decode(page_channel))
-    if samples.itemsize == 2 and array("h", [1]).tobytes() != b"\x01\x00":  # big-endian host
+    if sys.byteorder == "big":   # the wire is little-endian
         samples.byteswap()
     return samples.tolist()
 
 
 def decimate(values: Sequence[int], rate_hz: float, points: int = PLOT_POINTS,
              window: Optional[Tuple[float, float]] = None) -> Tuple[List[float], List[float]]:
-    """(x in ms, y) keeping each bucket's min and max, so short pulses stay visible after thinning.
-    window: only (from_ms, to_ms), so zooming in shows full detail."""
+    """Thins one channel for plotting, keeping each bucket's min and max so short pulses stay visible.
+
+    The same idea as core/thinning.thin, but over a sample range and with x converted to ms.
+
+    Args:
+        values: The channel's samples.
+        rate_hz: The sample rate, to turn sample indexes into ms.
+        points: How many buckets; the result has at most twice as many points.
+        window: (from_ms, to_ms) to plot only that range, so zooming in shows full detail.
+
+    Returns:
+        (x in ms, y). Short ranges come back unthinned.
+    """
     n = len(values)
     lo, hi = 0, n
     if window is not None:
@@ -44,9 +56,9 @@ def decimate(values: Sequence[int], rate_hz: float, points: int = PLOT_POINTS,
     step = span / points
     for b in range(points):
         start, end = lo + int(b * step), lo + int((b + 1) * step)
-        chunk = values[start:end]
-        if not len(chunk):
+        if start >= end:
             continue
+        chunk = values[start:end]
         i_min = start + min(range(len(chunk)), key=chunk.__getitem__)
         i_max = start + max(range(len(chunk)), key=chunk.__getitem__)
         for i in sorted((i_min, i_max)):
@@ -56,7 +68,15 @@ def decimate(values: Sequence[int], rate_hz: float, points: int = PLOT_POINTS,
 
 
 def measure(channel: str, values: Sequence[int], rate_hz: float) -> Measurement:
-    """Edges cross the midpoint between min and max, with 10 % hysteresis so noise doesn't count."""
+    """Measures one channel: range, mean, rising edges, frequency, mean pulse width and the first rise.
+
+    An edge crosses the midpoint between min and max, with 10 % hysteresis either side so noise doesn't count.
+
+    Args:
+        channel: The channel's name, copied into the result.
+        values: The samples (mV).
+        rate_hz: The sample rate.
+    """
     if not values:
         return Measurement(channel, 0, 0, 0.0, 0, None, None, None)
     lo, hi = min(values), max(values)

@@ -31,7 +31,7 @@ Card {
 
             GridLayout {
                 columns: 4
-                columnSpacing: 12
+                columnSpacing: Theme.s3
                 rowSpacing: 6
                 Layout.fillWidth: true
 
@@ -65,7 +65,7 @@ Card {
             }
             Text { id: errorLabel; objectName: "bleErrors"; text: ""; visible: text !== ""; font.pixelSize: Theme.fontXs; color: Theme.dangerFg; wrapMode: Text.WordWrap; Layout.fillWidth: true }
             RowLayout {
-                spacing: 8
+                spacing: Theme.s2
                 AppButton { id: generateButton; objectName: "bleGenerateButton"; text: "Generate code"; iconName: "code"; variant: "primary" }
             }
         }

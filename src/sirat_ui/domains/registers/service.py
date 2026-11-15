@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Dict, Optional
 
 from sirat_ui.core.observable import Event
-from sirat_ui.domains.history.service import HistoryLog
+from sirat_ui.domains.history.service import READ, WRITE, HistoryLog
 from sirat_ui.domains.logs.service import LogService
 from sirat_ui.gateway.call import Call
 from sirat_ui.gateway.errors import ApiError, ErrorCode
@@ -28,8 +28,12 @@ CRITICAL_WARNING = ("This is a critical peripheral. Writing incorrect values may
 
 
 class RegisterService:
-    def __init__(self, gateway: RegistersPort, state: StationState, prefs: PreferencesState, status: StatusLine, history: HistoryLog,
-                 interactions: InteractionService, errors: ErrorPresenter, log: LogService) -> None:
+    """Register reads and writes for the selected DUT, with the value cache the pages show (see the module
+    docstring)."""
+
+    def __init__(self, gateway: RegistersPort, state: StationState, prefs: PreferencesState, status: StatusLine,
+                 history: HistoryLog, interactions: InteractionService, errors: ErrorPresenter,
+                 log: LogService) -> None:
         self._gateway = gateway
         self._state = state
         self._prefs = prefs
@@ -63,13 +67,13 @@ class RegisterService:
 
     # ---- reads -----------------------------------------------------------------
 
-    def read(self, reg: RegisterDef, manual: bool = True, quiet: bool = False) -> Call:
+    def read(self, reg: RegisterDef, manual: bool = True, quiet: bool = False) -> Call[int]:
         """manual: record in history (req 9). quiet: log failures without a message per register (read all)."""
         if not reg.access.readable:
             error = ApiError(ErrorCode.ACCESS_DENIED, f"Cannot read write-only register {reg.full_name}")
             self._errors.present(error)
             return Call.failed(error)
-        out: Call = Call()
+        out: Call[int] = Call()
         self._log.debug(f"Reading register {reg.full_name}")
         position = self._state.position
 
@@ -79,7 +83,7 @@ class RegisterService:
                 return
             self._store(reg.full_name, value)
             if manual:
-                self._history.record("READ", reg.full_name, value)
+                self._history.record(READ, reg.full_name, value)
             self._status.set(f"{reg.full_name} @ 0x{reg.address:08X} · read ok")
             out.resolve(value)
 
@@ -97,6 +101,8 @@ class RegisterService:
     # ---- writes ----------------------------------------------------------------
 
     def write(self, reg: RegisterDef, value: int) -> Call:
+        """Writes a whole register: checked against its access and range, confirmed first when it's critical
+        (unless the user turned that off), verified by read-back, and recorded in History."""
         if not reg.access.writable:
             return self._reject(ApiError(ErrorCode.ACCESS_DENIED, f"Cannot write read-only register {reg.full_name}"))
         if value < 0 or value > reg.max_value:
@@ -105,6 +111,7 @@ class RegisterService:
         return self._write(reg, None, value)
 
     def write_field(self, reg: RegisterDef, field: FieldDef, value: int) -> Call:
+        """Writes one field, with the same checks as write()."""
         if not field.access.writable:
             return self._reject(ApiError(ErrorCode.ACCESS_DENIED, f"Cannot write read-only field {field.full_name}"))
         if value < 0 or value > field.max_value:
@@ -113,6 +120,7 @@ class RegisterService:
         return self._write(reg, field, value)
 
     def toggle_bit(self, reg: RegisterDef, bit: int) -> Call:
+        """Flips one bit of the cached value (the reset value when the register hasn't been read) and writes it."""
         current = self.values.get(reg.full_name, reg.reset)
         return self.write(reg, current ^ (1 << bit))
 
@@ -137,7 +145,7 @@ class RegisterService:
         def record(readback: int) -> None:
             self._store(reg.full_name, readback)
             shown = field.extract(readback) if field else readback
-            self._history.record("WRITE", reg.full_name, shown, field.name if field else None, readback)
+            self._history.record(WRITE, reg.full_name, shown, field.name if field else None, readback)
 
         def done(result: WriteResult) -> None:
             readback = result.value_readback

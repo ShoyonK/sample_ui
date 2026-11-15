@@ -6,12 +6,13 @@ import "../../components"
 // One finished test: name, Pass or Fail, notes, start time and duration (req 33 results table).
 Rectangle {
     id: row
+    property var columns   // the page's results column table, shared with its header
     signal activated()
 
     objectName: "testResult_" + model.id
     width: ListView.view ? ListView.view.width : 900
     height: 40
-    color: model.selected ? Theme.select : (hover.hovered ? Theme.surface2 : "transparent")
+    color: Theme.rowColor(model.selected, hover.hovered)
     HoverHandler { id: hover }
     TapHandler { onTapped: row.activated() }
 
@@ -26,20 +27,20 @@ Rectangle {
             font.family: Theme.fontMono
             font.pixelSize: Theme.fontSm
             color: Theme.textMuted
-            Layout.preferredWidth: 24
+            Layout.preferredWidth: row.columns.num
         }
         Text {
             text: model.name
             font.pixelSize: Theme.fontMd
             color: Theme.textPrimary
             elide: Text.ElideRight
-            Layout.preferredWidth: 220
+            Layout.preferredWidth: row.columns.name
         }
         Chip {
             objectName: "testStatus_" + model.id
             text: model.status
             tone: model.status === "Pass" ? "ok" : "danger"
-            Layout.preferredWidth: 56
+            Layout.preferredWidth: row.columns.status
         }
         Text {
             text: model.notes
@@ -53,7 +54,7 @@ Rectangle {
             font.family: Theme.fontMono
             font.pixelSize: Theme.fontSm
             color: Theme.textMuted
-            Layout.preferredWidth: 72
+            Layout.preferredWidth: row.columns.started
         }
         Text {
             text: model.durationText
@@ -61,7 +62,7 @@ Rectangle {
             font.pixelSize: Theme.fontSm
             color: Theme.textMuted
             horizontalAlignment: Text.AlignRight
-            Layout.preferredWidth: 52
+            Layout.preferredWidth: row.columns.duration
         }
     }
 

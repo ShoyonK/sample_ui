@@ -4,7 +4,7 @@ import "../theme"
 
 CheckBox {
     id: control
-    spacing: 8
+    spacing: Theme.s2
     hoverEnabled: true
     property string accessibleName: ""   // for boxes with no visible text (the action rows)
     Accessible.name: text !== "" ? text : accessibleName

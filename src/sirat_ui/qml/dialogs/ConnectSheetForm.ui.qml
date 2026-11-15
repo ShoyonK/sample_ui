@@ -75,7 +75,7 @@ Rectangle {
                     id: consoleList
                     objectName: "connectConsole"
                     anchors.fill: parent
-                    anchors.margins: 12
+                    anchors.margins: Theme.s3
                     clip: true
                     delegate: Text {
                         width: ListView.view ? ListView.view.width : 380
@@ -84,8 +84,8 @@ Rectangle {
                         font.family: Theme.fontMono
                         font.pixelSize: Theme.fontXs
                         lineHeight: 1.4
-                        color: model.level === "success" ? "#7EE29A" : model.level === "error" ? "#FF8A8A"
-                             : model.level === "warning" ? "#FFC66B" : Theme.consoleText
+                        color: model.level === "success" ? Theme.consoleOk : model.level === "error" ? Theme.consoleError
+                             : model.level === "warning" ? Theme.consoleWarn : Theme.consoleText
                     }
                 }
             }

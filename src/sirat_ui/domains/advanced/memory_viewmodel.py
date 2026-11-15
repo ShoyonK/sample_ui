@@ -16,10 +16,13 @@ from sirat_ui.shared.qt import pyqtProperty
 from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, clock_text, copy_to_clipboard, qprop
 from sirat_ui.state.station import StationState
 
+# QML field names; setField stores them as _<name>, which is why _writeAddress/_writeValue are camelCase
 FIELDS = ("address", "size", "writeAddress", "writeValue")
 
 
 class MemoryViewModel(BaseViewModel):
+    """The Memory tab: address, size and format, the hex dump (changed cells marked), and a confirmed write."""
+
     changed = pyqtSignal()
 
     def __init__(self, service: MemoryService, state: StationState, interactions: InteractionService,
@@ -104,7 +107,7 @@ class MemoryViewModel(BaseViewModel):
         start, data = block
         asked, _ = self._service.requested
         aligned = f" (aligned from 0x{asked:08X})" if asked != start else ""
-        changed = sum(c for r in self._rows.items for c in (cell["c"] for cell in r["cells"]))
+        changed = sum(cell["c"] for row in self._rows.items for cell in row["cells"])
         delta = f" · {changed} changed since the last read" if self._service.previous is not None else ""
         return f"0x{start:08X}{aligned} · {len(data)} bytes · read at {clock_text(self._readAt)}{delta}"
 

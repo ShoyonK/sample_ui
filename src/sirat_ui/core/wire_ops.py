@@ -17,6 +17,8 @@ from sirat_ui.models.actions import Action
 def action_ops(action: Action, actions: Callable[[str], Optional[Action]],
                custom_functions: Mapping[str, str], _seen: Optional[Set[str]] = None) -> List[Dict[str, Any]]:
     """One action's wire ops, each tagged group=<action name>. Nested sequence ops expand in place."""
+    # Recursive on purpose: a sequence can hold sequences, and expanding each in place keeps the ops in run order.
+    # `seen` stops a sequence from expanding itself, so the depth is at most the number of nested sequences.
     seen = (_seen or set()) | {action.name}
     out: List[Dict[str, Any]] = []
     for op in action.operations:

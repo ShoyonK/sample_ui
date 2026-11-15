@@ -36,15 +36,5 @@ AbstractButton {
     ToolTip.text: tip
     ToolTip.delay: 500
 
-    // keyboard focus ring: only when focus came from the keyboard, never on mouse clicks
-    Rectangle {
-        z: 10
-        anchors.fill: parent
-        anchors.margins: -3
-        radius: Theme.radiusSm + 3
-        color: "transparent"
-        border.width: 2
-        border.color: Theme.focusRing
-        visible: control.visualFocus
-    }
+    FocusRing { }
 }

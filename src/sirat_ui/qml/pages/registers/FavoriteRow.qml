@@ -23,9 +23,9 @@ Rectangle {
         acceptedButtons: Qt.RightButton
         onTapped: menu.popup()
     }
-    Menu {
+    AppMenu {
         id: menu
-        MenuItem {
+        AppMenuItem {
             text: "Remove from favorites"
             onTriggered: row.removeRequested()
         }
@@ -33,9 +33,9 @@ Rectangle {
 
     Row {
         anchors.left: parent.left
-        anchors.leftMargin: 8
+        anchors.leftMargin: Theme.s2
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 8
+        spacing: Theme.s2
         Icon {
             name: "starFilled"
             size: 13

@@ -15,6 +15,8 @@ from sirat_ui.state.station import StationState
 
 
 class ConsoleViewModel(BaseViewModel):
+    """The Console tab: output, the input draft (with history), Execute, Help and Restart."""
+
     changed = pyqtSignal()
 
     def __init__(self, service: ConsoleService, session: PythonSession, state: StationState,

@@ -304,6 +304,7 @@ def test_generate_code_opens_the_code_dialog(running, qtbot):
 @pytest.mark.req("35.search")
 def test_search_the_log_panel(running, qtbot):
     ui = Ui(running.app, qtbot)
+    assert not ui.enabled("logNextMatch")   # nothing searched yet
     ui.click("logSearchField")
     for ch in "CONNECTED":
         ui._key(0, ch)

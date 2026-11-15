@@ -54,8 +54,9 @@ switch or DUT-control libraries directly.
 
 - **Requirements.** Feature scope comes from `sirat_requirements.txt` (35 features). It's read for the
   function each feature provides, not copied literally where the original behavior doesn't make sense.
-- **API contract.** `docs/API_DESIGN.md` (revision 2, draft) supersedes the Oct 27
-  `SiRAT Station API Design Document.pdf`. Four of its decisions are still open.
+- **API contract.** `docs/STATION_API.md` (protocol 2, JSON-RPC 2.0) with its generated reference and JSON
+  Schema. It builds on `docs/API_DESIGN.md` (revision 2), which superseded the Oct 27
+  `SiRAT Station API Design Document.pdf`; its open items are in section 14.
 - **Architecture.**
   - Strict MVVM, with services organized by domain.
   - Every visual unit is split into `XxxForm.ui.qml` (layout only, editable in Qt Design Studio) and
@@ -69,7 +70,7 @@ switch or DUT-control libraries directly.
   windows.
 - **Terminology.** DUT, position (1–4), PHY (LPW / WiFi), PRS, peripheral / register / field, critical
   peripheral, read-sensitive peripheral, action, sequence, dump, Radio Calculator diff, siggen, ECA.
-- **Undecided** (see docs/API_DESIGN.md §11):
+- **Undecided** (see docs/API_DESIGN.md §11; current list in docs/STATION_API.md §14):
   - whether actions stay GUI-owned;
   - whether `radio.*` stays out of v1;
   - the opt-in rule for read-sensitive registers;
@@ -85,8 +86,9 @@ switch or DUT-control libraries directly.
 ## Evidence on Hand
 
 - Requirements: `sirat_requirements.txt`.
-- API: `SiRAT Station API Design Document.pdf`, `docs/API_DESIGN.md`, `docs/API_REVIEW.md`, and
-  `docs/API_CHANGE_*.md`.
+- API: `docs/STATION_API.md` (the contract), `docs/STATION_API_REFERENCE.md` and `docs/station_api.schema.json`
+  (exact shapes, generated), `docs/BACKEND_GUIDE.md` (how to build the station service), `docs/API_DESIGN.md`
+  (the design's reasoning) and the original `SiRAT Station API Design Document.pdf`.
 - Plans and status: `docs/FRONTEND_PLAN.md` and `docs/GAP_REVIEW.md`.
 - Look and samples: the screenshots in `docs/screenshots`, the mockup in `docs/mockups/sirat_mockup.html`,
   and the sample Radio Calculator config in `docs/samples/PHY_demo.cfg`.

@@ -9,6 +9,7 @@ from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 from sirat_ui.core.prs import CHANNELS, CONSTRAINT_TEXT, DISABLE, PINS, allowed_channels, channel_problem
 from sirat_ui.domains.radio.prs import PrsService
 from sirat_ui.models.dialogs import Alert
+from sirat_ui.models.radio import Signal
 from sirat_ui.models.station import PrsRoute
 from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
@@ -17,6 +18,8 @@ from sirat_ui.state.station import StationState
 
 
 class PrsViewModel(BaseViewModel):
+    """The PRS card: signal, pin and channel (with the port rule), Apply route, active routes, Add to Actions."""
+
     changed = pyqtSignal()
 
     def __init__(self, service: PrsService, state: StationState, interactions: InteractionService,
@@ -84,7 +87,7 @@ class PrsViewModel(BaseViewModel):
         text = f"Port {self._pin[1]} uses channels {allowed[0]}-{allowed[-1]}"
         return text + f"; channel {self._channel} won't work" if self.invalid else text
 
-    def _signals(self):
+    def _signals(self) -> List[Signal]:
         return [s for s in self._service.signals if s.name != DISABLE]
 
     def _refresh(self) -> None:
@@ -159,6 +162,3 @@ class PrsViewModel(BaseViewModel):
 
     def current_route(self) -> PrsRoute:
         return self._route()
-
-
-__all__: List[str] = ["PrsViewModel"]

@@ -3,24 +3,25 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from sirat_ui.core import codegen
 from sirat_ui.domains.automation.recorder import ActionRecorder
-from sirat_ui.domains.history.service import HistoryEntry, HistoryLog
+from sirat_ui.domains.history.service import READ, WRITE, HistoryEntry, HistoryLog
 from sirat_ui.domains.registers.catalog import RegisterCatalog
 from sirat_ui.domains.registers.service import RegisterService
 from sirat_ui.models.dialogs import PromptField, PromptRequest
-from sirat_ui.shared.interactions import InteractionService
+from sirat_ui.shared.interactions import InteractionService, save_text
 from sirat_ui.shared.qt import pyqtProperty
 from sirat_ui.shared.selection import RowSelection
 from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, clock_text, copy_to_clipboard, qprop
 
 
 class HistoryViewModel(BaseViewModel):
+    """The History panel: newest first, read/write filters, selection, re-run, actions, save, code."""
+
     changed = pyqtSignal()
 
     def __init__(self, history: HistoryLog, catalog: RegisterCatalog, registers: RegisterService,
@@ -51,7 +52,7 @@ class HistoryViewModel(BaseViewModel):
     def _rebuild(self) -> None:
         rows = []
         for e in reversed(self._history.entries):
-            if (e.operation == "READ" and not self._show_reads) or (e.operation == "WRITE" and not self._show_writes):
+            if (e.operation == READ and not self._show_reads) or (e.operation == WRITE and not self._show_writes):
                 continue
             if e.field is None:
                 kind, value = e.operation.lower(), f"0x{e.value:08X}"
@@ -98,7 +99,7 @@ class HistoryViewModel(BaseViewModel):
             reg = self._catalog.register(entry.register)
             if reg is None:
                 continue
-            if entry.operation == "READ":
+            if entry.operation == READ:
                 self._registers.read(reg)
             elif entry.field and (fdef := reg.field(entry.field)) is not None:
                 self._registers.write_field(reg, fdef, entry.value)
@@ -107,12 +108,12 @@ class HistoryViewModel(BaseViewModel):
 
     @pyqtSlot()
     def createAction(self) -> None:  # noqa: N802
-        ops = [e.as_op() for e in self._selected_entries() if e.operation == "WRITE"]
+        ops = [e.as_op() for e in self._selected_entries() if e.operation == WRITE]
         if not ops:
             self._interactions.toast("error", "Select at least one write to create an action")
             return
 
-        def answered(values) -> None:
+        def answered(values: Optional[Dict[str, Any]]) -> None:
             if values and values.get("name", "").strip():
                 action = self._actions.add(values["name"], ops)
                 self._selection.clear()
@@ -132,20 +133,11 @@ class HistoryViewModel(BaseViewModel):
         records = []
         for e in entries:
             record: Dict[str, Any] = {"register": e.register, "operation": e.operation.lower(), "value": e.value}
-            if e.operation == "WRITE":
+            if e.operation == WRITE:
                 record["field"] = e.field
             records.append(record)
-
-        def chosen(path) -> None:
-            if not path:
-                return
-            try:
-                Path(path).write_text(json.dumps(records, indent=2), encoding="utf-8")
-                self._interactions.toast("success", f"Saved {len(records)} entries to {path}")
-            except OSError as exc:
-                self._interactions.toast("error", f"Couldn't save: {exc}")
-
-        self._interactions.choose_save_file("Save history", "sirat_history.json", "JSON files (*.json)").then(chosen)
+        save_text(self._interactions, "Save history", "sirat_history.json", "JSON files (*.json)",
+                  lambda: json.dumps(records, indent=2), lambda path: f"Saved {len(records)} entries to {path}")
 
     @pyqtSlot()
     def generateCode(self) -> None:  # noqa: N802
@@ -154,7 +146,7 @@ class HistoryViewModel(BaseViewModel):
         if not entries:
             self._interactions.toast("error", "History is empty")
             return
-        ops = [e.as_op() if e.operation == "WRITE" else {"type": "register_read", "register": e.register}
+        ops = [e.as_op() if e.operation == WRITE else {"type": "register_read", "register": e.register}
                for e in entries]
         self._interactions.show_code("Code from history", codegen.generate_from_ops(ops))
 

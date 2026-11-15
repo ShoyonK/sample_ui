@@ -125,7 +125,7 @@ def test_add_checked_actions_to_a_new_sequence(harness):
 
 
 def test_add_checked_actions_to_an_existing_sequence(harness):
-    harness.services.actions.deselect_all()
+    harness.services.actions.set_all_enabled(False)
     harness.services.actions.set_enabled("lpmode_on", True)
     harness.ix.answer_next({"sequence": "lp_mode_check", "name": ""})
     harness.shell.actions.addCheckedToSequence()

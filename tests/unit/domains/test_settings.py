@@ -69,7 +69,7 @@ def test_clear_all_resets_every_settings_file_after_confirming(harness):
 
 def test_about_shows_versions_and_the_station(harness):
     rows = {r["key"]: r["value"] for r in harness.shell.settings.aboutRows}
-    assert rows["SiRAT"] == "0.1.0" and rows["Station service"] == "fake-2026.10" and rows["Protocol"] == "1"
+    assert rows["SiRAT"] == "0.1.0" and rows["Station service"] == "fake-2026.10" and rows["Protocol"] == "2"
     assert rows["Python"].startswith("3.10")
 
 

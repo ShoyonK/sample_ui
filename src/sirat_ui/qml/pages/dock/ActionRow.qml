@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Layouts 1.15
 import "../../theme"
 import "../../components"
+import "../../components/selection.js" as Selection
 
 // One action: checkbox (enabled), type color bar, name, type chip, operation summary (req 13).
 Rectangle {
@@ -22,8 +23,7 @@ Rectangle {
     // Under the checkbox, so the box still takes its own clicks
     MouseArea {
         anchors.fill: parent
-        onClicked: row.selected((mouse.modifiers & Qt.ShiftModifier) ? "range"
-                                : (mouse.modifiers & Qt.ControlModifier) ? "toggle" : "single")
+        onClicked: row.selected(Selection.mode(mouse.modifiers))
         onDoubleClicked: row.viewRequested()
     }
     Rectangle {   // the selection's edge, so selected rows read clearly even next to each other
@@ -38,7 +38,7 @@ Rectangle {
         width: 3
         height: parent.height - 12
         anchors.left: parent.left
-        anchors.leftMargin: 4
+        anchors.leftMargin: Theme.s1
         anchors.verticalCenter: parent.verticalCenter
         radius: 2
         color: Theme.kindColor(model.kind)

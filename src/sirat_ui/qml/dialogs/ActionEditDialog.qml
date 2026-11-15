@@ -14,16 +14,12 @@ ModalDialog {
     dialogWidth: 760
 
     contentItem: ColumnLayout {
-        spacing: 12
+        spacing: Theme.s3
         DialogHeader {
             title: dialog.vm.editTitle
             message: "Change register and field values, then save. Values are hex unless prefixed with 0b or 0o."
             iconName: "edit"
             tone: "info"
-            Layout.fillWidth: true
-            Layout.topMargin: 18
-            Layout.leftMargin: 20
-            Layout.rightMargin: 20
         }
         ListView {
             id: rows
@@ -84,11 +80,7 @@ ModalDialog {
                 Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.border }
             }
         }
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.leftMargin: 20
-            Layout.rightMargin: 20
-            Layout.bottomMargin: 18
+        DialogButtons {
             Item { Layout.fillWidth: true }
             AppButton { objectName: "actionEditCancelButton"; text: "Cancel"; onClicked: dialog.vm.cancelEdit() }
             AppButton { objectName: "actionEditSaveButton"; text: "Save"; variant: "primary"; onClicked: dialog.vm.saveEdit() }

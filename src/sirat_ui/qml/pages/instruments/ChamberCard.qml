@@ -11,7 +11,7 @@ ChamberCardForm {
     actualLabel.text: vm.actualText
     trendPill.text: vm.trendText
     trendPill.visible: vm.trendText !== ""
-    trendPill.level: vm.stable ? "ok" : vm.trendText === "Heating" ? "warn" : "info"
+    trendPill.level: vm.trendLevel
     setpointLabel.text: vm.setpointText
     trendLine.points: vm.history
     targetField.text: vm.target

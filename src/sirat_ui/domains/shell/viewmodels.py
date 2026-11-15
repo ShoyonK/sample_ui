@@ -15,17 +15,21 @@ from sirat_ui.state.station import StationState
 from sirat_ui.state.status import StatusLine
 
 
-
 class StateViewModel(BaseViewModel):
     """Read-only mirror of StationState for QML."""
 
     changed = pyqtSignal()
 
-    def __init__(self, state: StationState, prefs: PreferencesState, status: StatusLine, parent: Optional[QObject] = None) -> None:
+    def __init__(self, state: StationState, prefs: PreferencesState, status: StatusLine,
+                 parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._state = state
         self._prefs = prefs
         self._status = status
+        self._position = 1
+        self._connected = self._dark_mode = False
+        self._connection_text = self._connection_level = self._chip_label = self._chip_short = ""
+        self._phy_text = self._activity_text = self._release_text = self._backend_text = self._status_message = ""
         self._refresh()
         state.changed.connect(self._refresh)
         prefs.changed.connect(lambda _: self._refresh())
@@ -125,7 +129,7 @@ class ShellViewModel(BaseViewModel):
         """The dock remembers open/collapsed per page."""
         dock = self._children.get("dock")
         if dock is not None:
-            getattr(dock, "setPage")(key)
+            getattr(dock, "setPage")(key)   # children are typed QObject, so look the slot up by name
 
     def child(self, name: str) -> QObject:
         return self._children[name]

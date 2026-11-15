@@ -11,6 +11,7 @@ from sirat_ui.models.station import RpcAddress
 
 @dataclass
 class Preferences:
+    """~/.sirat/preferences.json."""
     value_format: str = ValueFormat.HEX.value
     auto_read_on_click: bool = True
     show_secure_peripherals: bool = False
@@ -31,6 +32,7 @@ class Preferences:
 
     @classmethod
     def from_json(cls, data: Any) -> "Preferences":
+        """Preferences from the file's dict; unknown keys are dropped and anything that isn't a dict gives defaults."""
         if not isinstance(data, dict):
             return cls()
         known = {f.name for f in fields(cls)}
@@ -39,6 +41,7 @@ class Preferences:
 
 @dataclass
 class HardwareConfig:
+    """~/.sirat/hardware_config.json (req 32)."""
     rpc_host: str = "localhost"
     rpc_port: int = 10001
     rpc_timeout: int = 5
@@ -52,6 +55,7 @@ class HardwareConfig:
 
     @classmethod
     def from_json(cls, raw: Any) -> "HardwareConfig":
+        """The config from the file's dict; numbers that don't parse keep their defaults."""
         config = cls()
         if isinstance(raw, dict):
             config.rpc_host = str(raw.get("rpc_host", config.rpc_host))
@@ -69,6 +73,7 @@ class HardwareConfig:
 
 @dataclass(frozen=True)
 class Problem:
+    """One entry skipped while loading a settings file."""
     source: str   # file name, e.g. ".sirat_actions.json"
     where: str    # path inside it, e.g. "lpmode_on.operations.0.value"
     message: str

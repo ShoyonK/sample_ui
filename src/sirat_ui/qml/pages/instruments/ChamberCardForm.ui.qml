@@ -69,7 +69,7 @@ Card {
 
             GridLayout {
                 columns: 3
-                columnSpacing: 12
+                columnSpacing: Theme.s3
                 rowSpacing: 6
                 Layout.fillWidth: true
 
@@ -85,7 +85,7 @@ Card {
             Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.border; Layout.topMargin: 2 }
             Text { text: "Wait for stable"; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold; color: Theme.textPrimary }
             RowLayout {
-                spacing: 8
+                spacing: Theme.s2
                 Text { text: "Within ±"; font.pixelSize: Theme.fontSm; color: Theme.textMuted }
                 AppTextField { id: toleranceField; objectName: "chToleranceField"; mono: true; selectOnFocus: true; placeholderText: "0.5"; Layout.preferredWidth: 60 }
                 Text { text: "°C for"; font.pixelSize: Theme.fontSm; color: Theme.textMuted }

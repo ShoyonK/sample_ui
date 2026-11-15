@@ -2,6 +2,7 @@ import QtQuick 2.15
 import "../../theme"
 
 PrsCardForm {
+    id: card
     readonly property var vm: app.prs
 
     sourceLabel.text: vm.sourceText
@@ -22,6 +23,7 @@ PrsCardForm {
     addButton.onClicked: vm.addToActions()
     routeList.model: vm.routes
     routeList.delegate: PrsRouteRow {
+        columns: card.routeColumns
         onRemoveRequested: vm.remove(index)
     }
     routesEmpty.visible: routeList.count === 0

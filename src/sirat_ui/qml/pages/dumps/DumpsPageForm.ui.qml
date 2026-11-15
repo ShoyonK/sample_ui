@@ -39,6 +39,8 @@ RowLayout {
     property alias radioButton: radioButton
     property alias radioHeader: radioHeader
     property alias radioList: radioList
+    // Column widths shared by the diff header and DiffRow; Change takes the rest.
+    readonly property var diffColumns: ({ register: 240, before: 190, after: 190 })
 
     Card {
         Layout.preferredWidth: 380
@@ -152,9 +154,9 @@ RowLayout {
                     anchors.leftMargin: Theme.s3
                     anchors.rightMargin: Theme.s3
                     spacing: Theme.s3
-                    Text { text: "Register"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: 240 }
-                    Text { id: beforeHeader; text: "Before"; elide: Text.ElideRight; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: 190 }
-                    Text { id: afterHeader; text: "After"; elide: Text.ElideRight; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: 190 }
+                    Text { text: "Register"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: root.diffColumns.register }
+                    Text { id: beforeHeader; text: "Before"; elide: Text.ElideRight; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: root.diffColumns.before }
+                    Text { id: afterHeader; text: "After"; elide: Text.ElideRight; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: root.diffColumns.after }
                     Text { text: "Change"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.fillWidth: true }
                 }
             }
@@ -171,7 +173,7 @@ RowLayout {
                 Layout.fillHeight: true
                 boundsBehavior: Flickable.StopAtBounds
                 ScrollBar.vertical: AppScrollBar {}
-                delegate: RadioRow {}
+                delegate: RadioRow { widths: radioHeader.widths }
             }
             ListView {
                 id: rowList
@@ -181,7 +183,7 @@ RowLayout {
                 Layout.fillHeight: true
                 boundsBehavior: Flickable.StopAtBounds
                 ScrollBar.vertical: AppScrollBar {}
-                delegate: DiffRow {}
+                delegate: DiffRow { columns: root.diffColumns }
                 EmptyState {
                     id: resultEmpty
                     anchors.centerIn: parent

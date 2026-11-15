@@ -4,14 +4,22 @@ from __future__ import annotations
 
 import itertools
 import time
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from sirat_ui.core.observable import Event
+
+READ, WRITE = "READ", "WRITE"
+
+
+def _target(register: str, field: Optional[str]) -> str:
+    return f"{register}.{field}" if field else register
 
 
 @dataclass
 class HistoryEntry:
+    """One read or write. `value` is the field value for a field write, else the register value;
+    `register_value` is the whole register after a field write."""
     id: int
     ts: float
     operation: str            # READ | WRITE
@@ -22,26 +30,27 @@ class HistoryEntry:
     register_value: Optional[int] = None
 
     def as_op(self) -> Dict[str, Any]:
+        """The entry as an action op (register or field write)."""
         op: Dict[str, Any] = {"register": self.register, "value": self.value}
         if self.field:
             op["field"] = self.field
         return op
 
 
-@dataclass
 class HistoryLog:
-    clock: Callable[[], float] = time.time
-    entries: List[HistoryEntry] = field(default_factory=list)
+    """The operation history: manual reads and all writes, oldest first (in memory; sessions save it)."""
 
-    def __post_init__(self) -> None:
+    def __init__(self, clock: Callable[[], float] = time.time) -> None:
+        self.clock = clock
+        self.entries: List[HistoryEntry] = []
         self.changed = Event()
         self._ids = itertools.count(1)
 
     def record(self, operation: str, register: str, value: int, field_name: Optional[str] = None,
                register_value: Optional[int] = None) -> HistoryEntry:
-        target = f"{register}.{field_name}" if field_name else register
-        entry = HistoryEntry(next(self._ids), self.clock(), operation, target, value, register, field_name,
-                             register_value)
+        """Adds an entry. operation is READ or WRITE."""
+        entry = HistoryEntry(next(self._ids), self.clock(), operation, _target(register, field_name), value, register,
+                             field_name, register_value)
         self.entries.append(entry)
         self.changed.emit()
         return entry
@@ -63,11 +72,11 @@ class HistoryLog:
                 continue
             self.entries.append(HistoryEntry(
                 next(self._ids), float(r.get("ts", self.clock())), str(r.get("operation", "read")).upper(),
-                f"{r['register']}.{r['field']}" if r.get("field") else r["register"], int(r["value"]),
-                r["register"], r.get("field"), r.get("register_value")))
+                _target(r["register"], r.get("field")), int(r["value"]), r["register"], r.get("field"),
+                r.get("register_value")))
         self.changed.emit()
 
-    def by_ids(self, ids) -> List[HistoryEntry]:
+    def by_ids(self, ids: Iterable[Any]) -> List[HistoryEntry]:
         wanted = set(ids)
         return [e for e in self.entries if e.id in wanted]
 

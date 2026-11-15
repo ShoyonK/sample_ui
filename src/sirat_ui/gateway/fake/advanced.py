@@ -47,6 +47,7 @@ CAUSES = ((RpcTimeout, "rpc_timeout"), (RpcTransportError, "rpc_transport"), (Ra
 
 @dataclass
 class ConsoleSession:
+    """One console session: its DUT position and its Python namespace."""
     session_id: str
     position: int
     namespace: Dict[str, Any] = field(default_factory=dict)
@@ -63,7 +64,16 @@ Respond = Callable[..., Call]
 Log = Callable[..., None]
 
 
+def _summary(value: Any) -> str:
+    """The first line of a callable's docstring, for console help."""
+    if not callable(value):
+        return ""
+    return (getattr(value, "__doc__", "") or "").strip().split("\n")[0]
+
+
 class FakeAdvanced:
+    """memory.* and advanced.* behind the fake station: RAM, console sessions, custom functions, DUT control."""
+
     def __init__(self, respond: Respond, log: Log, host: AdvancedHost, peripherals: List[PeripheralDef],
                  seed: int) -> None:
         self._respond = respond
@@ -151,8 +161,7 @@ class FakeAdvanced:
     def console_names(self, session_id: str) -> Call[List[NameInfo]]:
         def run() -> List[NameInfo]:
             namespace = self._session(session_id).namespace
-            return [NameInfo(name, type(value).__name__, ((getattr(value, "__doc__", "") or "").strip()
-                                                          .split("\n")[0] if callable(value) else ""))
+            return [NameInfo(name, type(value).__name__, _summary(value))
                     for name, value in sorted(namespace.items()) if not name.startswith("_")]
         return self._respond("advanced.console.names", None, run, session_id=session_id)
 
@@ -191,10 +200,11 @@ class FakeAdvanced:
         method = dut.method(path)
         if method is None:
             raise ApiError(ErrorCode.NOT_FOUND, f"{path} isn't in the DUT control API")
-        if "dut" in inspect.signature(method).parameters:
+        signature = inspect.signature(method)
+        if "dut" in signature.parameters:
             kwargs = {"dut": dut, **kwargs}
         try:
-            inspect.signature(method).bind(*args, **kwargs)
+            signature.bind(*args, **kwargs)
         except TypeError as exc:
             raise ApiError(ErrorCode.INVALID_PARAMS, f"{path}: {exc}") from None
         try:
@@ -212,6 +222,11 @@ class FakeAdvanced:
         self._run_namespaces[position] = self._namespace(position)
 
     def run_op(self, position: int, kind: str, op: Dict[str, Any]) -> Any:
+        """Runs a custom_function or dut_control_method op inside automation.seq.run.
+
+        Raises:
+            ApiError: HARDWARE_ERROR when the code or the DUT call fails, INVALID_PARAMS for a function with no code.
+        """
         if kind == "dut_control_method":
             return self._invoke(position, str(op.get("method_path")), [], dict(op.get("params") or {}))
         name = str(op.get("function_name"))

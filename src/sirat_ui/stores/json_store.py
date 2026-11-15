@@ -11,16 +11,38 @@ import copy
 import json
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from sirat_ui.stores.schemas import CLEANERS, Cleaner, Problem, Report
+from sirat_ui.stores.schemas.files import BlePacketModel, HardwareConfigModel, SignalGeneratorModel
 
 log = logging.getLogger("SiRAT.stores")
 
 
+def write_json(path: Path, data: Any) -> None:
+    """Writes JSON atomically: to <name>.tmp first, then renamed over the file, so a crash can't half-write it.
+
+    Raises:
+        OSError: The folder or file can't be written. The temporary file is removed first.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    try:
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
 class JsonStore:
+    """One JSON settings file: load() validates it through its cleaner, save() writes it atomically.
+
+    `default` is what a missing or unreadable file loads as; it's deep-copied each time, so callers may change it.
+    """
+
     def __init__(self, path: Path, default: Any, cleaner: Optional[Cleaner] = None) -> None:
         self.path = Path(path)
         self._default = default
@@ -30,6 +52,7 @@ class JsonStore:
         self.on_save_error: Optional[Callable[["JsonStore", OSError], None]] = None
 
     def load(self) -> Any:
+        """The file's contents, cleaned. Skipped entries go to `problems`, and the original is kept as .bak."""
         self.problems = []
         if not self.path.exists():
             return copy.deepcopy(self._default)
@@ -62,10 +85,7 @@ class JsonStore:
     def save(self, data: Any) -> bool:
         """Writes atomically. Returns False if it failed and on_save_error was told; raises if nobody listens."""
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = self.path.with_suffix(self.path.suffix + ".tmp")
-            tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-            os.replace(tmp, self.path)
+            write_json(self.path, data)
         except OSError as exc:
             if self.on_save_error is None:
                 raise
@@ -84,6 +104,7 @@ class JsonStore:
 
 @dataclass
 class UserStores:
+    """Every settings file SiRAT loads at startup. Field names are the code's; by_name() gives the export names."""
     favorites: JsonStore
     actions: JsonStore
     watch_list: JsonStore
@@ -114,23 +135,24 @@ class UserStores:
             formulas=JsonStore(sirat / "field_formulas.json", {}, CLEANERS["field_formulas"]),
             notes=JsonStore(sirat / "field_notes.json", {}, CLEANERS["field_notes"]),
             preferences=JsonStore(sirat / "preferences.json", {}, CLEANERS["preferences"]),
-            hardware_config=JsonStore(sirat / "hardware_config.json",
-                                      {"rpc_host": "localhost", "rpc_port": 10001, "rpc_timeout": 5,
-                                       "dut_position": 1, "rpc_override": False}, CLEANERS["hardware_config"]),
+            # the schema models hold the defaults, so the files and the validation agree on them
+            hardware_config=JsonStore(sirat / "hardware_config.json", HardwareConfigModel().model_dump(mode="json"),
+                                      CLEANERS["hardware_config"]),
             signal_generator=JsonStore(sirat / "signal_generator.json",
-                                       {"sg_type": "PacketSrw", "input_config_name": "BLE_1M", "frequency_mhz": 2440.0,
-                                        "power_dbm": 0.0, "overrides": {}}, CLEANERS["signal_generator"]),
-            ble_packet=JsonStore(sirat / "ble_packet.json",
-                                 {"access_address": "0x8E89BED6", "crc_init": "0x555555", "whitening_init": 37,
-                                  "preamble": "0xAA"}, CLEANERS["ble_packet"]),
+                                       SignalGeneratorModel().model_dump(mode="json"), CLEANERS["signal_generator"]),
+            ble_packet=JsonStore(sirat / "ble_packet.json", BlePacketModel().model_dump(mode="json"),
+                                 CLEANERS["ble_packet"]),
             memory_viewer=JsonStore(sirat / "memory_viewer.json", {"last_address": "0x20000000"},
                                     CLEANERS["memory_viewer"]),
         )
 
     def all(self) -> List[JsonStore]:
-        return [self.favorites, self.actions, self.watch_list, self.data_logger, self.custom_functions,
-                self.sequences, self.formulas, self.notes, self.preferences, self.hardware_config,
-                self.signal_generator, self.ble_packet, self.memory_viewer]
+        return [getattr(self, f.name) for f in fields(self)]
+
+    def by_name(self) -> Dict[str, JsonStore]:
+        """Every store by its settings-export name (the CLEANERS keys); differs from the field name for two."""
+        names = {"formulas": "field_formulas", "notes": "field_notes"}
+        return {names.get(f.name, f.name): getattr(self, f.name) for f in fields(self)}
 
     def problems(self) -> List[Problem]:
         """What the last load of every file skipped."""

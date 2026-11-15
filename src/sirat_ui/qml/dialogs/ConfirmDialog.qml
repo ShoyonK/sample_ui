@@ -14,6 +14,7 @@ ModalDialog {
         header.message: dialog.req.message || ""
         header.tone: dialog.req.tone === "danger" ? "danger" : "warn"
         details.rows: dialog.req.details || []
+        details.emphasisKey: "New value"
         warningBox.visible: !!dialog.req.warning
         warningLabel.text: dialog.req.warning || ""
         dontShowBox.visible: !!dialog.req.allowDontShow

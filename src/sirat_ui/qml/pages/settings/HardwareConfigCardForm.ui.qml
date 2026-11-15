@@ -41,7 +41,7 @@ Card {
             }
             GridLayout {
                 columns: 3
-                columnSpacing: 12
+                columnSpacing: Theme.s3
                 rowSpacing: 6
                 Layout.fillWidth: true
 
@@ -58,10 +58,10 @@ Card {
                 Text { id: timeoutError; text: ""; font.pixelSize: Theme.fontXs; color: Theme.dangerFg; Layout.fillWidth: true }
             }
 
-            Text { text: "DUT"; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold; color: Theme.textPrimary; Layout.topMargin: 4 }
+            Text { text: "DUT"; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold; color: Theme.textPrimary; Layout.topMargin: Theme.s1 }
             GridLayout {
                 columns: 3
-                columnSpacing: 12
+                columnSpacing: Theme.s3
                 Layout.fillWidth: true
                 Text { text: "Position"; font.pixelSize: Theme.fontSm; color: Theme.textMuted; Layout.preferredWidth: 90 }
                 AppTextField { id: positionField; objectName: "hwPositionField"; mono: true; selectOnFocus: true; placeholderText: "1"; Layout.preferredWidth: 150 }
@@ -77,8 +77,8 @@ Card {
             }
 
             RowLayout {
-                spacing: 8
-                Layout.topMargin: 4
+                spacing: Theme.s2
+                Layout.topMargin: Theme.s1
                 AppButton { id: saveButton; objectName: "hwSaveButton"; text: "Save"; iconName: "save"; variant: "primary" }
                 AppButton { id: testButton; objectName: "hwTestButton"; text: "Test connection"; iconName: "plug" }
                 Text {

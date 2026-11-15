@@ -15,7 +15,7 @@ Column {
 
     objectName: "series_" + model.name
     width: ListView.view ? ListView.view.width : 420
-    spacing: 4
+    spacing: Theme.s1
 
     RowLayout {
         width: parent.width

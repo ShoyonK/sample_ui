@@ -7,7 +7,7 @@ Mb/s for b/g/a and MCS indexes for n/ac/ax/be, and bandwidths up to 40 MHz on 2.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import List
 
 from sirat_ui.models.radio import Mode, PacketLayout, Segment, WifiAdvanced, WifiPhyConfig, WifiTxParams
@@ -38,9 +38,11 @@ def is_advanced(standard: str) -> bool:
     return standard in ("802.11ax", "802.11be")
 
 
+_BAND_CHANNELS = {"2g": CHANNELS_2G, "5g": CHANNELS_5G, "both": CHANNELS_2G + CHANNELS_5G}
+
+
 def channels(standard: str) -> List[int]:
-    band = _BANDS[standard]
-    return CHANNELS_2G if band == "2g" else CHANNELS_5G if band == "5g" else CHANNELS_2G + CHANNELS_5G
+    return _BAND_CHANNELS[_BANDS[standard]]
 
 
 def power_modes(standard: str) -> List[str]:
@@ -86,7 +88,7 @@ class WifiSettings:
 
     def normalized(self) -> "WifiSettings":
         """Keeps every choice valid for the current standard and channel (e.g. after changing standard)."""
-        s = WifiSettings(**self.__dict__)
+        s = replace(self)
         if s.channel not in channels(s.standard):
             s.channel = 6 if 6 in channels(s.standard) else channels(s.standard)[0]
         if s.power_mode not in power_modes(s.standard):
@@ -111,9 +113,14 @@ class WifiSettings:
         return out
 
     def config(self) -> WifiPhyConfig:
+        """The config load_wifi_phy gets: tx params only for TX, advanced settings only when enabled."""
         rate = self.rate[3:] if self.rate.startswith("MCS") else self.rate
-        tx = WifiTxParams(self.pkt_length, self.num_pkts, self.transmit_mode, self.aggr_enable)             if self.mode == "TX" else None
-        advanced = WifiAdvanced(self.ppdu_type, self.gi_ltf, self.dcm, self.bandwidth)             if is_advanced(self.standard) and self.advanced_enabled else None
+        tx = None
+        if self.mode == "TX":
+            tx = WifiTxParams(self.pkt_length, self.num_pkts, self.transmit_mode, self.aggr_enable)
+        advanced = None
+        if is_advanced(self.standard) and self.advanced_enabled:
+            advanced = WifiAdvanced(self.ppdu_type, self.gi_ltf, self.dcm, self.bandwidth)
         return WifiPhyConfig(self.mode, self.standard, self.channel, self.power_mode, rate,
                              phy_name(self.standard, self.channel, self.power_mode), tx, advanced)
 
@@ -138,6 +145,7 @@ _PREAMBLES = {
 
 
 def data_rate_mbps(settings: WifiSettings) -> float:
+    """The PHY rate for the airtime estimate: the legacy rate, or the MCS table value (scaled by bandwidth)."""
     if settings.rate in _LEGACY_RATES.get(settings.standard, []):
         return float(settings.rate)
     mcs = int(settings.rate[3:])
@@ -147,6 +155,7 @@ def data_rate_mbps(settings: WifiSettings) -> float:
 
 
 def packet_layout(settings: WifiSettings) -> PacketLayout:
+    """The PPDU's segments with durations, and a one-line caption, for the live packet visualizer."""
     s = settings.normalized()
     preamble = list(_PREAMBLES[s.standard])
     rate = data_rate_mbps(s)

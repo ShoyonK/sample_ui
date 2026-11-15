@@ -16,27 +16,25 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from sirat_ui.core.actions import actions_to_json
+from sirat_ui.core.naming import count
 from sirat_ui.core.observable import Event
-from sirat_ui.stores.schemas import Problem, Report, clean_session
 from sirat_ui.domains.annotations.service import AnnotationService, FavoritesService
-from sirat_ui.domains.dumps.service import DumpService
 from sirat_ui.domains.automation.actions import ActionService
+from sirat_ui.domains.dumps.service import DumpService
 from sirat_ui.domains.history.service import HistoryLog
 from sirat_ui.domains.logs.service import LogService
 from sirat_ui.gateway.scheduler import Handle, Scheduler
-from sirat_ui.core.actions import actions_to_json
+from sirat_ui.stores.json_store import write_json
+from sirat_ui.stores.schemas import Problem, Report, clean_session
 
 AUTOSAVE_MS = 5 * 60 * 1000
 AUTOSAVE_NAME = "autosave"
 
 
-def count(n: int, singular: str, plural: str | None = None) -> str:
-    """'1 note', '2 notes'."""
-    return f"{n} {singular if n == 1 else (plural or singular + 's')}"
-
-
 @dataclass
 class SessionInfo:
+    """A saved session as the browser lists it: name, file, times, and how many of each part it holds."""
     name: str
     path: Path
     created: str
@@ -51,6 +49,10 @@ class SessionInfo:
                            count(c["history"], "history entry", "history entries")]
                           + ([count(c["dumps"], "dump")] if c["dumps"] else []))
 
+    @classmethod
+    def from_data(cls, name: str, path: Path, data: Dict[str, Any]) -> "SessionInfo":
+        return cls(name, path, str(data.get("created", "")), str(data.get("modified", "")), _counts(data))
+
 
 def _counts(data: Dict[str, Any]) -> Dict[str, int]:
     return {key: len(data.get(key) or []) for key in ("dumps", "field_notes", "formulas", "actions",
@@ -63,6 +65,8 @@ def file_name(name: str) -> str:
 
 
 class SessionService:
+    """Named sessions in a folder, plus the auto-save (see the module docstring)."""
+
     def __init__(self, directory: Path, autosave_path: Path, annotations: AnnotationService,
                  favorites: FavoritesService, actions: ActionService, history: HistoryLog, dumps: DumpService,
                  log: LogService, scheduler: Scheduler, clock: Callable[[], dt.datetime] = dt.datetime.now) -> None:
@@ -84,6 +88,7 @@ class SessionService:
     # ---- snapshot ---------------------------------------------------------------------------------
 
     def snapshot(self, name: str, created: Optional[str] = None) -> Dict[str, Any]:
+        """The current state in the session file format; `created` keeps an existing session's creation time."""
         now = self._clock().isoformat(timespec="seconds")
         return {
             "session_name": name,
@@ -117,14 +122,13 @@ class SessionService:
         return self.path_for(name).exists()
 
     def list(self) -> List[SessionInfo]:
+        """The saved sessions, newest first. Files that aren't readable JSON objects are left out."""
         sessions = []
         if self.directory.exists():
             for path in self.directory.glob("*.json"):
                 data = self._read(path)
                 if data is not None:
-                    sessions.append(SessionInfo(str(data.get("session_name") or path.stem), path,
-                                                str(data.get("created", "")), str(data.get("modified", "")),
-                                                _counts(data)))
+                    sessions.append(SessionInfo.from_data(str(data.get("session_name") or path.stem), path, data))
         return sorted(sessions, key=lambda s: s.modified, reverse=True)
 
     def save(self, name: str) -> SessionInfo:
@@ -135,7 +139,7 @@ class SessionService:
         self._write(path, data)
         self._log.info(f"Saved session {name}")
         self.changed.emit()
-        return SessionInfo(name, path, data["created"], data["modified"], _counts(data))
+        return SessionInfo.from_data(name, path, data)
 
     def load(self, name: str) -> SessionInfo:
         """Validates the file (req 34 format), skipping invalid entries into last_problems, then applies it."""
@@ -148,7 +152,7 @@ class SessionService:
             self._log.warning(f"Session {name}: skipped {problem}")
         self.apply(data)
         self._log.info(f"Loaded session {name}")
-        return SessionInfo(name, path, str(data.get("created", "")), str(data.get("modified", "")), _counts(data))
+        return SessionInfo.from_data(name, path, data)
 
     def delete(self, name: str) -> None:
         self.path_for(name).unlink(missing_ok=True)
@@ -188,12 +192,14 @@ class SessionService:
         self._history.restore(data.get("history") or [])
         restored = len(self._history.entries)
         if restored:
-            self._log.info(f"Restored {count(restored, 'history entry', 'history entries')} from the last session's auto-save")
+            entries = count(restored, "history entry", "history entries")
+            self._log.info(f"Restored {entries} from the last session's auto-save")
         return restored
 
     # ---- files ----------------------------------------------------------------------------------------
 
     def _validated(self, path: Path) -> Optional[Dict[str, Any]]:
+        """The session file cleaned (None when it isn't one); what was skipped goes to last_problems."""
         report = Report(Path(path).name)
         raw = self._read(path)
         data = clean_session(raw, report) if raw is not None else None
@@ -208,7 +214,4 @@ class SessionService:
         return data if isinstance(data, dict) else None
 
     def _write(self, path: Path, data: Dict[str, Any]) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        tmp.replace(path)
+        write_json(path, data)

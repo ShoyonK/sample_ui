@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from typing import Protocol
+
 from sirat_ui.core.requires import describe_missing
-from sirat_ui.domains.logs.service import LogService
 from sirat_ui.gateway.errors import ApiError, ErrorCode
 from sirat_ui.models.dialogs import Alert
 from sirat_ui.shared.interactions import InteractionService
@@ -26,12 +27,22 @@ _MESSAGES = {
 }
 
 
+class Log(Protocol):
+    """What the presenter needs from the log (LogService implements it)."""
+
+    def error(self, text: str) -> None: ...
+    def warning(self, text: str) -> None: ...
+
+
 class ErrorPresenter:
-    def __init__(self, interactions: InteractionService, log: LogService) -> None:
+    """Shows API errors to the user: always a log line, and a toast unless the user stopped it themselves."""
+
+    def __init__(self, interactions: InteractionService, log: Log) -> None:
         self._interactions = interactions
         self._log = log
 
     def message_for(self, error: ApiError) -> str:
+        """The user-facing wording for an error (WRONG_STATE lists what's missing, in words)."""
         if error.code == ErrorCode.TIMEOUT and error.data.get("still_running"):
             return ("The station didn't answer in time. The call is still running there; "
                     "the log will say how it ended.")
@@ -42,6 +53,7 @@ class ErrorPresenter:
         return template.format(message=error.message)
 
     def present(self, error: ApiError, context: str = "") -> None:
+        """Logs the error and toasts it, prefixed with `context` ("Write CMU.CTRL: ..."). ABORTED is only logged."""
         prefix = f"{context}: " if context else ""
         self._log.error(prefix + error.message)
         if error.code == ErrorCode.ABORTED:

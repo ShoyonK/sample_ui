@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from sirat_ui.core.ops import describe_op, op_kind
@@ -12,20 +13,23 @@ from sirat_ui.models.station import ActivityFinished, ActivityProgress
 STEP_MS = 450
 
 
+@dataclass
 class FakeActivity:
-    def __init__(self, activity_id: str, position: int, ops: List[Dict[str, Any]], stop_on_error: bool) -> None:
-        self.activity_id = activity_id
-        self.position = position
-        self.ops = ops
-        self.stop_on_error = stop_on_error
-        self.step = 0
-        self.results: List[Dict[str, Any]] = []
-        self.aborted = False
-        self.finished = False
-        self.error: Optional[ApiError] = None
+    """One automation.seq.run: its ops, how far it got, and how it ended."""
+    activity_id: str
+    position: int
+    ops: List[Dict[str, Any]]
+    stop_on_error: bool
+    step: int = 0
+    results: List[Dict[str, Any]] = field(default_factory=list)
+    aborted: bool = False
+    finished: bool = False
+    error: Optional[ApiError] = None
 
 
 class FakeSequencer:
+    """Runs one op per STEP_MS, emitting progress before each and finished at the end (or on error/abort)."""
+
     def __init__(self, scheduler: Scheduler, emit: Callable[[Any], None],
                  execute: Callable[[int, Dict[str, Any]], Any], on_done: Callable[[FakeActivity], None],
                  dut_connected: Callable[[int], bool] = lambda position: True) -> None:

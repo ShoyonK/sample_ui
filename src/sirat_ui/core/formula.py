@@ -39,7 +39,7 @@ _MAX_EXPONENT = 256
 
 
 class FormulaError(ValueError):
-    pass
+    """A formula that can't be parsed or evaluated; the message is shown to the user."""
 
 
 def _parse(expr: str) -> ast.Expression:
@@ -52,6 +52,8 @@ def _parse(expr: str) -> ast.Expression:
 
 
 def _eval(node: ast.AST, x: float) -> Any:
+    # Recursive on purpose: a formula is a tree, and one case per node type reads far better than a loop with its
+    # own stack. Real formulas are a few levels deep; one nested too deep is caught in evaluate() as "too long".
     if isinstance(node, ast.Expression):
         return _eval(node.body, x)
     if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)) and not isinstance(node.value, bool):
@@ -78,12 +80,19 @@ def _eval(node: ast.AST, x: float) -> Any:
 
 
 def evaluate(expr: str, x: float) -> float:
+    """Evaluates a field formula for one raw value.
+
+    Raises:
+        FormulaError: The formula is invalid or fails for this x (division by zero, too large, ...).
+    """
     try:
         return float(_eval(_parse(expr), x))
-    except FormulaError:
+    except FormulaError:   # already user-facing; FormulaError is a ValueError, so it must pass before the next line
         raise
     except (ArithmeticError, ValueError, TypeError) as exc:
         raise FormulaError(f"Couldn't evaluate: {exc}") from None
+    except (RecursionError, MemoryError):   # nested past what the parser or _eval can walk, e.g. x+x+... 1000 times
+        raise FormulaError("That formula is too long") from None
 
 
 def validate(expr: str) -> Optional[str]:

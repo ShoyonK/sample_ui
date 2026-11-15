@@ -9,8 +9,9 @@ from typing import List, Optional
 
 from sirat_ui.core.instruments import siggen_action_name, siggen_op
 from sirat_ui.core.observable import Event
+from sirat_ui.core.ops import DEFAULT_SIGGEN
 from sirat_ui.domains.automation.recorder import ActionRecorder
-from sirat_ui.domains.instruments.bench import InstrumentBench
+from sirat_ui.domains.instruments.bench import InstrumentBench, InstrumentService
 from sirat_ui.domains.logs.service import LogService
 from sirat_ui.gateway.call import Call
 from sirat_ui.gateway.port import InstrumentsPort
@@ -21,24 +22,28 @@ from sirat_ui.shared.error_presenter import ErrorPresenter
 from sirat_ui.state.station import StationState
 from sirat_ui.stores.json_store import JsonStore
 
-KIND = "signal_generator"
 
 
 def to_config(s: SiggenSettings) -> SiggenConfig:
+    """The GUI's settings (MHz) as the wire's config (Hz)."""
     return SiggenConfig(s.sg_type, s.input_config_name, s.frequency_mhz * 1e6, s.power_dbm, dict(s.overrides))
 
 
 def from_config(c: SiggenConfig) -> SiggenSettings:
+    """The wire's config (Hz) as the GUI's settings (MHz)."""
     return SiggenSettings(c.sg_type, c.input_config_name, round(c.frequency_hz / 1e6, 6), c.power_dbm,
                           dict(c.overrides))
 
 
-class SignalGeneratorService:
+class SignalGeneratorService(InstrumentService):
+    """The signal generator: settings (persisted), apply, triggers, RF, waveforms, Add to Actions."""
+
+    KIND = "signal_generator"
+
     def __init__(self, gateway: InstrumentsPort, state: StationState, bench: InstrumentBench, store: JsonStore,
                  actions: ActionRecorder, errors: ErrorPresenter, log: LogService) -> None:
+        super().__init__(state, bench)
         self._gateway = gateway
-        self._state = state
-        self._bench = bench
         self._store = store
         self._actions = actions
         self._errors = errors
@@ -48,26 +53,13 @@ class SignalGeneratorService:
         self.rf_on: Optional[bool] = None       # unknown until the GUI switches it
         self.trigger_mode = ""
         self.changed = Event()
-        self._was_connected = False
-        state.changed.connect(self._on_state)
-        self._on_state()
+        self._watch_connection()
 
-    @property
-    def instrument_id(self) -> str:
-        return self._bench.instrument_id(KIND)
-
-    def can(self, method: str) -> bool:
-        return bool(self.instrument_id) and self._state.can(method, self.instrument_id)
-
-    def _on_state(self, *_: object) -> None:
-        found = self._bench.instrument(KIND)
-        connected = bool(found and found.connected)
-        if connected and not self._was_connected:
-            self._was_connected = True
+    def _connection_changed(self, connected: bool, was_connected: bool) -> None:
+        if connected and not was_connected:
             self.load_waveforms()
-        elif not connected and self._was_connected:
-            self._was_connected = False
-            self.rf_on, self.trigger_mode = None, ""
+        elif not connected and was_connected:
+            self.rf_on, self.trigger_mode = None, ""   # unknown again until the GUI sets them
             self.changed.emit()
 
     def reload(self) -> None:
@@ -129,6 +121,6 @@ class SignalGeneratorService:
 
     def add_action(self, settings: SiggenSettings) -> Action:
         self.remember(settings)
-        instrument_id = self.instrument_id or "siggen1"
+        instrument_id = self.instrument_id or DEFAULT_SIGGEN
         # Unchecked, like the seeded siggen action: Run checked shouldn't start the generator unless asked to.
         return self._actions.add(siggen_action_name(settings), [siggen_op(settings, instrument_id)], enabled=False)

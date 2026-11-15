@@ -15,6 +15,7 @@ from typing import Callable, Dict, List, Optional
 
 from sirat_ui.core.observable import Event
 from sirat_ui.domains.annotations.service import AnnotationService
+from sirat_ui.domains.monitoring.saved_list import SavedList
 from sirat_ui.domains.monitoring.subscription import WATCH_MAX_S, WATCH_MIN_S, WatchSubscription
 from sirat_ui.domains.registers.catalog import RegisterCatalog
 from sirat_ui.gateway.call import Call
@@ -35,6 +36,7 @@ MAX_POINTS = 5000  # per series, so long runs don't grow without bound
 
 @dataclass
 class Series:
+    """One logged field: its samples, times since the start and values (calculated when it has a formula)."""
     name: str
     register: RegisterDef
     field: Optional[FieldDef]
@@ -53,12 +55,13 @@ def uses_watch(rate_s: float) -> bool:
 
 
 class DataLoggerService:
+    """The data logger (see the module docstring). Tracked names persist; samples don't."""
+
     def __init__(self, gateway: RegistersPort, state: StationState, catalog: RegisterCatalog,
                  annotations: AnnotationService, store: JsonStore, errors: ErrorPresenter,
                  scheduler: Scheduler, clock: Callable[[], float] = time.time) -> None:
         self._gateway = gateway
         self._state = state
-        self._catalog = catalog
         self._annotations = annotations
         self._store = store
         self._errors = errors
@@ -66,13 +69,12 @@ class DataLoggerService:
         self._clock = clock
         self._sub = WatchSubscription(gateway, state, errors)
         self._poll: Optional[Handle] = None
-        self.saved_names, rate = read_data_logger(store.load())
+        names, rate = read_data_logger(store.load())
         self.rate_s = clamp_rate(rate)
-        self.series: List[Series] = []
+        self._list: SavedList[Series] = SavedList(catalog, names, self._make_series)
         self.sample_count = 0
         self.t0: Optional[float] = None
         self.last_ts: Optional[float] = None
-        self._resolved = False
         self.updated = Event()
         gateway.events.connect(self._on_event)
         catalog.loaded.connect(self._resolve_saved)
@@ -80,14 +82,21 @@ class DataLoggerService:
 
     def reload(self) -> None:
         self._stop_sources()
-        self.saved_names, rate = read_data_logger(self._store.load())
+        names, rate = read_data_logger(self._store.load())
         self.rate_s = clamp_rate(rate)
-        self.series = []
-        self._resolved = False
+        self._list.reset(names)
         self._resolve_saved()
         self.updated.emit()
 
     # ---- state ---------------------------------------------------------------------------------
+
+    @property
+    def series(self) -> List[Series]:
+        return self._list.items
+
+    @property
+    def saved_names(self) -> List[str]:
+        return self._list.names
 
     @property
     def recording(self) -> bool:
@@ -104,27 +113,17 @@ class DataLoggerService:
     # ---- fields ----------------------------------------------------------------------------------
 
     def _resolve_saved(self) -> None:
-        if not self._catalog.peripherals:
-            return  # catalog cleared on disconnect: keep the list as it is
-        names = [s.name for s in self.series] if self._resolved else self.saved_names
-        self._resolved = True
-        self.series = []
-        for name in names:
-            self._add(name)
-        self.updated.emit()
+        if self._list.resolve():
+            self.updated.emit()
 
-    def _add(self, full_name: str) -> bool:
-        if any(s.name == full_name for s in self.series):
-            return False
-        reg, fdef = self._catalog.resolve(full_name)
-        if reg is None:
-            return False
+    def _make_series(self, full_name: str, reg: RegisterDef, fdef: Optional[FieldDef]) -> Series:
+        """A new series, with the unit of the field's formula when it has one."""
         entry = self._annotations.formula(full_name)
-        self.series.append(Series(full_name, reg, fdef, unit=entry[1] if entry else ""))
-        return True
+        return Series(full_name, reg, fdef, unit=entry[1] if entry else "")
 
     def track(self, full_name: str) -> bool:
-        added = self._add(full_name)
+        """Starts logging a field or register. Returns False when it's already logged or unknown."""
+        added = self._list.add(full_name)
         if added:
             self._save()
             if self.recording:
@@ -132,7 +131,7 @@ class DataLoggerService:
         return added
 
     def untrack(self, full_name: str) -> None:
-        self.series = [s for s in self.series if s.name != full_name]
+        self._list.remove(full_name)
         self._save()
         if self.recording:
             self.start() if self.series else self.stop()
@@ -146,6 +145,7 @@ class DataLoggerService:
             self.start()
 
     def start(self, rate_s: Optional[float] = None) -> Call:
+        """Starts (or restarts) recording, over a watch or by polling depending on the rate."""
         if rate_s is not None:
             self.rate_s = clamp_rate(rate_s)
             self._save()
@@ -225,6 +225,7 @@ class DataLoggerService:
     # ---- files -----------------------------------------------------------------------------------
 
     def export_csv(self, path: Path) -> Path:
+        """Writes every sample as field, sample, t_s, value, unit. Raises OSError when it can't be written."""
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", newline="", encoding="utf-8") as handle:
             writer = csv.writer(handle)
@@ -235,8 +236,5 @@ class DataLoggerService:
         return path
 
     def _save(self) -> None:
-        # before the catalog loads, the saved names can't be resolved yet, so keep them as they are
-        names = [s.name for s in self.series] if self._resolved else self.saved_names
-        self.saved_names = names
-        self._store.save(write_data_logger(names, self.rate_s))
+        self._store.save(write_data_logger(self._list.names, self.rate_s))
         self.updated.emit()

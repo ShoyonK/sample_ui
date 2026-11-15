@@ -4,13 +4,14 @@ with sorting for the radio table and Save report."""
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Sequence, Union
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
-from sirat_ui.core.radio_config import RadioComparison, STATUS_TEXT, value_text
+from sirat_ui.core.radio_config import (ERROR, MATCH, MISMATCH, STATUS_LABEL, FieldResult, RadioComparison,
+                                        value_text)
 from sirat_ui.models.dumps import Comparison
-from sirat_ui.shared.interactions import InteractionService
+from sirat_ui.shared.interactions import InteractionService, save_text
 from sirat_ui.shared.qt import pyqtProperty
 from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
 
@@ -25,6 +26,8 @@ RADIO_HELP = (
 
 
 class ComparisonViewModel(BaseViewModel):
+    """The comparison card: either a register comparison or a Radio Calculator diff (sortable), and Save report."""
+
     changed = pyqtSignal()
 
     def __init__(self, reports_dir: Path, interactions: InteractionService, parent: Optional[QObject] = None) -> None:
@@ -84,15 +87,15 @@ class ComparisonViewModel(BaseViewModel):
         self._rows.set_items([])
         self._update(result_kind="radio", result_title=f"Radio Calculator: {result.config_name}",
                      result_summary=result.summary, sort_column="", sort_descending=False,
-                     match_count=result.counts["match"], mismatch_count=result.counts["mismatch"],
-                     error_count=result.counts["error"])
+                     match_count=result.counts[MATCH], mismatch_count=result.counts[MISMATCH],
+                     error_count=result.counts[ERROR])
         self._fill_radio_rows(result.results)
 
-    def _fill_radio_rows(self, results) -> None:
+    def _fill_radio_rows(self, results: Sequence[FieldResult]) -> None:
         self._radio_rows.set_items([
             {"peripheral": r.entry.peripheral, "register": r.entry.register, "field": r.entry.field,
              "expected": value_text(r.entry.expected), "actual": r.actual_text, "status": r.status,
-             "statusText": STATUS_TEXT[r.status].split(" ", 1)[1]} for r in results])  # the icon shows the mark
+             "statusText": STATUS_LABEL[r.status]} for r in results])  # the row's icon shows the mark
 
     @pyqtSlot(str)
     def sortBy(self, column: str) -> None:  # noqa: N802
@@ -117,14 +120,5 @@ class ComparisonViewModel(BaseViewModel):
             return
         title = result.title if isinstance(result, Comparison) else f"radio_{Path(result.config_name).stem}"
         suggested = str(self._reports_dir / f"comparison_{title.replace(' ', '_')}.csv")
-
-        def chosen(path: Optional[str]) -> None:
-            if not path:
-                return
-            try:
-                Path(path).write_text(result.report_csv(), encoding="utf-8-sig")  # BOM: Excel shows ✓ ⚠ ❌
-                self._interactions.toast("success", f"Saved report to {path}")
-            except OSError as exc:
-                self._interactions.toast("error", f"Couldn't save the report: {exc}")
-
-        self._interactions.choose_save_file("Save comparison report", suggested, "CSV files (*.csv)").then(chosen)
+        save_text(self._interactions, "Save comparison report", suggested, "CSV files (*.csv)", result.report_csv,
+                  lambda path: f"Saved report to {path}", encoding="utf-8-sig")   # BOM: Excel shows ✓ ⚠ ❌

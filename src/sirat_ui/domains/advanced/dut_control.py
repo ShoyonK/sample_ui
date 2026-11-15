@@ -20,6 +20,8 @@ from sirat_ui.state.station import StationState
 
 
 class DutControlService:
+    """The DUT control API explorer: the method tree per connected position, invoking, and Add to Actions."""
+
     def __init__(self, gateway: AdvancedPort, state: StationState, actions: ActionRecorder,
                  errors: ErrorPresenter) -> None:
         self._gateway = gateway
@@ -41,6 +43,7 @@ class DutControlService:
             self.changed.emit()
 
     def load(self, force: bool = False) -> None:
+        """Fetches the tree once per connected position. A failed load waits for Reload (force=True)."""
         if self.loading or not self._state.connected:
             return
         if not force and (self.tree is not None or self.load_error):   # a failed load waits for Reload
@@ -61,14 +64,12 @@ class DutControlService:
         self._gateway.dut_control_describe(position).then(done, failed)
 
     def method(self, path: str) -> Optional[ApiMethod]:
-        for package in (self.tree.packages if self.tree else ()):
-            for module in package.modules:
-                for method in module.methods:
-                    if method.path == path:
-                        return method
-        return None
+        packages = self.tree.packages if self.tree else ()
+        methods = (m for package in packages for module in package.modules for m in module.methods)
+        return next((m for m in methods if m.path == path), None)
 
     def invoke(self, path: str, kwargs: Dict[str, Any]) -> None:
+        """Calls the method on the selected DUT and writes the call and its result (or advice) to the output."""
         if self.running:
             return
         self.running = path
@@ -83,17 +84,22 @@ class DutControlService:
         def failed(error: ApiError) -> None:
             self.running = ""
             self.changed.emit()
-            hardware = error.code == ErrorCode.HARDWARE_ERROR    # the DUT's own exception says more here
-            self.output.line("error", f"✗ {error.message if hardware else self._errors.message_for(error)}")
-            if hardware:
-                hint = hint_for(str(error.data.get("cause", "")))
-                if hint:
-                    self.output.line("hint", hint)
-                trace = str(error.data.get("traceback") or "")
-                if "\n" in trace:          # a one-line traceback only repeats the error
-                    self.output.line("note", trace)
+            self._report_failure(error)
 
         self._gateway.dut_control_invoke(self._state.position, path, [], kwargs).then(done, failed)
+
+    def _report_failure(self, error: ApiError) -> None:
+        """The error, plus for a DUT exception a hint for its cause and the traceback."""
+        hardware = error.code == ErrorCode.HARDWARE_ERROR    # the DUT's own exception says more here
+        self.output.line("error", f"✗ {error.message if hardware else self._errors.message_for(error)}")
+        if not hardware:
+            return
+        hint = hint_for(str(error.data.get("cause", "")))
+        if hint:
+            self.output.line("hint", hint)
+        trace = str(error.data.get("traceback") or "")
+        if "\n" in trace:          # a one-line traceback only repeats the error
+            self.output.line("note", trace)
 
     def add_to_actions(self, path: str, kwargs: Dict[str, Any]) -> Action:
         return self._actions.add(action_name(path), [method_op(path, kwargs)])

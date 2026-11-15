@@ -28,7 +28,7 @@ from sirat_ui.state.station import StationState
 from sirat_ui.stores.formats import SequenceRecord, read_sequences, write_sequences
 from sirat_ui.stores.json_store import JsonStore
 
-RUNNABLE = "pending"
+PENDING = "pending"
 
 
 @dataclass
@@ -37,7 +37,7 @@ class Step:
     title: str                # action name
     kind: str                 # main operation kind, for the colored chip
     detail: str               # "4 ops · load_phy, rf_switch", or why it's skipped
-    state: str = RUNNABLE     # pending | running | done | failed | skipped | missing
+    state: str = PENDING      # pending | running | done | failed | skipped | missing
     first_op: int = -1        # index of this action's first operation in the batch
     op_count: int = 0
     started: Optional[float] = None
@@ -53,6 +53,7 @@ class Step:
 
 @dataclass
 class SequenceRun:
+    """The current or last run of a sequence, as the page shows it."""
     name: str
     steps: List[Step] = field(default_factory=list)
     activity_id: Optional[str] = None
@@ -62,6 +63,12 @@ class SequenceRun:
 
 
 class SequenceService:
+    """Sequences (~/.sirat_sequences.json) and running them.
+
+    `sequences` (name -> action names) is what the UI edits; `_records` keeps each sequence's description too, so
+    a save writes descriptions back unchanged.
+    """
+
     def __init__(self, store: JsonStore, actions: ActionService, gateway: AutomationPort, state: StationState,
                  activities: ActivityTracker, errors: ErrorPresenter, log: LogService,
                  clock: Callable[[], float] = time.time) -> None:
@@ -73,10 +80,9 @@ class SequenceService:
         self._errors = errors
         self._log = log
         self._clock = clock
-        self._records = read_sequences(store.load())
-        # name -> action names; descriptions are kept in _records and written back untouched
-        self.sequences: "OrderedDict[str, List[str]]" = OrderedDict(
-            (name, record.action_names) for name, record in self._records.items())
+        self._records: OrderedDict[str, SequenceRecord] = OrderedDict()
+        self.sequences: OrderedDict[str, List[str]] = OrderedDict()
+        self._load()
         self.last_run: Dict[str, float] = {}
         self.current: Optional[SequenceRun] = None
         self.changed = Event()
@@ -85,9 +91,12 @@ class SequenceService:
 
     # ---- editing ---------------------------------------------------------------------------------
 
-    def reload(self) -> None:
+    def _load(self) -> None:
         self._records = read_sequences(self._store.load())
         self.sequences = OrderedDict((name, record.action_names) for name, record in self._records.items())
+
+    def reload(self) -> None:
+        self._load()
         self.changed.emit()
 
     def description(self, name: str) -> str:
@@ -101,6 +110,11 @@ class SequenceService:
         return candidate
 
     def rename(self, old: str, new: str) -> str:
+        """Renames a sequence and returns the name it has now (old when nothing changed).
+
+        Raises:
+            ValueError: Another sequence already has the new name.
+        """
         new = new.strip()
         if old not in self.sequences or not new or new == old:
             return old
@@ -166,6 +180,7 @@ class SequenceService:
         return self.plan(name)[0]
 
     def run(self, name: str) -> Call:
+        """Runs the sequence's enabled actions as one batch. Refused (BUSY) while a sequence runs."""
         if self.current is not None and self.current.running:   # e.g. Run double-clicked
             return Call.failed(ApiError(ErrorCode.BUSY, f"Sequence {self.current.name} is already running"))
         try:

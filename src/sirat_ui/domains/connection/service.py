@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Protocol, Tuple
+from typing import Any, Dict, Optional, Protocol, Tuple
 
 from sirat_ui.domains.logs.service import LogService
 from sirat_ui.domains.registers.catalog import RegisterCatalog
 from sirat_ui.gateway.call import Call
-from sirat_ui.gateway.errors import ApiError
-from sirat_ui.gateway.errors import ErrorCode
+from sirat_ui.gateway.errors import ApiError, ErrorCode
 from sirat_ui.gateway.port import DutPort, SystemPort
 from sirat_ui.models.station import (ConnectResult, DutDisconnected, LoadPhyResult, LpwPhy, PhySpec, RpcAddress,
                                      StatusChanged)
@@ -21,6 +20,9 @@ class ConnectionGateway(SystemPort, DutPort, Protocol):
 
 
 class ConnectionService:
+    """The station handshake and the DUT connection: connect, reconnect, recover, disconnect, load a PHY, and the
+    status and disconnect events that keep StationState current."""
+
     def __init__(self, gateway: ConnectionGateway, state: StationState, catalog: RegisterCatalog,
                  errors: ErrorPresenter, log: LogService) -> None:
         self._gateway = gateway
@@ -34,10 +36,10 @@ class ConnectionService:
     def start(self) -> Call:
         """sys.hello + subscribe + status, as the client does on (re)connect to the service."""
         self._gateway.hello().then(self._on_hello)
-        self._gateway.subscribe(["status", "activity", "watch", "instrument", "log"])
+        self._gateway.subscribe(["status", "activity", "watch", "log"])
         return self.refresh_status()
 
-    def _on_hello(self, hello: dict) -> None:
+    def _on_hello(self, hello: Dict[str, Any]) -> None:
         self._state.release_id = hello.get("release_id", self._state.release_id)
         self._state.protocol = hello.get("protocol")
         self._state.changed.emit()
@@ -47,8 +49,15 @@ class ConnectionService:
 
     def connect(self, position: int, config_type: str = "EFR32", config_file: str = "",
                 rpc: Optional[RpcAddress] = None) -> Call:
-        """rpc overrides the workspace config's address for this connection only; None uses it."""
-        out: Call = Call()
+        """Connects the DUT, then loads its register tree. Resolves once both are done.
+
+        Args:
+            position: The DUT position (1-4).
+            config_type: EFR32 or EFX.
+            config_file: The bench config file, or "" for the station default.
+            rpc: Overrides the workspace config's address for this connection only; None uses it.
+        """
+        out: Call[ConnectResult] = Call()
         self._state.set_connecting(True)
         where = f" at {rpc.host}:{rpc.port}" if rpc else ""
         self._log.info(f"Connecting to DUT {position} ({config_type}){where}…")
@@ -76,7 +85,7 @@ class ConnectionService:
     def reconnect(self, position: int) -> Call:
         """Req 3 recovery: RPC only (dut.reconnect), so the bench setup isn't redone. A position the service has
         never connected falls back to a full connect with the last settings."""
-        out: Call = Call()
+        out: Call[None] = Call()
         self._log.info(f"Reconnecting RPC to DUT {position}…")
 
         def done(_: None) -> None:
@@ -86,7 +95,7 @@ class ConnectionService:
         def failed(error: ApiError) -> None:
             if error.code == ErrorCode.NOT_FOUND:
                 config_type, config_file, rpc = self._last_config.get(position, ("EFR32", "", None))
-                self.connect(position, config_type, config_file, rpc).then(out.resolve, out.reject)
+                self.connect(position, config_type, config_file, rpc).then(lambda _: out.resolve(None), out.reject)
                 return
             self._errors.present(error, f"Reconnect DUT {position}")
             out.reject(error)
@@ -107,6 +116,7 @@ class ConnectionService:
         return self._gateway.recover(position).then(done, lambda e: self._errors.present(e, f"Recover DUT {position}"))
 
     def disconnect(self, position: int) -> Call:
+        """Disconnects the DUT; its chip and the register catalog are cleared."""
         def done(_: object) -> None:
             self._state.set_chip(position, None)
             self._catalog.clear()
@@ -115,6 +125,7 @@ class ConnectionService:
         return self._gateway.disconnect_dut(position).then(done, lambda e: self._errors.present(e, "Disconnect"))
 
     def load_phy(self, position: int, phy: PhySpec) -> Call[LoadPhyResult]:
+        """Loads an LPW or WiFi PHY; success is logged and failure presented."""
         label = phy.name if isinstance(phy, LpwPhy) else phy.config.phy_name
         return self._gateway.load_phy(position, phy).then(
             lambda result: self._log.success(f"PHY {result.name} loaded on DUT {position}"),

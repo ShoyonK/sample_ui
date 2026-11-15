@@ -9,7 +9,7 @@ MenuItem {
 
     implicitHeight: visible ? 30 : 0
     contentItem: RowLayout {
-        spacing: 8
+        spacing: Theme.s2
         Icon { name: item.iconName; size: 13; visible: item.iconName !== ""; color: Theme.textMuted }
         Text {
             text: item.text

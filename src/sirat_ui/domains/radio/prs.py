@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 from sirat_ui.core.observable import Event
 from sirat_ui.core.prs import channel_problem, DISABLE, FALLBACK_SIGNALS, fallback_signals, removal_ops
 from sirat_ui.domains.automation.recorder import ActionRecorder
-from sirat_ui.domains.history.service import HistoryLog
+from sirat_ui.domains.history.service import WRITE, HistoryLog
 from sirat_ui.domains.logs.service import LogService
 from sirat_ui.gateway.call import Call
 from sirat_ui.gateway.errors import ApiError
@@ -31,6 +31,8 @@ def prs_op(route: PrsRoute) -> Dict[str, Any]:
 
 
 class PrsService:
+    """PRS routing on the selected DUT: the family's signals, the active routes, apply and remove."""
+
     def __init__(self, gateway: RfPort, state: StationState, history: HistoryLog, actions: ActionRecorder,
                  errors: ErrorPresenter, log: LogService) -> None:
         self._gateway = gateway
@@ -89,9 +91,10 @@ class PrsService:
             done, lambda e: self._errors.present(e, "PRS route"))
 
     def remove(self, route: PrsRoute) -> Call[None]:
+        """Disables the route; the register writes that stands for are recorded in History (req 24)."""
         def done(_: None) -> None:
             for register, field_name, value in removal_ops(route.pin, route.channel):
-                self._history.record("WRITE", register, value, field_name=field_name)
+                self._history.record(WRITE, register, value, field_name=field_name)
             self.routes = [r for r in self.routes if r != route]
             self._log.info(f"Removed PRS route {route.signal} from {route.pin} (channel {route.channel})")
             self.changed.emit()

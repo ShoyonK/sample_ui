@@ -13,6 +13,8 @@ from sirat_ui.state.preferences import PreferencesState
 
 
 class RegisterCatalog:
+    """The connected DUT's peripheral tree, with lookups by name. `loaded` fires whenever it's replaced."""
+
     def __init__(self, gateway: RegistersPort, prefs: PreferencesState) -> None:
         self._gateway = gateway
         self._prefs = prefs
@@ -21,7 +23,7 @@ class RegisterCatalog:
         self._by_peripheral: Dict[str, PeripheralDef] = {}
         self.loaded = Event()
 
-    def load(self, position: int) -> Call:
+    def load(self, position: int) -> Call[List[PeripheralDef]]:
         return self._gateway.register_tree(position).map(self._set)
 
     def _set(self, peripherals: List[PeripheralDef]) -> List[PeripheralDef]:
@@ -47,9 +49,9 @@ class RegisterCatalog:
             return reg, None
         reg_name, _, field_name = full_name.rpartition(".")
         reg = self._registers.get(reg_name)
-        if reg and reg.field(field_name):
-            return reg, reg.field(field_name)
-        return None, None
+        field = reg.field(field_name) if reg else None
+        return (reg, field) if field else (None, None)
 
     def search(self, text: str) -> SearchResult:
+        """The tree filter (core/search.py) with the current "show _NS/_S" preference."""
         return search_mod.search(self.peripherals, text, self._prefs.value.show_secure_peripherals)

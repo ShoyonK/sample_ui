@@ -32,6 +32,8 @@ Card {
     property alias saveButton: saveButton
     property alias measureList: measureList
     property alias analysis: analysis
+    // Column widths shared by the measurements header and MeasurementRow; Range takes the rest.
+    readonly property var measureColumns: ({ channel: 90, mean: 80, edges: 90, frequency: 90, highTime: 90, firstRise: 90 })
 
     ColumnLayout {
         anchors.fill: parent
@@ -48,7 +50,7 @@ Card {
                 Layout.alignment: Qt.AlignTop
                 Layout.preferredWidth: 300
                 Layout.maximumWidth: 300
-                spacing: 8
+                spacing: Theme.s2
 
                 InstrumentStatus { id: status; prefix: "eca"; Layout.fillWidth: true }
 
@@ -78,7 +80,7 @@ Card {
                 Text { id: samplesLabel; objectName: "ecaSamples"; text: ""; font.pixelSize: Theme.fontXs; color: Theme.textMuted }
                 Text { id: errorLabel; objectName: "ecaErrors"; text: ""; visible: text !== ""; font.pixelSize: Theme.fontXs; color: Theme.dangerFg; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                 RowLayout {
-                    spacing: 8
+                    spacing: Theme.s2
                     AppButton { id: captureButton; objectName: "ecaCaptureButton"; text: "Start capture"; iconName: "play"; variant: "run" }
                     AppButton { id: stopButton; objectName: "ecaStopButton"; text: "Stop"; iconName: "stop"; variant: "danger" }
                 }
@@ -89,7 +91,7 @@ Card {
             ColumnLayout {
                 Layout.alignment: Qt.AlignTop
                 Layout.fillWidth: true
-                spacing: 8
+                spacing: Theme.s2
 
                 EmptyState {
                     id: plotsEmpty
@@ -104,10 +106,10 @@ Card {
 
                 ColumnLayout {
                     id: analysis
-                    spacing: 8
+                    spacing: Theme.s2
                     Layout.fillWidth: true
                     RowLayout {
-                        spacing: 8
+                        spacing: Theme.s2
                         Layout.fillWidth: true
                         Text { text: "Marker A (ms)"; font.pixelSize: Theme.fontSm; color: Theme.textMuted }
                         AppTextField { id: markerAField; objectName: "ecaMarkerAField"; mono: true; selectOnFocus: true; placeholderText: "—"; Layout.preferredWidth: 80 }
@@ -128,13 +130,13 @@ Card {
                             anchors.leftMargin: Theme.s3
                             anchors.rightMargin: Theme.s3
                             spacing: Theme.s3
-                            Text { text: "Channel"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: 90 }
+                            Text { text: "Channel"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: root.measureColumns.channel }
                             Text { text: "Range"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.fillWidth: true }
-                            Text { text: "Mean"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: 80 }
-                            Text { text: "Rising edges"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: 90 }
-                            Text { text: "Frequency"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: 90 }
-                            Text { text: "High time"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: 90 }
-                            Text { text: "First rise"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: 90 }
+                            Text { text: "Mean"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: root.measureColumns.mean }
+                            Text { text: "Rising edges"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: root.measureColumns.edges }
+                            Text { text: "Frequency"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: root.measureColumns.frequency }
+                            Text { text: "High time"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: root.measureColumns.highTime }
+                            Text { text: "First rise"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: root.measureColumns.firstRise }
                         }
                     }
                     ListView {

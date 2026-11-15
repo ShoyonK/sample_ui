@@ -26,6 +26,8 @@ class _TimerHandle(Handle):
 
 
 class QtScheduler:
+    """The app's Scheduler. every() keeps its QTimers referenced, or PyQt would garbage-collect (and stop) them."""
+
     def __init__(self) -> None:
         self._timers: List[QTimer] = []
 

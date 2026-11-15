@@ -35,6 +35,8 @@ class OutputModel(DictListModel):
 
 
 class AdvancedViewModel(BaseViewModel):
+    """The Advanced page's tab bar (Console, Custom functions, DUT control, Memory)."""
+
     changed = pyqtSignal()
 
     def __init__(self, parent: Optional[QObject] = None) -> None:
@@ -53,7 +55,5 @@ class AdvancedViewModel(BaseViewModel):
             self._update(tab=index)
 
     def show(self, name: str) -> None:
+        """Switches to the tab with that title. Raises ValueError for an unknown title (callers pass TABS entries)."""
         self.setTab(TABS.index(name))
-
-
-__all__: List[str] = ["AdvancedViewModel", "OutputModel", "TABS"]

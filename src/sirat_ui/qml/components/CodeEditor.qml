@@ -86,7 +86,7 @@ Rectangle {
             font.pixelSize: Theme.fontMd
             color: Theme.textPrimary
             selectionColor: Theme.infoFg
-            selectedTextColor: "#FFFFFF"
+            selectedTextColor: Theme.selectedText
             placeholderText: root.placeholder
             placeholderTextColor: Theme.textMuted
             background: null
@@ -113,8 +113,8 @@ Rectangle {
         visible: root.shortcutHint !== ""
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.rightMargin: 16
-        anchors.bottomMargin: 12
+        anchors.rightMargin: Theme.s4
+        anchors.bottomMargin: Theme.s3
         width: hintRow.implicitWidth + 12
         height: hintRow.implicitHeight + 8
         radius: Theme.radiusSm
@@ -124,7 +124,7 @@ Rectangle {
         Row {
             id: hintRow
             anchors.centerIn: parent
-            spacing: 4
+            spacing: Theme.s1
             Repeater {
                 model: ["Ctrl", "Enter"]
                 delegate: Rectangle {

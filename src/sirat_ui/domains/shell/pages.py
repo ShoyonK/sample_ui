@@ -10,7 +10,7 @@ from typing import Any, Dict, List
 
 from sirat_ui.domains.shell.tools import page_parts
 
-PAGES: List[Dict[str, Any]] = [
+_PAGES: List[Dict[str, Any]] = [
     {"key": "registers", "title": "Registers", "label": "Registers", "icon": "cpu", "ready": True,
      "source": "../pages/registers/RegistersPage.qml"},
     {"key": "watch", "title": "Watch and logger", "label": "Watch", "icon": "pulse", "ready": True,
@@ -33,9 +33,10 @@ PAGES: List[Dict[str, Any]] = [
      "source": "../pages/settings/SettingsPage.qml"},
 ]
 
-for _page in PAGES:
-    _page["parts"] = page_parts(_page["key"])   # the nav rail's right-click menu lists them
+# "parts": the nav rail's right-click menu lists them
+PAGES: List[Dict[str, Any]] = [{**page, "parts": page_parts(page["key"])} for page in _PAGES]
 
 
 def page_source(key: str) -> str:
+    """The page's QML file, relative to qml/shell/, or "" for an unknown key."""
     return next((p["source"] for p in PAGES if p["key"] == key), "")

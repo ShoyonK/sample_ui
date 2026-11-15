@@ -11,6 +11,9 @@ Selection = Union[RegisterDef, PeripheralDef, None]
 
 
 class SelectionState:
+    """The open register or peripheral. `changed` carries by_user, so a click can auto-read while a selection made
+    by code (search, a script) doesn't."""
+
     def __init__(self) -> None:
         self.current: Selection = None
         self.changed = Event()   # (selection, by_user: bool)

@@ -19,6 +19,7 @@ Hook = Callable[[Type[BaseException], BaseException, Optional[TracebackType]], N
 
 
 def make_hook(log: LogService, interactions: InteractionService) -> Hook:
+    """An excepthook that logs the error and toasts it instead of letting PyQt abort."""
     def hook(exc_type: Type[BaseException], exc: BaseException, tb: Optional[TracebackType]) -> None:
         if issubclass(exc_type, KeyboardInterrupt):
             sys.__excepthook__(exc_type, exc, tb)

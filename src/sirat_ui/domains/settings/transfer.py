@@ -21,23 +21,15 @@ FORMAT = "sirat-user-settings"
 VERSION = 1
 
 
-def _named(stores: UserStores) -> Dict[str, JsonStore]:
-    return {
-        "favorites": stores.favorites, "actions": stores.actions, "watch_list": stores.watch_list,
-        "data_logger": stores.data_logger, "custom_functions": stores.custom_functions,
-        "sequences": stores.sequences, "field_formulas": stores.formulas, "field_notes": stores.notes,
-        "preferences": stores.preferences, "hardware_config": stores.hardware_config,
-        "signal_generator": stores.signal_generator, "ble_packet": stores.ble_packet,
-        "memory_viewer": stores.memory_viewer,
-    }
-
-
 class SettingsTransfer:
+    """Export, import and clear every settings file at once. reload_all makes the services re-read them."""
+
     def __init__(self, stores: UserStores, reload_all: Callable[[], None]) -> None:
-        self._stores = _named(stores)
+        self._stores: Dict[str, JsonStore] = stores.by_name()
         self._reload_all = reload_all
 
     def export(self, path: Path) -> List[str]:
+        """Writes the bundle. Returns the settings files it holds. Raises OSError when it can't be written."""
         bundle = {
             "format": FORMAT, "version": VERSION, "app_version": __version__,
             "exported": dt.datetime.now().isoformat(timespec="seconds"),
@@ -55,9 +47,9 @@ class SettingsTransfer:
         try:
             raw = json.loads(Path(path).read_text(encoding="utf-8"))
             bundle = SettingsBundle.model_validate(raw)
+        except ValidationError:   # before ValueError: it's a subclass
+            raise ValueError(f"{source} isn't a SiRAT settings export") from None
         except (OSError, ValueError) as exc:
-            if isinstance(exc, ValidationError):
-                raise ValueError(f"{source} isn't a SiRAT settings export") from None
             raise ValueError(f"Couldn't read {source}: {exc}") from None
         imported: List[str] = []
         report = Report(source)
@@ -67,12 +59,14 @@ class SettingsTransfer:
                 continue
             part = Report(source)
             self._stores[name].save(CLEANERS[name](content, part))
-            report.problems += [Problem(source, f"files.{name}.{p.where}".rstrip("."), p.message) for p in part.problems]
+            report.problems += [Problem(source, f"files.{name}.{p.where}".rstrip("."), p.message)
+                                for p in part.problems]
             imported.append(name)
         self._reload_all()
         return imported, report.problems
 
     def clear_all(self) -> None:
+        """Resets every settings file to its defaults (req 2 "Clear All User Settings")."""
         for store in self._stores.values():
             store.reset()
         self._reload_all()

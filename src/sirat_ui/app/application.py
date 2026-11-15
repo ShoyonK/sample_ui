@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import logging
 import os
-from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from PyQt5.QtCore import qInstallMessageHandler, QMessageLogContext, QObject, Qt, QtMsgType, QUrl
+from PyQt5 import sip
+from PyQt5.QtCore import qInstallMessageHandler, QMessageLogContext, Qt, QtMsgType, QUrl
 from PyQt5.QtGui import QGuiApplication, QIcon
 from PyQt5.QtQml import QQmlApplicationEngine
 from PyQt5.QtQuick import QQuickWindow  # registers the type so rootObjects() returns a QQuickWindow
-from PyQt5 import sip
 from PyQt5.QtWidgets import QApplication
 
 from sirat_ui import __version__
@@ -63,6 +62,11 @@ class Application:
         qt_app.aboutToQuit.connect(self.shutdown)
 
     def load(self) -> QQuickWindow:
+        """Loads Main.qml and returns its window.
+
+        Raises:
+            RuntimeError: After shutdown(), or when Main.qml fails to load (the QML errors are in the session log).
+        """
         main = qml_dir() / "Main.qml"
         if self.engine is None:
             raise RuntimeError("The application was shut down")
@@ -95,4 +99,5 @@ class Application:
         sip.delete(engine)  # synchronous: the engine destroys its root objects first
 
     def root(self) -> Optional[QQuickWindow]:
+        """The main window once loaded (the tests and the screenshot script use it)."""
         return self.window

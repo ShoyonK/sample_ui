@@ -3,19 +3,18 @@
 from __future__ import annotations
 
 import datetime as dt
-from pathlib import Path
 from typing import Dict, List, Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from sirat_ui.domains.logs.service import LogService
 from sirat_ui.models.station import LogLine
-from sirat_ui.shared.interactions import InteractionService
+from sirat_ui.shared.interactions import InteractionService, save_text
 from sirat_ui.shared.qt import pyqtProperty
 from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
 
 LEVELS = ["debug", "info", "warning", "error"]
-LEVEL_LABELS = ["Debug", "Info", "Warning", "Error"]
+LEVEL_LABELS = [level.capitalize() for level in LEVELS]
 _GROUP = {"debug": "debug", "info": "info", "success": "info", "warning": "warning", "error": "error"}
 VISIBLE_LINES = 1000
 
@@ -28,6 +27,8 @@ def format_line(line: LogLine) -> str:
 
 
 class LogViewModel(BaseViewModel):
+    """The Log panel: level filters, search with next/previous, save, and the pop-out window flag."""
+
     changed = pyqtSignal()
     currentMatchMoved = pyqtSignal(int)  # row to scroll to
 
@@ -42,20 +43,22 @@ class LogViewModel(BaseViewModel):
         self._current = -1
         self._popped_out = False
         self._match_text = ""
+        self._has_matches = False
         log.added.connect(lambda _: self._rebuild())
         log.cleared.connect(self._rebuild)
         self._rebuild()
 
     searchText = qprop(str, "_search", changed)
     matchText = qprop(str, "_match_text", changed)
+    hasMatches = qprop(bool, "_has_matches", changed)   # enables previous / next
     poppedOut = qprop(bool, "_popped_out", changed)
 
     @pyqtProperty("QVariantList", notify=changed)
-    def levelStates(self):  # noqa: N802
+    def levelStates(self) -> List[bool]:  # noqa: N802
         return [self._enabled[level] for level in LEVELS]
 
     @pyqtProperty("QVariantList", constant=True)
-    def levelLabels(self):  # noqa: N802
+    def levelLabels(self) -> List[str]:  # noqa: N802
         return LEVEL_LABELS
 
     @pyqtProperty(QObject, constant=True)
@@ -80,7 +83,7 @@ class LogViewModel(BaseViewModel):
             match_text = "no matches"
         else:
             match_text = f"{self._current + 1} of {len(self._matches)}"
-        self._update(match_text=match_text)
+        self._update(match_text=match_text, has_matches=bool(self._matches))
         self.changed.emit()
 
     # ---- filters and search ----------------------------------------------------------------------
@@ -124,18 +127,9 @@ class LogViewModel(BaseViewModel):
     def saveLog(self) -> None:  # noqa: N802
         """Req 35 "Save Log": every line (not just the filtered ones) in the display format."""
         lines = [format_line(line) for line in self._log.lines]
-
-        def chosen(path) -> None:
-            if not path:
-                return
-            try:
-                Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
-                self._interactions.toast("success", f"Saved {len(lines)} log lines to {path}")
-            except OSError as exc:
-                self._interactions.toast("error", f"Couldn't save: {exc}")
-
         stamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
-        self._interactions.choose_save_file("Save log", f"sirat_log_{stamp}.log", "Log files (*.log *.txt)").then(chosen)
+        save_text(self._interactions, "Save log", f"sirat_log_{stamp}.log", "Log files (*.log *.txt)",
+                  lambda: "\n".join(lines) + "\n", lambda path: f"Saved {len(lines)} log lines to {path}")
 
     @pyqtSlot()
     def clear(self) -> None:

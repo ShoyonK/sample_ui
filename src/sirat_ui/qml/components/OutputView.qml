@@ -15,8 +15,8 @@ Rectangle {
     color: Theme.consoleBg
 
     readonly property var colors: ({
-        input: "#E8D37A", stdout: Theme.consoleText, result: "#7EE29A", error: "#FF8A8A",
-        hint: "#FFC66B", note: "#8A8A8A"
+        input: Theme.consoleInput, stdout: Theme.consoleText, result: Theme.consoleOk, error: Theme.consoleError,
+        hint: Theme.consoleWarn, note: Theme.consoleNote
     })
 
     Text {
@@ -25,11 +25,11 @@ Rectangle {
         text: panel.title
         font.pixelSize: Theme.fontXs
         font.weight: Font.DemiBold
-        color: "#9A9A9A"
+        color: Theme.consoleTitle
     }
     Row {
         anchors.right: parent.right
-        anchors.rightMargin: 8
+        anchors.rightMargin: Theme.s2
         y: 4
         spacing: 2
         Repeater {
@@ -43,12 +43,12 @@ Rectangle {
                 opacity: enabled ? 1 : 0.4
                 Accessible.name: modelData.tip
                 onClicked: modelData.key === "Copy" ? panel.model.copyAll() : panel.model.clear()
-                background: Rectangle { radius: 4; color: parent.hovered ? "#2A2A2A" : "transparent" }
+                background: Rectangle { radius: 4; color: parent.hovered ? Theme.consoleHover : "transparent" }
                 contentItem: Text {
                     id: label
                     text: modelData.key
                     font.pixelSize: Theme.fontXs
-                    color: "#BDBDBD"
+                    color: Theme.consoleButton
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -60,9 +60,9 @@ Rectangle {
         objectName: panel.prefix + "Lines"
         anchors.fill: parent
         anchors.topMargin: 30
-        anchors.leftMargin: 12
+        anchors.leftMargin: Theme.s3
         anchors.rightMargin: 6
-        anchors.bottomMargin: 8
+        anchors.bottomMargin: Theme.s2
         clip: true
         spacing: 2
         model: panel.model
@@ -80,8 +80,8 @@ Rectangle {
             font.pixelSize: Theme.fontSm
             font.italic: model.level === "note"
             color: panel.colors[model.level] || Theme.consoleText
-            selectionColor: "#3B5BDB"
-            selectedTextColor: "#FFFFFF"
+            selectionColor: Theme.consoleSelection
+            selectedTextColor: Theme.selectedText
         }
     }
     Text {
@@ -92,6 +92,6 @@ Rectangle {
         wrapMode: Text.WordWrap
         text: panel.emptyText
         font.pixelSize: Theme.fontSm
-        color: "#7A7A7A"
+        color: Theme.consoleTime
     }
 }

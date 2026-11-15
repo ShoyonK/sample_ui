@@ -6,17 +6,16 @@ from typing import Any, Dict, List, Optional, Set
 
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal, pyqtSlot
 
-from sirat_ui.core.formatting import NOT_READ, format_value
+from sirat_ui.core.formatting import NOT_READ, ValueFormat, format_value
 from sirat_ui.domains.annotations.service import FavoritesService
 from sirat_ui.domains.registers.catalog import RegisterCatalog
 from sirat_ui.domains.registers.read_all import ReadAllService
 from sirat_ui.domains.registers.service import RegisterService
-from sirat_ui.models.registers import PeripheralDef, RegisterDef
-from sirat_ui.models.registers import SearchResult
+from sirat_ui.models.registers import PeripheralDef, RegisterDef, SearchResult
 from sirat_ui.shared.qt import pyqtProperty
 from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
 from sirat_ui.state.preferences import PreferencesState
-from sirat_ui.state.selection import SelectionState
+from sirat_ui.state.selection import Selection, SelectionState
 from sirat_ui.state.station import StationState
 
 SEARCH_DEBOUNCE_MS = 300
@@ -25,6 +24,9 @@ TREE_ROLES = ["key", "kind", "name", "fullName", "address", "valueText", "access
 
 
 class PeripheralTreeViewModel(BaseViewModel):
+    """The peripheral tree, flattened to rows. A peripheral shows its registers when the user expanded it
+    (`_expanded`) or the search did (`result.expanded`)."""
+
     changed = pyqtSignal()
     searchFocusRequested = pyqtSignal()
 
@@ -84,7 +86,7 @@ class PeripheralTreeViewModel(BaseViewModel):
                 self._selection.select(reg, by_user=False)
         self._rebuild()
 
-    def _on_selection(self, selection, by_user: bool) -> None:
+    def _on_selection(self, selection: Selection, by_user: bool) -> None:
         """Reveal a register selected from elsewhere (favorites, search, scripts) by expanding its peripheral."""
         if isinstance(selection, RegisterDef):
             self._expanded.add(selection.peripheral)
@@ -111,16 +113,16 @@ class PeripheralTreeViewModel(BaseViewModel):
             if not expanded:
                 continue
             allowed = result.registers.get(name)
-            for reg in periph.registers:
-                if allowed is None or reg.name in allowed:
-                    value = self._registers.cached(reg.full_name)
-                    rows.append({
-                        "key": reg.full_name, "kind": "register", "name": reg.name, "fullName": reg.full_name,
-                        "address": f"0x{reg.address:08X}", "access": reg.access.value, "depth": 1,
-                        "valueText": NOT_READ if value is None else format_value(value, fmt, reg.width),
-                        "expanded": False, "selected": selected is reg, "hasChildren": False,
-                    })
+            rows += [self._register_row(reg, fmt, selected is reg)
+                     for reg in periph.registers if allowed is None or reg.name in allowed]
         self._model.set_items(rows)
+
+    def _register_row(self, reg: RegisterDef, fmt: ValueFormat, selected: bool) -> Dict[str, Any]:
+        value = self._registers.cached(reg.full_name)
+        return {"key": reg.full_name, "kind": "register", "name": reg.name, "fullName": reg.full_name,
+                "address": f"0x{reg.address:08X}", "access": reg.access.value, "depth": 1,
+                "valueText": NOT_READ if value is None else format_value(value, fmt, reg.width),
+                "expanded": False, "selected": selected, "hasChildren": False}
 
     @staticmethod
     def _peripheral_row(periph: PeripheralDef, expanded: bool, selected: bool) -> Dict[str, Any]:
@@ -128,7 +130,7 @@ class PeripheralTreeViewModel(BaseViewModel):
                 "address": f"0x{periph.base_address:08X}", "access": "", "depth": 0, "valueText": "",
                 "expanded": expanded, "selected": selected, "hasChildren": bool(periph.registers)}
 
-    def _row_target(self, row: int):
+    def _row_target(self, row: int) -> Selection:
         item = self._model.get(row)
         if not item:
             return None
@@ -176,13 +178,13 @@ class PeripheralTreeViewModel(BaseViewModel):
 
 
 class FavoritesViewModel(BaseViewModel):
+    """The favorites column, sorted by name; hidden while there are none."""
+
     changed = pyqtSignal()
 
-    def __init__(self, state: StationState, selection: SelectionState, catalog: RegisterCatalog,
-                 favorites: FavoritesService,
+    def __init__(self, selection: SelectionState, catalog: RegisterCatalog, favorites: FavoritesService,
                  parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
-        self._state = state
         self._selection = selection
         self._catalog = catalog
         self._favorites = favorites

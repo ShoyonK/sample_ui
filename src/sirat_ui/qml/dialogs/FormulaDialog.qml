@@ -14,16 +14,12 @@ ModalDialog {
     dialogWidth: 600
 
     contentItem: ColumnLayout {
-        spacing: 12
+        spacing: Theme.s3
         DialogHeader {
             title: "Define calculation formula"
             message: dialog.vm.fieldName
             iconName: "edit"
             tone: "info"
-            Layout.fillWidth: true
-            Layout.topMargin: 18
-            Layout.leftMargin: 20
-            Layout.rightMargin: 20
         }
 
         Rectangle {
@@ -38,7 +34,7 @@ ModalDialog {
                 id: help
                 anchors.fill: parent
                 anchors.margins: 10
-                spacing: 4
+                spacing: Theme.s1
                 Text {
                     text: "Use x for the raw field value. Allowed: + - * / // % ** & | ^ << >>, abs, round, min, max, pow, pi, e. Click an example to use it."
                     width: parent.width
@@ -71,7 +67,7 @@ ModalDialog {
             Layout.rightMargin: 20
             spacing: Theme.s2
             ColumnLayout {
-                spacing: 4
+                spacing: Theme.s1
                 Layout.fillWidth: true
                 Text { text: "Formula"; font.pixelSize: Theme.fontXs; color: Theme.textMuted }
                 AppTextField {
@@ -86,7 +82,7 @@ ModalDialog {
                 }
             }
             ColumnLayout {
-                spacing: 4
+                spacing: Theme.s1
                 Text { text: "Unit"; font.pixelSize: Theme.fontXs; color: Theme.textMuted }
                 AppTextField {
                     objectName: "formulaUnitField"
@@ -118,11 +114,7 @@ ModalDialog {
             Layout.rightMargin: 20
         }
 
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.leftMargin: 20
-            Layout.rightMargin: 20
-            Layout.bottomMargin: 18
+        DialogButtons {
             spacing: Theme.s2
             AppButton {
                 objectName: "formulaRemoveButton"

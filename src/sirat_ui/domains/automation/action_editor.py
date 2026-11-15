@@ -31,6 +31,8 @@ def _value_text(op: Dict[str, Any]) -> str:
 
 
 class ActionEditorViewModel(BaseViewModel):
+    """The action View and Edit dialogs (see the module docstring)."""
+
     changed = pyqtSignal()
 
     def __init__(self, actions: ActionService, catalog: RegisterCatalog, prefs: PreferencesState,
@@ -93,13 +95,13 @@ class ActionEditorViewModel(BaseViewModel):
         rows = []
         for i, op in enumerate(action.operations):
             kind = op_kind(op)
-            can_edit = editable(kind)
-            target = op["register"] + (f".{op['field']}" if kind == "field_write" else "") if can_edit else ""
-            rows.append({
-                "index": i, "kind": kind, "description": target if can_edit else describe_op(op),
-                "editable": can_edit, "valueText": _value_text(op) if can_edit else "",
-                "info": "" if can_edit else "Not editable here. Re-create it from its tool page.",
-            })
+            if editable(kind):
+                target = op["register"] + (f".{op['field']}" if kind == "field_write" else "")
+                rows.append({"index": i, "kind": kind, "description": target, "editable": True,
+                             "valueText": _value_text(op), "info": ""})
+            else:
+                rows.append({"index": i, "kind": kind, "description": describe_op(op), "editable": False,
+                             "valueText": "", "info": "Not editable here. Re-create it from its tool page."})
         self._edit_name = name
         self._pending = {}
         self._rows.set_items(rows)
@@ -111,6 +113,7 @@ class ActionEditorViewModel(BaseViewModel):
 
     @pyqtSlot()
     def saveEdit(self) -> None:  # noqa: N802
+        """Saves the edited values. Stops at the first invalid value (with a toast) and saves nothing then."""
         action = self._actions.get(self._edit_name or "")
         if action is None:
             self.cancelEdit()

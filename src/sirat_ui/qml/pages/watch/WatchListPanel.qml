@@ -1,6 +1,7 @@
 import QtQuick 2.15
 
 WatchListPanelForm {
+    id: panel
     readonly property var vm: app.watch
     property bool inWindow: false
 
@@ -27,6 +28,7 @@ WatchListPanelForm {
     emptyState.visible: list.count === 0
     list.model: vm.model
     list.delegate: WatchRow {
+        columns: panel.columns
         large: vm.large
         onRemoveRequested: vm.remove(index)
         onClicked: vm.select(index, mode)

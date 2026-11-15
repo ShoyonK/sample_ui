@@ -10,7 +10,7 @@ RowLayout {
     property bool interactive: true
     signal bitClicked(int bit)
 
-    spacing: 16
+    spacing: Theme.s4
 
     function byteHex(byteIndex) {
         var v = 0
@@ -26,7 +26,7 @@ RowLayout {
             // equal preferred widths make the four byte groups share the row evenly
             Layout.fillWidth: true
             Layout.preferredWidth: 100
-            spacing: 4
+            spacing: Theme.s1
 
             RowLayout {
                 width: parent.width
@@ -35,7 +35,7 @@ RowLayout {
             }
 
             Row {
-                spacing: 4
+                spacing: Theme.s1
                 width: parent.width
                 Repeater {
                     model: 8
@@ -97,7 +97,7 @@ RowLayout {
             }
 
             Row {
-                spacing: 4
+                spacing: Theme.s1
                 width: parent.width
                 Repeater {
                     model: 8

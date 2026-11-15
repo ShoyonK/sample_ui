@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import List, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 from sirat_ui.models.registers import AccessType, EnumValue, FieldDef, PeripheralDef, RegisterDef
 
@@ -17,22 +17,24 @@ RO, WO, RW = AccessType.READ_ONLY, AccessType.WRITE_ONLY, AccessType.READ_WRITE
 
 CHIP_PART, CHIP_REVISION, CHIP_FAMILY = "EFR32XG29XFULL", "A0", "LION"
 
-_FieldSpec = Tuple  # (name, lsb, width, access, description, enums)
+_FieldSpec = Tuple[Any, ...]  # (name, lsb, width[, access[, description[, enums]]])
 
 
 def _e(*pairs: Tuple[str, int]) -> Tuple[EnumValue, ...]:
     return tuple(EnumValue(name, value) for name, value in pairs)
 
 
+def _field(register: str, register_access: AccessType, name: str, lsb: int, width: int,
+           access: Optional[AccessType] = None, desc: str = "", enums: Tuple[EnumValue, ...] = ()) -> FieldDef:
+    """A field from a spec tuple; the access defaults to the register's."""
+    return FieldDef(register, name, lsb, width, access or register_access, desc, enums)
+
+
 def _reg(periph: str, base: int, name: str, offset: int, access: AccessType, desc: str,
          fields: Sequence[_FieldSpec] = (), reset: int = 0, critical: bool = False,
          read_sensitive: bool = False) -> RegisterDef:
     full = f"{periph}.{name}"
-    field_defs = tuple(
-        FieldDef(full, f[0], f[1], f[2], f[3] if len(f) > 3 else access, f[4] if len(f) > 4 else "",
-                 f[5] if len(f) > 5 else ())
-        for f in fields
-    )
+    field_defs = tuple(_field(full, access, *f) for f in fields)
     return RegisterDef(periph, name, base + offset, access, 32, desc, field_defs, reset, critical, read_sensitive)
 
 
@@ -135,6 +137,7 @@ _SIMPLE = [
 
 
 def build_chip() -> List[PeripheralDef]:
+    """The fake chip's peripherals, plus _NS/_S variants of AGC, BUFC and CMU."""
     peripherals = [
         _periph("ACMP0", 0x5A008000, "Analog comparator", _SIMPLE),
         _periph("AGC", 0xB800C000, "Automatic gain control", _AGC),
@@ -150,10 +153,13 @@ def build_chip() -> List[PeripheralDef]:
         _periph("USART0", 0x5005C000, "Universal synchronous/asynchronous receiver/transmitter", _USART,
                 read_sensitive=True),
     ]
+    by_name = {p.name: p for p in peripherals}
     variants = []
-    for name, base, desc, regs, critical in (("AGC", 0xB800C000, "Automatic gain control", _AGC, False),
-                                             ("BUFC", 0xBA000000, "Buffer controller", _BUFC, False),
-                                             ("CMU", 0x40008000, "Clock management unit", _CMU, True)):
-        variants.append(_periph(f"{name}_NS", base, f"{desc} (non-secure)", regs, critical=critical))
-        variants.append(_periph(f"{name}_S", base - 0x10000000, f"{desc} (secure)", regs, critical=critical))
+    for name, regs in (("AGC", _AGC), ("BUFC", _BUFC), ("CMU", _CMU)):
+        p = by_name[name]
+        critical = any(r.critical for r in p.registers)
+        variants.append(_periph(f"{name}_NS", p.base_address, f"{p.description} (non-secure)", regs,
+                                critical=critical))
+        variants.append(_periph(f"{name}_S", p.base_address - 0x10000000, f"{p.description} (secure)", regs,
+                                critical=critical))
     return peripherals + variants

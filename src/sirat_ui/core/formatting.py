@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Optional
 
 
 class ValueFormat(str, Enum):
+    """How register values are shown and, for bare digits, parsed."""
     HEX = "hex"
     DEC = "dec"
     BIN = "bin"
 
     @classmethod
     def from_index(cls, index: int) -> "ValueFormat":
-        return list(cls)[max(0, min(index, 2))]
+        """The format at a segmented-control index, clamped to the valid range."""
+        members = list(cls)
+        return members[max(0, min(index, len(members) - 1))]
 
     @property
     def ordinal(self) -> int:
@@ -20,10 +24,13 @@ class ValueFormat(str, Enum):
         return list(ValueFormat).index(self)
 
 
+_BASES = {ValueFormat.HEX: 16, ValueFormat.DEC: 10, ValueFormat.BIN: 2}
+
 NOT_READ = "─"
 
 
 def format_value(value: int, fmt: ValueFormat = ValueFormat.HEX, width: int = 32) -> str:
+    """Formats a register value: 0x-padded hex, decimal, or 0b binary in groups of 8 bits."""
     if fmt == ValueFormat.DEC:
         return str(value)
     if fmt == ValueFormat.BIN:
@@ -33,15 +40,24 @@ def format_value(value: int, fmt: ValueFormat = ValueFormat.HEX, width: int = 32
     return f"0x{value:0{max(1, width // 4)}X}"
 
 
+def parse_seconds(text: str) -> Optional[float]:
+    """A typed interval such as "0.5" or "2 s"; None when it isn't a number."""
+    try:
+        return float(text.replace("s", "").strip())
+    except ValueError:
+        return None
+
+
 def format_field(value: int) -> str:
     return f"0x{value:X}"
 
 
-_BASES = {ValueFormat.HEX: 16, ValueFormat.DEC: 10, ValueFormat.BIN: 2}
-
-
 def parse_value(text: str, default: ValueFormat = ValueFormat.HEX) -> int:
-    """Accepts 0x/0b/0o prefixes; bare digits use the currently selected format."""
+    """Parses a typed value. 0x/0b/0o prefixes win; bare digits are read in `default`. Spaces and _ are ignored.
+
+    Raises:
+        ValueError: The text is empty, negative or not a number in that base (the message is user-facing).
+    """
     cleaned = (text or "").strip().replace("_", "").replace(" ", "").lower()
     if not cleaned:
         raise ValueError("Enter a value")

@@ -18,6 +18,7 @@ T = TypeVar("T")
 
 
 class PythonSession:
+    """The shared station-side Python session (see the module docstring)."""
     def __init__(self, gateway: AdvancedPort, state: StationState) -> None:
         self._gateway = gateway
         self._state = state
@@ -32,6 +33,7 @@ class PythonSession:
         return bool(self.session_id)
 
     def ensure(self) -> Call[str]:
+        """The session id: the open session on the selected DUT, the open already in flight, or a new one."""
         if self.session_id and self.position == self._state.position:
             return Call.succeeded(self.session_id)
         if self._opening is not None and self._opening.pending:
@@ -61,6 +63,7 @@ class PythonSession:
         return out
 
     def restart(self) -> None:
+        """Closes the session; the next run opens a fresh one with no variables."""
         if self.session_id:
             self._gateway.console_close(self.session_id)
         self._drop("Session restarted; variables cleared")

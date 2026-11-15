@@ -15,16 +15,12 @@ ModalDialog {
     dialogWidth: 440
 
     contentItem: ColumnLayout {
-        spacing: 12
+        spacing: Theme.s3
         DialogHeader {
             title: dialog.vm.pickerTitle
             message: dialog.vm.pickerMessage
             iconName: "download"
             tone: "info"
-            Layout.fillWidth: true
-            Layout.topMargin: 18
-            Layout.leftMargin: 20
-            Layout.rightMargin: 20
         }
         RowLayout {
             Layout.leftMargin: 20
@@ -61,7 +57,7 @@ ModalDialog {
                     AppCheckBox {
                         objectName: "dumpPeripheral_" + model.name
                         anchors.left: parent.left
-                        anchors.leftMargin: 12
+                        anchors.leftMargin: Theme.s3
                         anchors.verticalCenter: parent.verticalCenter
                         text: model.label
                         checked: model.checked
@@ -70,11 +66,7 @@ ModalDialog {
                 }
             }
         }
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.leftMargin: 20
-            Layout.rightMargin: 20
-            Layout.bottomMargin: 18
+        DialogButtons {
             spacing: Theme.s2
             Item { Layout.fillWidth: true }
             AppButton { objectName: "dumpPickerCancelButton"; text: "Cancel"; onClicked: dialog.vm.closePicker() }

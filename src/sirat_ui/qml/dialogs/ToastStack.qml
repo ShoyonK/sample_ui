@@ -4,7 +4,7 @@ import "../components"
 
 // Non-blocking notices, newest at the bottom; they dismiss themselves (DialogsViewModel.TOAST_MS).
 Column {
-    spacing: 8
+    spacing: Theme.s2
     width: 380
 
     Repeater {
@@ -21,7 +21,7 @@ Column {
                 width: 3
                 height: parent.height - 16
                 anchors.left: parent.left
-                anchors.leftMargin: 8
+                anchors.leftMargin: Theme.s2
                 anchors.verticalCenter: parent.verticalCenter
                 radius: 2
                 color: model.level === "error" ? Theme.dangerFg : model.level === "success" ? Theme.okFg : Theme.infoFg

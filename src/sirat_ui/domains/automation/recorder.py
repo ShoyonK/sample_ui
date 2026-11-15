@@ -11,4 +11,5 @@ from sirat_ui.models.actions import Action
 
 
 class ActionRecorder(Protocol):
+    """Saves a new action; implemented by ActionService."""
     def add(self, name: str, ops: List[Dict[str, Any]], enabled: bool = True) -> Action: ...

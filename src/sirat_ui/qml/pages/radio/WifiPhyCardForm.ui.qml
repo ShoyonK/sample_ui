@@ -49,7 +49,7 @@ Card {
             id: column
             Layout.margins: Theme.s4
             Layout.fillWidth: true
-            spacing: 12
+            spacing: Theme.s3
 
             Rectangle {
                 id: unavailableBanner
@@ -72,7 +72,7 @@ Card {
             PacketVisualizer { id: visualizer; objectName: "packetVisualizer"; Layout.fillWidth: true }
 
             RowLayout {
-                spacing: 12
+                spacing: Theme.s3
                 Text { text: "Mode"; font.pixelSize: Theme.fontSm; color: Theme.textMuted; Layout.preferredWidth: 110 }
                 SegmentedControl { id: modeControl; objectName: "wifiModeControl"; model: ["RX (receive)", "TX (transmit)"] }
             }
@@ -80,8 +80,8 @@ Card {
             Text { text: "Basic parameters"; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold; color: Theme.textPrimary }
             GridLayout {
                 columns: 4
-                columnSpacing: 12
-                rowSpacing: 8
+                columnSpacing: Theme.s3
+                rowSpacing: Theme.s2
                 Layout.fillWidth: true
                 Text { text: "Standard"; font.pixelSize: Theme.fontSm; color: Theme.textMuted; Layout.preferredWidth: 110 }
                 AppComboBox { id: standardCombo; objectName: "wifiStandardCombo"; implicitHeight: 28; Layout.fillWidth: true }
@@ -96,12 +96,12 @@ Card {
             ColumnLayout {
                 id: txSection
                 Layout.fillWidth: true
-                spacing: 8
+                spacing: Theme.s2
                 Text { text: "TX parameters"; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold; color: Theme.textPrimary }
                 GridLayout {
                     columns: 4
-                    columnSpacing: 12
-                    rowSpacing: 8
+                    columnSpacing: Theme.s3
+                    rowSpacing: Theme.s2
                     Layout.fillWidth: true
                     Text { text: "Packet length"; font.pixelSize: Theme.fontSm; color: Theme.textMuted; Layout.preferredWidth: 110 }
                     AppTextField { id: lengthField; objectName: "wifiLengthField"; mono: true; selectOnFocus: true; placeholderText: "1-65535"; Layout.fillWidth: true }
@@ -117,13 +117,13 @@ Card {
             ColumnLayout {
                 id: advancedSection
                 Layout.fillWidth: true
-                spacing: 8
+                spacing: Theme.s2
                 AppCheckBox { id: advancedBox; objectName: "wifiAdvancedBox"; text: "Advanced parameters (802.11ax/be)" }
                 GridLayout {
                     id: advancedGrid
                     columns: 4
-                    columnSpacing: 12
-                    rowSpacing: 8
+                    columnSpacing: Theme.s3
+                    rowSpacing: Theme.s2
                     Layout.fillWidth: true
                     Text { text: "PPDU type"; font.pixelSize: Theme.fontSm; color: Theme.textMuted; Layout.preferredWidth: 110 }
                     AppComboBox { id: ppduCombo; objectName: "wifiPpduCombo"; implicitHeight: 28; Layout.fillWidth: true }
@@ -146,7 +146,7 @@ Card {
                 Layout.fillWidth: true
             }
             RowLayout {
-                spacing: 8
+                spacing: Theme.s2
                 AppButton { id: applyButton; objectName: "wifiApplyButton"; text: "Apply configuration"; iconName: "check"; variant: "primary" }
                 AppButton { id: addButton; objectName: "wifiAddToActionsButton"; text: "Add to Actions"; iconName: "bolt" }
             }

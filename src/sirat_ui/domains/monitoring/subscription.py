@@ -15,6 +15,8 @@ WATCH_MAX_S = 60.0
 
 
 class WatchSubscription:
+    """At most one registers.watch subscription; start() replaces the previous one."""
+
     def __init__(self, gateway: RegistersPort, state: StationState, errors: ErrorPresenter) -> None:
         self._gateway = gateway
         self._state = state
@@ -25,7 +27,7 @@ class WatchSubscription:
     def active(self) -> bool:
         return self.sub_id is not None
 
-    def start(self, registers: List[str], interval_s: float, context: str) -> Call:
+    def start(self, registers: List[str], interval_s: float, context: str) -> Call[str]:
         self.stop()
 
         def started(sub_id: str) -> None:

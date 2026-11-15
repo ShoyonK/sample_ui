@@ -12,6 +12,8 @@ from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Set
 from sirat_ui.core.ops import code_lines, op_kind
 from sirat_ui.models.actions import Action
 
+Lookup = Callable[[str], Optional[Action]]   # action name -> the action, for expanding sequences
+
 _HEADER = '''#!/usr/bin/env python
 """
 Generated code from SiRAT {source}
@@ -26,8 +28,6 @@ from tests.utils.instrument_utils.switch_utils import SwitchUtils
 def main(dut):
     """Execute actions."""
 '''
-
-Lookup = Callable[[str], Optional[Action]]   # action name -> the action, for expanding sequences
 
 _FOOTER = '''
 
@@ -81,11 +81,20 @@ def _sequence_lines(op: Dict[str, Any], functions: Mapping[str, str], lookup: Lo
 
 def generate(actions: Iterable[Action], custom_functions: Optional[Mapping[str, str]] = None,
              now: Optional[dt.datetime] = None, lookup: Optional[Lookup] = None) -> str:
-    """lookup finds actions by name, so a sequence action expands into its actions' code."""
+    """Builds the req 16 script for a list of actions.
+
+    Args:
+        actions: The actions to include, in order.
+        custom_functions: Custom function name -> code, so custom_function ops inline their code.
+        now: The time written in the header; the current time when None (tests pass a fixed one).
+        lookup: Finds an action by name, so a sequence action expands into its actions' code. Without it a
+            sequence op becomes a one-line comment.
+
+    Returns:
+        The whole script as text.
+    """
     functions = custom_functions or {}
-    blocks = []
-    for action in actions:
-        blocks.append([f"# Action: {action.name}"] + _action_lines(action, functions, lookup, set()))
+    blocks = [[f"# Action: {action.name}"] + _action_lines(action, functions, lookup, set()) for action in actions]
     return _script(blocks, "Actions", now)
 
 

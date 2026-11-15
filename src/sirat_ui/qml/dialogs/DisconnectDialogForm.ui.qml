@@ -24,10 +24,6 @@ ColumnLayout {
         message: "Usually a power cycle, a J-Link disconnect, or a firmware assert."
         iconName: "plug"
         tone: "danger"
-        Layout.fillWidth: true
-        Layout.topMargin: 18
-        Layout.leftMargin: 20
-        Layout.rightMargin: 20
     }
     KeyValueGrid {
         id: details
@@ -48,11 +44,7 @@ ColumnLayout {
         Layout.leftMargin: 20
         Layout.rightMargin: 20
     }
-    RowLayout {
-        Layout.fillWidth: true
-        Layout.leftMargin: 20
-        Layout.rightMargin: 20
-        Layout.bottomMargin: 18
+    DialogButtons {
         spacing: Theme.s2
         AppButton { id: closeButton; objectName: "recoveryCloseButton"; text: "Close" }
         AppButton { id: addToActionsButton; objectName: "addReconnectToActionsButton"; text: "Add to Actions"; iconName: "bolt"; variant: "ghost" }

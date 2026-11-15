@@ -9,7 +9,7 @@ Rectangle {
     objectName: "function_" + modelData
     width: ListView.view ? ListView.view.width : 240
     height: Theme.rowHeight + 4
-    color: selected ? Theme.select : (hover.hovered ? Theme.surface2 : "transparent")
+    color: Theme.rowColor(selected, hover.hovered)
     HoverHandler { id: hover }
     TapHandler { onTapped: row.activated() }
 

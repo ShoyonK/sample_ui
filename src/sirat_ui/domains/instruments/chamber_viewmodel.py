@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from sirat_ui.domains.instruments.bench import InstrumentBench
-from sirat_ui.domains.instruments.chamber import KIND, ChamberService
-from sirat_ui.domains.instruments.instrument_viewmodel import (InstrumentViewModel, instrument_properties,
-                                                              number)
+from sirat_ui.domains.instruments.chamber import ChamberService
+from sirat_ui.core.instruments import parse_float as number
+from sirat_ui.domains.instruments.instrument_viewmodel import InstrumentViewModel, instrument_properties
 from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
 from sirat_ui.shared.viewmodel import qprop
@@ -18,8 +18,9 @@ from sirat_ui.state.station import StationState
 FIELDS = ("target", "interval", "tolerance", "hold")
 
 
-def problems(target: str, interval: str, tolerance: str, hold: str):
-    errors = {}
+def problems(target: str, interval: str, tolerance: str, hold: str) -> Dict[str, str]:
+    """Validates the chamber card's fields. Returns field name -> message for every invalid one."""
+    errors: Dict[str, str] = {}
     t, i, tol, h = number(target), number(interval), number(tolerance), number(hold)
     if t is None or not -40 <= t <= 150:
         errors["target"] = "Target must be between -40 and 150 °C"
@@ -33,7 +34,9 @@ def problems(target: str, interval: str, tolerance: str, hold: str):
 
 
 class ChamberViewModel(InstrumentViewModel):
-    KIND = KIND
+    """The chamber card. Polls only while the page shows it (setActive)."""
+
+    KIND = ChamberService.KIND
     changed = pyqtSignal()
     instrumentText, instrumentFound, instrumentConnected, errors, errorText = instrument_properties(changed)
 
@@ -47,7 +50,7 @@ class ChamberViewModel(InstrumentViewModel):
         self._tolerance = "0.5"
         self._hold = "60"
         self._active = False
-        service.changed.connect(lambda: self.changed.emit())
+        service.changed.connect(self.changed.emit)
         self._errors = problems(self._target, self._interval, self._tolerance, self._hold)
 
     target = qprop(str, "_target", changed)
@@ -86,6 +89,14 @@ class ChamberViewModel(InstrumentViewModel):
         if r.stable:
             return "Stable"
         return "Heating" if r.actual_c < r.target_c else "Cooling"
+
+    @pyqtProperty(str, notify=changed)
+    def trendLevel(self) -> str:  # noqa: N802
+        """The trend pill's level: ok when stable, warn while heating, info while cooling."""
+        r = self._service.reading
+        if r is None or r.stable:
+            return "ok"
+        return "warn" if r.actual_c < r.target_c else "info"
 
     @pyqtProperty(bool, notify=changed)
     def stable(self) -> bool:
@@ -134,6 +145,3 @@ class ChamberViewModel(InstrumentViewModel):
     @pyqtSlot()
     def abortWait(self) -> None:  # noqa: N802
         self._service.abort_wait()
-
-
-__all__: List[str] = ["ChamberViewModel"]

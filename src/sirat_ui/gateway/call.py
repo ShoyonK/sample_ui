@@ -13,10 +13,17 @@ from sirat_ui.gateway.errors import ApiError, ErrorCode
 T = TypeVar("T")
 U = TypeVar("U")
 
+_PENDING, _OK, _ERROR = "pending", "ok", "error"
+
 
 class Call(Generic[T]):
+    """A result that arrives later: it resolves once with a value or rejects once with an ApiError.
+
+    Callbacks added with then() before it settles run when it settles; added after, they run at once.
+    """
+
     def __init__(self) -> None:
-        self._state = "pending"
+        self._state = _PENDING
         self._result: Optional[T] = None
         self._error: Optional[ApiError] = None
         self._on_ok: List[Callable[[T], Any]] = []
@@ -36,11 +43,11 @@ class Call(Generic[T]):
 
     @property
     def pending(self) -> bool:
-        return self._state == "pending"
+        return self._state == _PENDING
 
     @property
     def ok(self) -> bool:
-        return self._state == "ok"
+        return self._state == _OK
 
     @property
     def result(self) -> Optional[T]:
@@ -52,39 +59,52 @@ class Call(Generic[T]):
 
     def then(self, on_ok: Optional[Callable[[T], Any]] = None,
              on_err: Optional[Callable[[ApiError], None]] = None) -> "Call[T]":
+        """Adds callbacks and returns this same call (not a new one; see map() for chaining a value).
+
+        Args:
+            on_ok: Called with the result when (or if already) resolved.
+            on_err: Called with the error when (or if already) rejected.
+        """
         if on_ok:
-            if self._state == "ok":
+            if self._state == _OK:
                 on_ok(self._result)  # type: ignore[arg-type]  # resolved, so this is the T it was resolved with
-            elif self._state == "pending":
+            elif self._state == _PENDING:
                 self._on_ok.append(on_ok)
         if on_err:
-            if self._state == "error":
+            if self._state == _ERROR:
                 on_err(self._error)  # type: ignore[arg-type]
-            elif self._state == "pending":
+            elif self._state == _PENDING:
                 self._on_err.append(on_err)
         return self
 
     def resolve(self, result: T = None) -> None:  # type: ignore[assignment]
-        if self._state != "pending":
+        """Settles the call with a value; later resolve() or reject() calls are ignored."""
+        if self._state != _PENDING:
             return
-        self._state, self._result = "ok", result
+        self._state, self._result = _OK, result
         for callback in self._on_ok:
             callback(result)
         self._on_ok.clear()
         self._on_err.clear()
 
     def reject(self, error: ApiError) -> None:
-        if self._state != "pending":
+        """Settles the call with an error; later resolve() or reject() calls are ignored."""
+        if self._state != _PENDING:
             return
-        if not isinstance(error, ApiError):
+        if not isinstance(error, ApiError):   # a plain exception passed through by mistake still reaches on_err
             error = ApiError(ErrorCode.INTERNAL, str(error))
-        self._state, self._error = "error", error
+        self._state, self._error = _ERROR, error
         for callback in self._on_err:
             callback(error)
         self._on_ok.clear()
         self._on_err.clear()
 
     def map(self, fn: Callable[[T], U]) -> "Call[U]":
+        """A new call that resolves with fn(result), or rejects with this call's error.
+
+        fn may raise ApiError to reject the new call. Any other exception isn't caught: it propagates to whoever
+        resolved this call, so a bug in fn isn't hidden as an API error.
+        """
         out: Call[U] = Call()
 
         def on_ok(result: T) -> None:

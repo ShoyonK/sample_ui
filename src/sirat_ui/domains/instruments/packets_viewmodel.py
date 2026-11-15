@@ -8,7 +8,7 @@ from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from sirat_ui.core.instruments import ble_code, ble_problems, gfsk_code, gfsk_problems, parse_ble, PAYLOADS
 from sirat_ui.domains.instruments.packets import PacketService
-from sirat_ui.models.instruments import GfskPacket
+from sirat_ui.models.instruments import BlePacket, GfskPacket
 from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
 from sirat_ui.shared.viewmodel import BaseViewModel, qprop
@@ -18,6 +18,8 @@ GFSK_FIELDS = ("rate", "deviation", "bt", "frequency", "power", "length")
 
 
 class BlePacketViewModel(BaseViewModel):
+    """The BLE packet card: fields (valid values are remembered), sync word, Generate code."""
+
     changed = pyqtSignal()
 
     def __init__(self, service: PacketService, interactions: InteractionService,
@@ -26,7 +28,7 @@ class BlePacketViewModel(BaseViewModel):
         self._service = service
         self._interactions = interactions
         self._accessAddress = self._crcInit = self._whitening = self._preamble = ""
-        self._errors = {}
+        self._errors: Dict[str, str] = {}
         service.changed.connect(self._load)
         self._load()
 
@@ -52,7 +54,7 @@ class BlePacketViewModel(BaseViewModel):
         packet = self._packet()
         return f"0x{packet.sync_word:08X}" if packet else "—"
 
-    def _packet(self):
+    def _packet(self) -> Optional[BlePacket]:
         return parse_ble(self._accessAddress, self._crcInit, self._whitening, self._preamble)
 
     def _load(self) -> None:
@@ -81,6 +83,8 @@ class BlePacketViewModel(BaseViewModel):
 
 
 class GfskPacketViewModel(BaseViewModel):
+    """The GFSK packet card: fields, modulation index, Generate code, Add to Actions."""
+
     changed = pyqtSignal()
 
     def __init__(self, service: PacketService, interactions: InteractionService,
@@ -92,7 +96,7 @@ class GfskPacketViewModel(BaseViewModel):
         self._rate, self._deviation, self._bt = f"{d.symbol_rate_kbps:g}", f"{d.deviation_khz:g}", f"{d.bt:g}"
         self._frequency, self._power, self._length = f"{d.frequency_mhz:g}", f"{d.power_dbm:g}", str(d.payload_length)
         self._payload = d.payload
-        self._errors = {}
+        self._errors: Dict[str, str] = {}
 
     rate = qprop(str, "_rate", changed)
     deviation = qprop(str, "_deviation", changed)
@@ -161,6 +165,3 @@ class GfskPacketViewModel(BaseViewModel):
         if packet:
             action = self._service.add_gfsk_action(packet)
             self._interactions.toast("success", f"Added {action.name} to Actions")
-
-
-__all__: List[str] = ["BlePacketViewModel", "GfskPacketViewModel"]

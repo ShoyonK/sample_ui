@@ -6,6 +6,8 @@ instead of starting Python's interactive help, which would wait for input that n
 
 from __future__ import annotations
 
+from typing import List
+
 from sirat_ui.core.console import WELCOME, CommandHistory, echo, help_lines, result_lines
 from sirat_ui.core.observable import Event
 from sirat_ui.domains.advanced.output import OutputLog
@@ -18,6 +20,8 @@ from sirat_ui.state.station import StationState
 
 
 class ConsoleService:
+    """The Python console: runs commands in the shared PythonSession, one at a time, with output and history."""
+
     def __init__(self, gateway: AdvancedPort, state: StationState, session: PythonSession,
                  errors: ErrorPresenter) -> None:
         self._gateway = gateway
@@ -36,6 +40,7 @@ class ConsoleService:
         self.changed.emit()
 
     def run(self, code: str) -> None:
+        """Runs one command (ignored while another runs). `help` shows the session's names instead."""
         if self.busy or not code.strip():
             return
         self.history.add(code)
@@ -57,10 +62,10 @@ class ConsoleService:
         self._session.with_session(lambda sid: self._gateway.console_exec(sid, code)).then(done, failed)
 
     def show_help(self) -> None:
-        def done(names: list) -> None:
-            self.output.add(help_lines([(n.name, n.type, n.doc) for n in names if isinstance(n, NameInfo)]))
+        def done(names: List[NameInfo]) -> None:
+            self.output.add(help_lines([(n.name, n.type, n.doc) for n in names]))
 
-        def offline(_: object = None) -> None:
+        def offline(_: object = None) -> None:   # also the error callback: without the names, show the basics
             self.output.add(help_lines([("dut", "DUT", "available once a DUT is connected")]))
 
         if not self._state.connected:

@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 from sirat_ui.core.observable import Event
-from sirat_ui.domains.instruments.bench import InstrumentBench
+from sirat_ui.domains.instruments.bench import InstrumentBench, InstrumentService
 from sirat_ui.domains.logs.service import LogService
 from sirat_ui.gateway.call import Call
 from sirat_ui.gateway.errors import ApiError
@@ -19,16 +19,18 @@ from sirat_ui.models.station import ActivityFinished, ActivityProgress, ChamberR
 from sirat_ui.shared.error_presenter import ErrorPresenter
 from sirat_ui.state.station import StationState
 
-KIND = "chamber"
 HISTORY = 120   # readings kept for the trend line
 
 
-class ChamberService:
+class ChamberService(InstrumentService):
+    """The temperature chamber: polled reading and trend, setpoint, and the wait-for-stable activity."""
+
+    KIND = "chamber"
+
     def __init__(self, gateway: InstrumentsPort, state: StationState, bench: InstrumentBench, errors: ErrorPresenter,
                  log: LogService, scheduler: Scheduler) -> None:
+        super().__init__(state, bench)
         self._gateway = gateway
-        self._state = state
-        self._bench = bench
         self._errors = errors
         self._log = log
         self._scheduler = scheduler
@@ -41,16 +43,10 @@ class ChamberService:
         self._poll: Optional[Handle] = None
         self._poll_failed = False
 
-    @property
-    def instrument_id(self) -> str:
-        return self._bench.instrument_id(KIND)
-
-    def can(self, method: str) -> bool:
-        return bool(self.instrument_id) and self._state.can(method, self.instrument_id)
-
     # ---- live reading -----------------------------------------------------------------------------------
 
     def start_polling(self, interval_s: Optional[float] = None) -> None:
+        """Reads now and then every interval_s (the last interval when None) until stop_polling()."""
         if interval_s is not None:
             self.interval_s = interval_s
         self.stop_polling()
@@ -70,7 +66,9 @@ class ChamberService:
         return self._poll is not None
 
     def read(self) -> Call[ChamberReading]:
+        """Reads the chamber; without one to read, resolves with the last reading (None before the first)."""
         if not self.can("instruments.chamber.read"):
+            # Call is invariant, so Optional here would ripple into every caller of read()
             return Call.succeeded(self.reading)  # type: ignore[arg-type]
 
         def done(reading: ChamberReading) -> None:
@@ -97,6 +95,7 @@ class ChamberService:
             done, lambda e: self._errors.present(e, "Set temperature"))
 
     def wait_stable(self, tolerance_c: float, hold_s: float) -> Call[str]:
+        """Starts waiting until the reading stays within tolerance for hold_s (an abortable activity)."""
         def started(activity_id: str) -> None:
             self.wait_activity = activity_id
             self.wait_text = "Waiting for the chamber to settle"

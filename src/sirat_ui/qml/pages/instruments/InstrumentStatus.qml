@@ -12,7 +12,7 @@ RowLayout {
     property string prefix: ""        // objectName prefix, e.g. "sg" -> sgConnectButton
     signal connectRequested()
 
-    spacing: 8
+    spacing: Theme.s2
     StatusPill {
         objectName: root.prefix + "InstrumentPill"
         text: root.connected ? "Connected" : root.found ? "Disconnected" : "Not on this station"

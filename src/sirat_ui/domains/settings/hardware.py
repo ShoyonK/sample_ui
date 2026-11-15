@@ -45,6 +45,8 @@ def validate(host: str, port: str, timeout: str, position: str, override: bool =
 
 
 class HardwareConfigService:
+    """The hardware configuration file: save (applies the timeout and selects the position) and test."""
+
     def __init__(self, store: JsonStore, gateway: DutPort, state: StationState, log: LogService) -> None:
         self._store = store
         self._gateway = gateway
@@ -72,7 +74,7 @@ class HardwareConfigService:
         """Req 32: can the DUT's RPC server be reached? dut.probe never connects or drops a connection, so testing
         a position that's in use is safe. Resolves to a message; rejects with ApiError, or with a TIMEOUT-coded
         ApiError carrying the probe's detail when nothing answered."""
-        out: Call = Call()
+        out: Call[str] = Call()
 
         def probed(result: ProbeResult) -> None:
             if result.ok:

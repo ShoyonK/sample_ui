@@ -16,7 +16,7 @@ Rectangle {
     objectName: "treeRow_" + model.fullName
     width: ListView.view ? ListView.view.width : 360
     height: 26
-    color: model.selected ? Theme.select : (hover.hovered ? Theme.surface2 : "transparent")
+    color: Theme.rowColor(model.selected, hover.hovered)
 
     HoverHandler { id: hover }
     TapHandler {

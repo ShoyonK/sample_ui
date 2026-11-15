@@ -8,17 +8,17 @@ peripheral picker (picker_viewmodel.py), the progress dialog (progress_viewmodel
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
+from sirat_ui.core.naming import count
 from sirat_ui.core.radio_config import parse_config, RadioComparison
 from sirat_ui.domains.dumps.comparison_viewmodel import ComparisonViewModel
 from sirat_ui.domains.dumps.picker_viewmodel import PeripheralPickerViewModel
 from sirat_ui.domains.dumps.progress_viewmodel import DumpProgressViewModel
 from sirat_ui.domains.dumps.service import DumpFile, DumpJob, DumpService, readable
 from sirat_ui.domains.registers.catalog import RegisterCatalog
-from sirat_ui.domains.sessions.service import count
 from sirat_ui.models.dialogs import Alert, ConfirmRequest, PromptField, PromptRequest
 from sirat_ui.models.dumps import Comparison
 from sirat_ui.models.radio import RadioConfig
@@ -41,6 +41,8 @@ def _label(f: DumpFile) -> str:
 
 
 class DumpsViewModel(BaseViewModel):
+    """The Dumps page: the saved dump files and starting each kind of comparison."""
+
     changed = pyqtSignal()
 
     def __init__(self, service: DumpService, catalog: RegisterCatalog, state: StationState, prefs: PreferencesState,
@@ -77,7 +79,7 @@ class DumpsViewModel(BaseViewModel):
     folder = qprop(str, "_folder", changed)
     canRead = qprop(bool, "_can_read", changed)
 
-    def _on_state(self, *_) -> None:
+    def _on_state(self) -> None:
         self._update(can_read=self._state.facts.dut_connected and not self._service.running)
 
     # ---- saved dumps ------------------------------------------------------------------------------
@@ -157,7 +159,7 @@ class DumpsViewModel(BaseViewModel):
         fields = [PromptField("name", "Dump name", "dump"),
                   PromptField("description", "Description", placeholder="Optional, kept in saved sessions")]
 
-        def named(values) -> None:
+        def named(values: Optional[Dict[str, Any]]) -> None:
             name = (values or {}).get("name", "").strip()
             if not name:
                 self._interactions.toast("info", "Dump discarded")
@@ -195,16 +197,16 @@ class DumpsViewModel(BaseViewModel):
     def compareWith(self) -> None:  # noqa: N802
         """Compares the selected dump with another saved one, picked from a drop-down."""
         chosen = self._selected()
-        others = [f for f in self._files if f is not chosen]
         if chosen is None:
             return
+        others = [f for f in self._files if f is not chosen]
         if not others:
             self._interactions.toast("info", "Take another dump to compare with")
             return
         labels = {_label(f): f for f in others}
         field = PromptField("other", "Compare with", next(iter(labels)), options=list(labels))
 
-        def answered(values) -> None:
+        def answered(values: Optional[Dict[str, Any]]) -> None:
             other = labels.get((values or {}).get("other", ""))
             if other is not None:
                 self._compare(chosen.path, other.path)

@@ -7,8 +7,9 @@ from typing import Any, Dict, List, Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
-from sirat_ui.domains.sessions.service import SessionService, count
-from sirat_ui.models.dialogs import ConfirmRequest, PromptField, PromptRequest
+from sirat_ui.core.naming import count
+from sirat_ui.domains.sessions.service import SessionService
+from sirat_ui.models.dialogs import ConfirmAnswer, ConfirmRequest, PromptField, PromptRequest
 from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
 from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
@@ -21,10 +22,20 @@ def _when(iso: str) -> str:
         return iso or "—"
 
 
+def _listing(names: List[str]) -> str:
+    """"3: a, b, c" with at most six names, or "none"."""
+    if not names:
+        return "none"
+    return f"{len(names)}: " + ", ".join(names[:6]) + (" …" if len(names) > 6 else "")
+
+
 class SessionsViewModel(BaseViewModel):
+    """Save session (a named prompt), the Load session browser with its preview, and the auto-save status."""
+
     changed = pyqtSignal()
 
-    def __init__(self, service: SessionService, interactions: InteractionService, parent: Optional[QObject] = None) -> None:
+    def __init__(self, service: SessionService, interactions: InteractionService,
+                 parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._service = service
         self._interactions = interactions
@@ -67,10 +78,8 @@ class SessionsViewModel(BaseViewModel):
             {"key": "Name", "value": str(data.get("session_name", name))},
             {"key": "Created", "value": _when(str(data.get("created", "")))},
             {"key": "Modified", "value": _when(str(data.get("modified", "")))},
-            {"key": "Actions", "value": f"{len(actions)}: " + ", ".join(actions[:6]) + (" …" if len(actions) > 6 else "")
-             if actions else "none"},
-            {"key": "Favorites", "value": f"{len(favorites)}: " + ", ".join(favorites[:6]) + (" …" if len(favorites) > 6 else "")
-             if favorites else "none"},
+            {"key": "Actions", "value": _listing(actions)},
+            {"key": "Favorites", "value": _listing(favorites)},
             {"key": "Notes", "value": str(len(data.get("field_notes") or {}))},
             {"key": "Formulas", "value": str(len(data.get("formulas") or []))},
             {"key": "History", "value": count(len(data.get("history") or []), "entry", "entries")},
@@ -89,12 +98,13 @@ class SessionsViewModel(BaseViewModel):
                    f"{count(len(current['history']), 'history entry', 'history entries')}.")
         default = f"Session_{dt.datetime.now():%Y%m%d_%H%M%S}"
 
-        def answered(values) -> None:
+        def answered(values: Optional[Dict[str, Any]]) -> None:
             name = (values or {}).get("name", "").strip()
             if not name:
                 return
             if self._service.exists(name):
-                request = ConfirmRequest(f"Replace session {name}?", "A session with this name exists. Saving replaces it.",
+                request = ConfirmRequest(f"Replace session {name}?",
+                                         "A session with this name exists. Saving replaces it.",
                                          confirm_text="Replace", tone="danger")
                 self._interactions.confirm(request).then(lambda a: save(name) if a.accepted else None)
             else:
@@ -137,7 +147,7 @@ class SessionsViewModel(BaseViewModel):
                                  "This replaces your current notes, formulas, actions, favorites and history "
                                  "with the ones saved in the session.", confirm_text="Load", tone="warning")
 
-        def answered(answer) -> None:
+        def answered(answer: ConfirmAnswer) -> None:
             if not answer.accepted:
                 return
             try:

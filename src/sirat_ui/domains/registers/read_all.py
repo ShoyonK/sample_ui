@@ -1,44 +1,38 @@
 """Read all registers of a peripheral (req 4 context menu, req 5 peripheral mode).
 
-Reads one register at a time so the progress dialog can show "Reading {periph}.{reg}..." and
-"X of Y", and Cancel takes effect before the next register. Write-only and read-sensitive registers
-(req 7: reading USART/I2C/SPI clears FIFOs and flags) are skipped. A lost DUT stops the run.
+Reads one register at a time (domains/registers/sequential.py) so the progress dialog can show
+"Reading {periph}.{reg}..." and "X of Y", and Cancel takes effect before the next register. Write-only and
+read-sensitive registers (req 7: reading USART/I2C/SPI clears FIFOs and flags) are skipped. A lost DUT stops the run.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Optional
 
 from sirat_ui.core.observable import Event
 from sirat_ui.domains.logs.service import LogService
+from sirat_ui.domains.registers.sequential import RegisterReadJob, read_one_by_one
 from sirat_ui.domains.registers.service import RegisterService
-from sirat_ui.gateway.errors import ApiError, ErrorCode
-from sirat_ui.models.registers import PeripheralDef, RegisterDef
-
-_STOP_CODES = (ErrorCode.DUT_DISCONNECTED, ErrorCode.WRONG_STATE)
+from sirat_ui.models.registers import PeripheralDef
 
 
-@dataclass
-class ReadAllJob:
+@dataclass(kw_only=True)   # keyword-only, so `peripheral` stays required after the base class's defaulted fields
+class ReadAllJob(RegisterReadJob):
+    """A read-all of one peripheral; `summary` is set when it finishes."""
     peripheral: str
-    registers: List[RegisterDef]
     skipped_sensitive: int = 0
-    index: int = 0
-    ok: int = 0
-    failed: int = 0
-    current: str = ""
-    cancelled: bool = False
-    stopped_reason: str = ""
-    finished: bool = False
     summary: str = ""
 
     @property
-    def total(self) -> int:
-        return len(self.registers)
+    def ok(self) -> int:
+        """How many registers were read."""
+        return len(self.values)
 
 
 class ReadAllService:
+    """Runs one read-all at a time and reports progress through `progress` (a finished job carries its summary)."""
+
     def __init__(self, registers: RegisterService, log: LogService) -> None:
         self._registers = registers
         self._log = log
@@ -51,58 +45,27 @@ class ReadAllService:
         return self.job is not None and not self.job.finished
 
     def start(self, periph: PeripheralDef) -> bool:
+        """Starts reading the peripheral's readable registers. Returns False (and emits `refused`) while one runs."""
         if self.running:
             self.refused.emit()
             return False
         readable = [r for r in periph.registers if r.access.readable]
         targets = [r for r in readable if not r.read_sensitive]
-        self.job = ReadAllJob(periph.name, targets, skipped_sensitive=len(readable) - len(targets))
+        self.job = ReadAllJob(targets, peripheral=periph.name, skipped_sensitive=len(readable) - len(targets))
         self._log.info(f"Reading all registers of {periph.name} ({len(targets)})…")
-        self._next()
+        read_one_by_one(self._registers, self.job, self.progress.emit, self._finish)
         return True
 
     def cancel(self) -> None:
-        if self.job is not None and not self.job.finished:
-            self.job.cancelled = True
+        if self.job is not None:
+            self.job.cancel()
 
     def stop(self, reason: str) -> None:
         """Ends the job as stopped, e.g. when the user switches DUT."""
-        if self.job is not None and not self.job.finished:
-            self.job.stopped_reason = reason
-
-    def _next(self) -> None:
-        job = self.job
-        if job is None or job.finished:
-            return
-        if job.cancelled or job.stopped_reason or job.index >= job.total:
-            self._finish(job)
-            return
-        self._read_next(job)
-
-    def _read_next(self, job: ReadAllJob) -> None:
-        reg = job.registers[job.index]
-        job.current = reg.full_name
-        self.progress.emit(job)
-
-        def done(_value: int) -> None:
-            job.ok += 1
-            advance()
-
-        def failed(error: ApiError) -> None:
-            job.failed += 1
-            if error.code in _STOP_CODES and not job.stopped_reason:   # keep the first reason (e.g. a DUT switch)
-                job.stopped_reason = error.message
-            advance()
-
-        def advance() -> None:
-            job.index += 1
-            self._next()
-
-        self._registers.read(reg, manual=False, quiet=True).then(done, failed)
+        if self.job is not None:
+            self.job.stop(reason)
 
     def _finish(self, job: ReadAllJob) -> None:
-        job.finished = True
-        job.current = ""
         summary = f"{job.peripheral}: {job.ok} registers read, {job.failed} failed"
         if job.skipped_sensitive:
             summary += f", {job.skipped_sensitive} read-sensitive skipped"

@@ -27,6 +27,12 @@ def test_unsafe_or_invalid_formulas_are_rejected_with_a_message(expr):
     assert formula.validate(expr)
 
 
+@pytest.mark.parametrize("expr", ["+".join(["x"] * 1000), "-" * 1000 + "x", "-" * 20000 + "x"])
+def test_a_formula_nested_too_deep_is_rejected_not_crashed(expr):
+    with pytest.raises(formula.FormulaError, match="too long"):
+        formula.evaluate(expr, 1.0)
+
+
 @pytest.mark.req("11.format")
 def test_format_result_uses_3_decimals_at_or_above_1_and_6_below():
     assert formula.format_result(2440.125, "MHz") == "2440.125 MHz"

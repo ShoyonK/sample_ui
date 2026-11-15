@@ -79,7 +79,7 @@ ScrollView {
                             Layout.fillWidth: true
                         }
                         Row {
-                            spacing: 8
+                            spacing: Theme.s2
                             AppButton { id: exportButton; objectName: "exportSettingsButton"; text: "Export…"; iconName: "upload" }
                             AppButton { id: importButton; objectName: "importSettingsButton"; text: "Import…"; iconName: "download" }
                             AppButton { id: clearAllButton; objectName: "clearAllSettingsButton"; text: "Clear all…"; iconName: "delete"; variant: "danger" }
@@ -108,7 +108,7 @@ ScrollView {
                             Layout.fillWidth: true
                         }
                         RowLayout {
-                            spacing: 8
+                            spacing: Theme.s2
                             AppButton { id: saveSessionButton; objectName: "saveSessionButton"; text: "Save session…"; iconName: "save" }
                             AppButton { id: loadSessionButton; objectName: "loadSessionButton"; text: "Load session…"; iconName: "download" }
                             Text {

@@ -37,7 +37,7 @@ Rectangle {
         TextArea {
             id: area
             objectName: "consoleInputArea"
-            padding: 8
+            padding: Theme.s2
             wrapMode: TextEdit.WrapAnywhere
             selectByMouse: true
             textFormat: TextEdit.PlainText
@@ -45,7 +45,7 @@ Rectangle {
             font.pixelSize: Theme.fontMd
             color: Theme.textPrimary
             selectionColor: Theme.infoFg
-            selectedTextColor: "#FFFFFF"
+            selectedTextColor: Theme.selectedText
             placeholderText: "Python code · Enter runs, Shift+Enter adds a line, ↑ / ↓ history"
             placeholderTextColor: Theme.textMuted
             background: null

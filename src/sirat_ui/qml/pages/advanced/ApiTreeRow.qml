@@ -11,7 +11,7 @@ Rectangle {
     objectName: "api_" + model.key
     width: ListView.view ? ListView.view.width : 340
     height: Theme.rowHeight
-    color: model.selected ? Theme.select : (hover.hovered ? Theme.surface2 : "transparent")
+    color: Theme.rowColor(model.selected, hover.hovered)
     HoverHandler { id: hover }
     TapHandler { onTapped: row.activated() }
     Accessible.role: model.kind === "method" ? Accessible.ListItem : Accessible.Button

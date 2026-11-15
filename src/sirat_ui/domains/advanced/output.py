@@ -11,6 +11,8 @@ MAX_LINES = 1000
 
 
 class OutputLog:
+    """An Advanced tool's output: (level, text) lines, the newest MAX_LINES kept."""
+
     def __init__(self) -> None:
         self.lines: List[Line] = []
         self.changed = Event()

@@ -30,6 +30,8 @@ def _inside(region: Tuple[int, int], start: int, end: int) -> bool:
 
 
 class FakeMemory:
+    """The fake chip's address space; pages are random (seeded) bytes until written."""
+
     def __init__(self, peripherals: List[PeripheralDef], registers: RegisterMemory, seed: int = 7) -> None:
         self._registers = registers
         self._by_address: Dict[int, str] = {r.address: r.full_name for p in peripherals for r in p.registers}

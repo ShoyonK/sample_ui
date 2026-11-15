@@ -14,10 +14,9 @@ Rectangle {
     color: Theme.surface2
     border.color: Theme.border
 
-    function bg(kind) { return kind === "legacy" ? Theme.infoBg : kind === "standard" ? Theme.splitBg
-                             : kind === "data" ? Theme.okBg : Theme.select }
-    function fg(kind) { return kind === "legacy" ? Theme.infoFg : kind === "standard" ? Theme.splitFg
-                             : kind === "data" ? Theme.okFg : Theme.textMuted }
+    readonly property var kindTones: ({ legacy: "info", standard: "split", data: "ok" })   // pad: plain
+    function bg(kind) { return Theme.toneBg(kindTones[kind] || "") }
+    function fg(kind) { return Theme.toneFg(kindTones[kind] || "") }
 
     ColumnLayout {
         anchors.fill: parent

@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 
 from sirat_ui.core.eca import decode, to_csv
 from sirat_ui.core.observable import Event
-from sirat_ui.domains.instruments.bench import InstrumentBench
+from sirat_ui.domains.instruments.bench import InstrumentBench, InstrumentService
 from sirat_ui.domains.logs.service import LogService
 from sirat_ui.gateway.call import Call
 from sirat_ui.gateway.errors import ApiError
@@ -21,16 +21,18 @@ from sirat_ui.models.station import ActivityFinished, ActivityProgress, CaptureP
 from sirat_ui.shared.error_presenter import ErrorPresenter
 from sirat_ui.state.station import StationState
 
-KIND = "eca"
 PAGE = 65536
 
 
-class EcaService:
+class EcaService(InstrumentService):
+    """The ECA: its sources (loaded when it connects), captures, paged download and CSV export."""
+
+    KIND = "eca"
+
     def __init__(self, gateway: InstrumentsPort, state: StationState, bench: InstrumentBench, errors: ErrorPresenter,
                  log: LogService) -> None:
+        super().__init__(state, bench)
         self._gateway = gateway
-        self._state = state
-        self._bench = bench
         self._errors = errors
         self._log = log
         self.sources: Optional[EcaSources] = None
@@ -39,27 +41,15 @@ class EcaService:
         self.progress_text = ""
         self.downloading = False
         self.changed = Event()
-        self._was_connected = False
-        state.changed.connect(self._on_state)
-        self._on_state()
-
-    @property
-    def instrument_id(self) -> str:
-        return self._bench.instrument_id(KIND)
-
-    def can(self, method: str) -> bool:
-        return bool(self.instrument_id) and self._state.can(method, self.instrument_id)
+        self._watch_connection()
 
     @property
     def busy(self) -> bool:
         return bool(self.activity) or self.downloading
 
-    def _on_state(self, *_: object) -> None:
-        found = self._bench.instrument(KIND)
-        connected = bool(found and found.connected)
-        if connected and not self._was_connected:
+    def _connection_changed(self, connected: bool, was_connected: bool) -> None:
+        if connected and not was_connected:
             self.load_sources()
-        self._was_connected = connected
         self.changed.emit()
 
     def load_sources(self) -> Call[EcaSources]:
@@ -71,6 +61,7 @@ class EcaService:
             loaded, lambda e: self._log.warning(f"Couldn't load the ECA sources ({e.message})"))
 
     def start(self, spec: CaptureSpec) -> Call[str]:
+        """Starts a capture; when it finishes the capture is downloaded and replaces the previous one."""
         def started(activity_id: str) -> None:
             self.activity = activity_id
             self.progress_text = "Starting"
@@ -131,6 +122,7 @@ class EcaService:
         fetch(0)
 
     def save_csv(self, path: Path) -> None:
+        """Writes the current capture as CSV. Raises OSError when the file can't be written."""
         if self.capture is None:
             return
         Path(path).write_text(to_csv(self.capture), encoding="utf-8")

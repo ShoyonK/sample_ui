@@ -22,7 +22,7 @@ TextField {
     color: Theme.textPrimary
     placeholderTextColor: Theme.textMuted
     selectionColor: Theme.infoFg
-    selectedTextColor: "#FFFFFF"
+    selectedTextColor: Theme.selectedText
     selectByMouse: true
 
     Accessible.name: placeholderText

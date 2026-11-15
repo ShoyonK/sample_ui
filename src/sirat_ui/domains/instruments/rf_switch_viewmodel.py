@@ -8,7 +8,7 @@ from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from sirat_ui.domains.instruments.bench import InstrumentBench
 from sirat_ui.domains.instruments.instrument_viewmodel import InstrumentViewModel, instrument_properties
-from sirat_ui.domains.instruments.rf_switch import KIND, RfSwitchService
+from sirat_ui.domains.instruments.rf_switch import RfSwitchService
 from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
 from sirat_ui.shared.viewmodel import qprop
@@ -18,7 +18,9 @@ POSITIONS = ["1", "2", "3", "4"]
 
 
 class RfSwitchViewModel(InstrumentViewModel):
-    KIND = KIND
+    """The RF switch card: path, DUT position, Connect/Disconnect, Add to Actions."""
+
+    KIND = RfSwitchService.KIND
     changed = pyqtSignal()
     instrumentText, instrumentFound, instrumentConnected, errors, errorText = instrument_properties(changed)
 
@@ -89,10 +91,12 @@ class RfSwitchViewModel(InstrumentViewModel):
             return
         path, position = self._path, self._position
         self._update(busy=True)
-        self._service.connect(position, path).then(
-            lambda _: (self._update(busy=False),
-                       self._interactions.toast("success", f"Connected {path} to DUT {position}")),
-            lambda _: self._update(busy=False))
+
+        def connected(_: None) -> None:
+            self._update(busy=False)
+            self._interactions.toast("success", f"Connected {path} to DUT {position}")
+
+        self._service.connect(position, path).then(connected, lambda _: self._update(busy=False))
 
     @pyqtSlot()
     def disconnectPath(self) -> None:  # noqa: N802
@@ -105,6 +109,3 @@ class RfSwitchViewModel(InstrumentViewModel):
             return
         action = self._service.add_action(self._path, self._position)
         self._interactions.toast("success", f"Added {action.name} to Actions")
-
-
-__all__: List[str] = ["RfSwitchViewModel"]

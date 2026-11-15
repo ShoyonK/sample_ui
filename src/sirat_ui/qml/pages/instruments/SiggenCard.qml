@@ -45,5 +45,5 @@ SiggenCardForm {
     codeButton.enabled: vm.errorText === ""
     codeButton.onClicked: vm.showCode()
     statusLabel.text: vm.statusText
-    statusLabel.color: vm.statusLevel === "ok" ? Theme.okFg : vm.statusLevel === "danger" ? Theme.dangerFg : Theme.textMuted
+    statusLabel.color: Theme.toneFg(vm.statusLevel)
 }

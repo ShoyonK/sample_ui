@@ -12,11 +12,11 @@ Item {
     ActionEditDialog { }
     FormulaDialog { }
     CodeDialog { }
-    ReadAllDialog { }
+    ReadProgressDialog { vm: app.readAll; name: "readAll" }
     CommandPalette { }
     SessionBrowserDialog { }
     DumpPickerDialog { }
-    DumpProgressDialog { }
+    ReadProgressDialog { vm: app.dumpProgress; name: "dumpProgress" }
     WifiResultDialog { }
     DisconnectDialog { }
     ConnectSheet { }

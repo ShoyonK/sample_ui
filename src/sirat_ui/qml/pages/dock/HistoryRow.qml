@@ -3,6 +3,7 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import "../../theme"
 import "../../components"
+import "../../components/selection.js" as Selection
 
 // Click selects; Ctrl+click toggles; Shift+click selects a range (req 9). Right-click: Save selected.
 Rectangle {
@@ -13,7 +14,7 @@ Rectangle {
     objectName: "historyRow_" + index
     width: ListView.view ? ListView.view.width : 600
     height: 34
-    color: model.selected ? Theme.select : (area.containsMouse ? Theme.surface2 : "transparent")
+    color: Theme.rowColor(model.selected, area.containsMouse)
 
     MouseArea {
         id: area
@@ -27,13 +28,12 @@ Rectangle {
                 menu.popup()
                 return
             }
-            row.clicked((mouse.modifiers & Qt.ShiftModifier) ? "range"
-                        : (mouse.modifiers & Qt.ControlModifier) ? "toggle" : "single")
+            row.clicked(Selection.mode(mouse.modifiers))
         }
     }
-    Menu {
+    AppMenu {
         id: menu
-        MenuItem {
+        AppMenuItem {
             text: "Save selected…"
             onTriggered: row.saveRequested()
         }

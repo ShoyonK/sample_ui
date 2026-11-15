@@ -22,6 +22,55 @@ def _py_files(sub: str):
     return sorted((PACKAGE / sub).rglob("*.py"))
 
 
+SRC = PACKAGE.parent
+
+
+def _top_level(path: Path):
+    """The top-level packages a file imports (relative imports aren't used)."""
+    return {m.split(".")[0] for m in _imports(path)}
+
+
+def test_the_protocol_imports_nothing_of_any_application():
+    """station_protocol is shared by every tool and the station service, and will move to the station's
+    repository: it may use the standard library, pydantic and typing_extensions only."""
+    allowed = {"station_protocol", "pydantic", "pydantic_core", "typing_extensions", "__future__"}
+    offenders = [(p.name, m) for p in sorted((SRC / "station_protocol").rglob("*.py")) for m in _top_level(p)
+                 if m not in allowed and not _is_stdlib(m)]
+    assert offenders == []
+
+
+def test_the_station_client_uses_only_the_protocol():
+    """station_client is any tool's client (the debug harness's too): no GUI, no Qt."""
+    allowed = {"station_client", "station_protocol", "typing_extensions", "__future__"}
+    offenders = [(p.name, m) for p in sorted((SRC / "station_client").rglob("*.py")) for m in _top_level(p)
+                 if m not in allowed and not _is_stdlib(m)]
+    assert offenders == []
+
+
+def test_the_conformance_suite_uses_only_the_shared_packages():
+    """tests/contract moves to the station's repository as-is, except its marked local-station part."""
+    contract = SRC.parent / "tests" / "contract"
+    allowed = {"station_client", "station_protocol", "pytest", "__future__"}
+    offenders = []
+    for path in sorted(contract.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        local = {id(n) for c in ast.walk(tree) if isinstance(c, ast.ClassDef) and c.name == "LocalStation"
+                 for n in ast.walk(c)}
+        for node in ast.walk(tree):
+            if id(node) in local:
+                continue   # this repository's fake: the one part the station's repository replaces
+            names = [a.name for a in node.names] if isinstance(node, ast.Import) else \
+                [node.module] if isinstance(node, ast.ImportFrom) and node.module else []
+            offenders += [(path.name, n) for n in names
+                          if n.split(".")[0] not in allowed and not _is_stdlib(n.split(".")[0])]
+    assert offenders == []
+
+
+def _is_stdlib(name: str) -> bool:
+    import sys
+    return name in sys.stdlib_module_names
+
+
 def test_core_has_no_qt():
     offenders = [(p.name, m) for p in _py_files("core") for m in _imports(p) if m.startswith("PyQt5")]
     assert offenders == []

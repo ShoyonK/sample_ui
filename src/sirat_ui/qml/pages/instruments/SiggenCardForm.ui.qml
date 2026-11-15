@@ -44,7 +44,7 @@ Card {
 
             GridLayout {
                 columns: 2
-                columnSpacing: 12
+                columnSpacing: Theme.s3
                 rowSpacing: 6
                 Layout.fillWidth: true
 
@@ -80,7 +80,7 @@ Card {
             }
 
             RowLayout {
-                spacing: 8
+                spacing: Theme.s2
                 AppButton { id: applyButton; objectName: "sgApplyButton"; text: "Apply configuration"; iconName: "upload"; variant: "primary" }
                 AppButton { id: loadButton; objectName: "sgLoadButton"; text: "Load from instrument"; iconName: "download" }
             }
@@ -88,7 +88,7 @@ Card {
             Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.border; Layout.topMargin: 2 }
             Text { text: "Output"; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold; color: Theme.textPrimary }
             RowLayout {
-                spacing: 8
+                spacing: Theme.s2
                 SegmentedControl { id: rfControl; objectName: "sgRfControl"; model: ["RF off", "RF on"]; tones: ["", "ok"] }
                 AppButton { id: infiniteButton; objectName: "sgInfiniteButton"; text: "Infinite trigger"; iconName: "play"; variant: "run" }
                 AppButton { id: singleButton; objectName: "sgSingleButton"; text: "Single trigger"; iconName: "next" }
@@ -96,7 +96,7 @@ Card {
             Text { id: triggerLabel; objectName: "sgTriggerText"; text: "Not triggered"; font.pixelSize: Theme.fontXs; color: Theme.textMuted }
 
             RowLayout {
-                spacing: 8
+                spacing: Theme.s2
                 Layout.topMargin: 2
                 AppButton { id: addButton; objectName: "sgAddToActionsButton"; text: "Add to Actions"; iconName: "bolt" }
                 AppButton { id: codeButton; objectName: "sgCodeButton"; text: "Code"; iconName: "code" }

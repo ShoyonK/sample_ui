@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from sirat_ui.domains.automation.recorder import ActionRecorder
 from sirat_ui.domains.connection.service import ConnectionService
 from sirat_ui.domains.logs.service import LogService
-from sirat_ui.domains.radio.phy import WIFI_FAMILY
+from sirat_ui.domains.radio.phy import supports_wifi
 from sirat_ui.domains.settings.hardware import HardwareConfigService
 from sirat_ui.models.dialogs import ConfirmRequest
 from sirat_ui.models.station import LogLine, RpcAddress
@@ -19,9 +19,12 @@ from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
 from sirat_ui.state.station import StationState
 
 CONFIG_TYPES = ["EFX", "EFR32"]
+CONSOLE_LINES = 200
 
 
 class ConnectionViewModel(BaseViewModel):
+    """The connect sheet: position, config type and file, an optional RPC address, and the live console."""
+
     changed = pyqtSignal()
 
     def __init__(self, service: ConnectionService, state: StationState, log: LogService,
@@ -65,7 +68,7 @@ class ConnectionViewModel(BaseViewModel):
 
     def _on_log(self, line: LogLine) -> None:
         if self._sheet_open or self._busy:
-            self._console.set_items((self._console.items + [{"level": line.level, "text": line.text}])[-200:])
+            self._console.set_items((self._console.items + [{"level": line.level, "text": line.text}])[-CONSOLE_LINES:])
 
     @pyqtSlot()
     def openSheet(self) -> None:  # noqa: N802
@@ -88,7 +91,7 @@ class ConnectionViewModel(BaseViewModel):
     def setRpcPort(self, port: str) -> None:  # noqa: N802
         self._update(rpc_port=port)
 
-    def _address(self):
+    def _address(self) -> Tuple[Optional[str], Optional[int]]:
         """(host, port) to send, (None, None) for the workspace config, or raises ValueError."""
         if not self._override:
             return None, None
@@ -143,6 +146,8 @@ class ConnectionViewModel(BaseViewModel):
 
 
 class DisconnectRecoveryViewModel(BaseViewModel):
+    """The dialog shown when a DUT drops: Reconnect, then reload a PHY or add the reconnect to Actions."""
+
     changed = pyqtSignal()
 
     def __init__(self, service: ConnectionService, state: StationState, actions: ActionRecorder,
@@ -176,8 +181,7 @@ class DisconnectRecoveryViewModel(BaseViewModel):
     @pyqtProperty(bool, notify=changed)
     def wifiAvailable(self) -> bool:  # noqa: N802
         """Req 3/23: Load WiFi PHY only for Everest-family chips."""
-        chip = self._state.chip
-        return chip is not None and chip.family.upper() == WIFI_FAMILY
+        return supports_wifi(self._state.chip)
 
     def _on_disconnected(self, position: int, cause: str, detected_by: str) -> None:
         if self._visible:  # one dialog at a time (req §3 debounce)
@@ -193,16 +197,18 @@ class DisconnectRecoveryViewModel(BaseViewModel):
                                    status_level="ok"),
             lambda e: self._update(busy=False, status_text=f"Reconnect failed: {e.message}", status_level="danger"))
 
-    @pyqtSlot()
-    def loadLpwPhy(self) -> None:  # noqa: N802
-        """Opens the Radio and PHY page, where the PHY is chosen and loaded (req 23)."""
+    def _open_radio(self) -> None:
+        """Closes the dialog and opens the Radio and PHY page, where the PHY is chosen and loaded (req 23)."""
         self._update(visible=False)
         self._open_radio_page()
 
     @pyqtSlot()
+    def loadLpwPhy(self) -> None:  # noqa: N802
+        self._open_radio()
+
+    @pyqtSlot()
     def loadWifiPhy(self) -> None:  # noqa: N802
-        self._update(visible=False)
-        self._open_radio_page()
+        self._open_radio()
 
     @pyqtSlot()
     def addReconnectToActions(self) -> None:  # noqa: N802
@@ -252,7 +258,7 @@ class FaultRecoveryViewModel(BaseViewModel):
         request = ConfirmRequest(f"Recover DUT {position}?",
                                  "The station applies the safe state to the DUT and clears the fault. Actions and "
                                  "sequences can run again afterwards.",
-                                 [("Fault", fault)], confirm_text="Recover", tone="warning")
+                                 [("Fault", str(fault))], confirm_text="Recover", tone="warning")
 
         def answered(answer: Any) -> None:
             if not answer.accepted:

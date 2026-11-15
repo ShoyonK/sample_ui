@@ -23,6 +23,7 @@ def palette_commands(go: Go, connection: ConnectionViewModel, state: StateViewMo
                      tree: PeripheralTreeViewModel, actions: ActionsViewModel, watch: WatchListViewModel,
                      dock: DockViewModel, dumps: DumpsViewModel, advanced: AdvancedViewModel,
                      sessions: SessionsViewModel) -> List[Command]:
+    """The palette's commands. `go(page, then)` builds a command that opens the page first, then runs `then`."""
     def tool(name: str) -> Callable[[], None]:
         return go("advanced", lambda: advanced.show(name))
 

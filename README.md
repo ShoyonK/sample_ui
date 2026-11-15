@@ -65,21 +65,29 @@ the app uses, so a new QML import has to be added to `KEEP` in `packaging/sirat.
 ## Layout
 
 ```
+src/station_protocol/  the Station API as code, shared by every tool and the station service (imports no app)
+src/station_client/    a client any tool can use: connection, reconnect, heartbeat (depends only on the protocol)
 src/sirat_ui/
   app/          bootstrap: Application, ServiceContainer (composition root), launch, Qt scheduler
-  core/         pure Python: registers, bits, formatting, search, requires, formulas, actions, codegen
-  gateway/      StationGateway port, Call, errors, events + fake/ (in-memory station, scenarios)
-  state/        AppState (global cross-tab state), Preferences
-  stores/       JSON persistence (same file names as today's SiRAT) + demo data
+  models/       shared dataclasses (stdlib only)
+  state/        StationState, SelectionState, PreferencesState, StatusLine
+  core/         pure Python: bits, formatting, search, requires, formulas, ops, actions, codegen
+  gateway/      station interfaces (port.py), Call, errors, ActivityTracker
+    wire/       the app's side of station_protocol: method bindings, codec into models/, events
+    api/        ApiStationGateway: the real client, on a station_client Link
+    fake/       in-memory station and FakeStationServer (the fake over TCP)
   shared/       ViewModel base + list model, InteractionService, DialogsViewModel, ErrorPresenter
-  domains/      one folder per feature: service + ViewModels
-    connection/ registers/ annotations/ monitoring/ automation/ history/ logs/ shell/
+  stores/       JSON persistence (same file names as today's SiRAT) + demo data
+  domains/      one folder per feature: services + ViewModels
+    shell/ connection/ registers/ annotations/ history/ monitoring/ automation/ dumps/
+    radio/ instruments/ advanced/ station_tests/ sessions/ settings/ logs/
   qml/
     theme/      Theme singleton (all colors, spacing, fonts; dark mode)
     components/ design system: AppButton, Card, Chip, SegmentedControl, Sparkline …
-    shell/      window chrome: top bar, nav rail, page host, bottom dock, status bar
-    pages/      registers/ watch/ actions/ sequences/ settings/ dock/ placeholder/
-    dialogs/    confirm, alert, prompt, disconnect recovery, connect sheet, toasts
+    shell/      window chrome: top bar, nav rail, page host, bottom dock, status bar, pop-outs
+    pages/      registers/ watch/ actions/ sequences/ dumps/ radio/ instruments/ advanced/
+                tests/ settings/ dock/
+    dialogs/    confirm, alert, prompt, disconnect recovery, connect sheet, progress, toasts
 ```
 
 ### Design Studio

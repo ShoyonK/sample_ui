@@ -39,9 +39,9 @@ Rectangle {
             Layout.fillWidth: true
         }
         Row {
-            spacing: 8
+            spacing: Theme.s2
             Layout.alignment: Qt.AlignHCenter
-            Layout.topMargin: 4
+            Layout.topMargin: Theme.s1
             AppButton { objectName: "placeholderShow"; text: "Show window"; iconName: "export"; small: true; onClicked: root.showRequested() }
             AppButton { objectName: "placeholderDock"; text: "Bring back here"; iconName: "download"; small: true; onClicked: root.dockRequested() }
         }

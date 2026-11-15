@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import html
 import io
+import itertools
 import keyword
 import token
 import tokenize
@@ -30,7 +31,8 @@ def _classify(tokens: List[tokenize.TokenInfo], i: int) -> str:
     if tok.type == token.NAME:
         if keyword.iskeyword(tok.string) or tok.string in ("True", "False", "None", "self"):
             return "keyword"
-        following = next((t for t in tokens[i + 1:] if t.type not in (token.NL, token.NEWLINE)), None)
+        rest = itertools.islice(tokens, i + 1, None)   # not a slice: that copies the list for every name
+        following = next((t for t in rest if t.type not in (token.NL, token.NEWLINE)), None)
         if following is not None and following.string == "(":
             return "function"
     return "text"
@@ -63,6 +65,10 @@ def _spans(code: str) -> List[Tuple[str, str]]:
 
 
 def highlight_python(code: str, dark: bool = False) -> str:
+    """Python source as a Qt rich-text <pre> block, coloured for the light or dark theme.
+
+    Code that doesn't tokenize (half-typed, say) comes back uncoloured rather than failing.
+    """
     palette: Dict[str, str] = DARK if dark else LIGHT
     try:
         spans = _spans(code)

@@ -14,12 +14,13 @@ from sirat_ui.core.formatting import ValueFormat, format_field, format_value, pa
 from sirat_ui.core.observable import Event
 from sirat_ui.domains.annotations.service import AnnotationService, FavoritesService
 from sirat_ui.domains.registers.service import RegisterService
+from sirat_ui.gateway.call import Call
 from sirat_ui.models.registers import FieldDef, PeripheralDef, RegisterDef
 from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
 from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
 from sirat_ui.state.preferences import PreferencesState
-from sirat_ui.state.selection import SelectionState
+from sirat_ui.state.selection import Selection, SelectionState
 from sirat_ui.state.station import StationState
 
 FIELD_ROLES = ["bits", "name", "fullName", "accessText", "accessKey", "valueText", "editable", "hasValue",
@@ -27,7 +28,18 @@ FIELD_ROLES = ["bits", "name", "fullName", "accessText", "accessKey", "valueText
                "hasFormula"]
 
 
+def _field_bits(reg: RegisterDef) -> List[bool]:
+    """Which of the 32 bits belong to a field (the bit grid underlines them)."""
+    covered = [False] * 32
+    for f in reg.fields:
+        for i in range(f.lsb, f.msb + 1):
+            covered[i] = True
+    return covered
+
+
 class RegisterDetailViewModel(BaseViewModel):
+    """The register detail panel. mode: "empty", "peripheral" (a peripheral is selected) or "register"."""
+
     changed = pyqtSignal()
 
     def __init__(self, state: StationState, selection: SelectionState, prefs: PreferencesState,
@@ -92,7 +104,7 @@ class RegisterDetailViewModel(BaseViewModel):
 
     # ---- state -> properties ------------------------------------------------------------------
 
-    def _on_selection(self, selection: Any, by_user: bool) -> None:
+    def _on_selection(self, selection: Selection, by_user: bool) -> None:
         self._reg = selection if isinstance(selection, RegisterDef) else None
         self._periph = selection if isinstance(selection, PeripheralDef) else None
         self._refresh()
@@ -124,10 +136,6 @@ class RegisterDetailViewModel(BaseViewModel):
         value = self._registers.cached(reg.full_name)
         previous = self._registers.previous_value(reg.full_name)
         fmt = self._prefs.value.format
-        field_bits = [False] * 32
-        for f in reg.fields:
-            for i in range(f.lsb, f.msb + 1):
-                field_bits[i] = True
         self._update(
             mode="register", title=reg.full_name, address_text=f"0x{reg.address:08X}",
             access_text=reg.access.label, access_key=reg.access.value, description=reg.description,
@@ -137,10 +145,11 @@ class RegisterDetailViewModel(BaseViewModel):
             has_value=value is not None,
             can_read=reg.access.readable and self._state.can("registers.read"),
             can_write=reg.access.writable and self._state.can("registers.write"),
-            bit_values=bits.bit_list(value or 0, 32), field_bits=field_bits,
+            bit_values=bits.bit_list(value or 0, 32), field_bits=_field_bits(reg),
             show_calculated=any(self._annotations.formula(f.full_name) for f in reg.fields), **common,
         )
-        self._fields.set_items([self._field_row(f, value, previous) for f in sorted(reg.fields, key=lambda f: -f.lsb)])
+        msb_first = sorted(reg.fields, key=lambda f: -f.lsb)
+        self._fields.set_items([self._field_row(f, value, previous) for f in msb_first])
         self.changed.emit()
 
     def _field_row(self, f: FieldDef, value: Optional[int], previous: Optional[int]) -> Dict[str, Any]:
@@ -170,7 +179,7 @@ class RegisterDetailViewModel(BaseViewModel):
 
     # ---- user intents --------------------------------------------------------------------------
 
-    def _run(self, call) -> None:
+    def _run(self, call: Call) -> None:
         self._update(busy=True)
         call.then(lambda _: self._update(busy=False), lambda _: self._update(busy=False))
 

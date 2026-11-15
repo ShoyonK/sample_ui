@@ -15,7 +15,7 @@ from sirat_ui.core import wifi
 from sirat_ui.core.ops import op_kind
 from sirat_ui.core.prs import channel_problem
 from sirat_ui.stores.schemas.common import NonEmpty, RegisterName, RegisterValue
-from sirat_ui.stores.schemas.report import Report, expect_dict, validate_entry
+from sirat_ui.stores.schemas.report import Report, clean_message, expect_dict, validate_entry
 
 
 class _Op(BaseModel):
@@ -166,7 +166,7 @@ def validate_operation(op: Any) -> Dict[str, Any]:
     try:
         return model.model_validate(op).model_dump(mode="json", exclude_unset=True, by_alias=True)
     except ValidationError as error:
-        details = "; ".join(f"{'.'.join(str(p) for p in e['loc']) or kind}: {e['msg'].removeprefix('Value error, ')}"
+        details = "; ".join(f"{'.'.join(str(p) for p in e['loc']) or kind}: {clean_message(e['msg'])}"
                             for e in error.errors())
         raise ValueError(f"{kind}: {details}") from None
 
@@ -191,6 +191,7 @@ class ActionModel(BaseModel):
 
 
 def clean_actions(raw: Any, report: Report) -> Dict[str, Any]:
+    """The actions file, every action validated; an action with any invalid operation is skipped whole."""
     out: Dict[str, Any] = {}
     for name, value in expect_dict(raw, report).items():
         action = validate_entry(ActionModel, value, report, name)

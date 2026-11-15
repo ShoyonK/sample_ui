@@ -25,6 +25,7 @@ KIND_ORDER = {"command": 0, "page": 1, "register": 2, "action": 3, "sequence": 4
 
 @dataclass
 class Command:
+    """A palette command (and maybe a keyboard shortcut)."""
     key: str
     title: str
     subtitle: str
@@ -34,6 +35,7 @@ class Command:
 
 @dataclass
 class Entry:
+    """One searchable palette row; `rank` and `subtitle` are filled in per search."""
     kind: str
     key: str
     title: str
@@ -63,7 +65,22 @@ def _rank(query: str, text: str) -> Optional[int]:
     return None
 
 
+def _rank_entry(query: str, entry: Entry) -> Optional[int]:
+    """How well an entry matches (lower is better), or None. Registers also match on their name without the
+    peripheral ("lpmode" finds BUFC.LPMODE) and, last, on field names (rank 4)."""
+    rank = _rank(query, entry.title.lower())
+    if entry.kind == "register":
+        short = _rank(query, entry.title.lower().split(".", 1)[-1])
+        if short is not None and (rank is None or short < rank):
+            rank = short
+    if rank is None and query in entry.search:
+        return 4
+    return rank
+
+
 class CommandPaletteViewModel(BaseViewModel):
+    """The Ctrl+K palette, and the one table of keyboard shortcuts Main.qml binds."""
+
     changed = pyqtSignal()
 
     def __init__(self, selection: SelectionState, catalog: RegisterCatalog, actions: ActionService,
@@ -140,19 +157,15 @@ class CommandPaletteViewModel(BaseViewModel):
             return [e for e in entries if e.kind in ("command", "page")][:MAX_RESULTS]
         hits = []
         for e in entries:
-            title_rank = _rank(query, e.title.lower())
-            if e.kind == "register":  # "lpmode" should find BUFC.LPMODE as readily as "bufc" does
-                short_rank = _rank(query, e.title.lower().split(".", 1)[-1])
-                if short_rank is not None and (title_rank is None or short_rank < title_rank):
-                    title_rank = short_rank
-            rank = title_rank if title_rank is not None else (4 if query in e.search else None)
-            if rank is not None:
-                e.rank = rank
-                if title_rank is None and e.kind == "register":
-                    reg = self._catalog.register(e.key)
-                    field = next((f.name for f in reg.fields if query in f.name.lower()), "") if reg else ""
-                    e.subtitle = f"field {field} · {e.subtitle}"
-                hits.append(e)
+            rank = _rank_entry(query, e)
+            if rank is None:
+                continue
+            e.rank = rank
+            if rank == 4 and e.kind == "register":   # matched on a field: say which
+                reg = self._catalog.register(e.key)
+                field = next((f.name for f in reg.fields if query in f.name.lower()), "") if reg else ""
+                e.subtitle = f"field {field} · {e.subtitle}"
+            hits.append(e)
         hits.sort(key=lambda e: (e.rank, KIND_ORDER[e.kind], len(e.title), e.title))
         return hits[:MAX_RESULTS]
 
@@ -199,6 +212,8 @@ class CommandPaletteViewModel(BaseViewModel):
 
     @pyqtSlot(int)
     def activate(self, row: int) -> None:
+        """Closes the palette and opens the row: runs the command, or goes to the page, register, action or
+        sequence."""
         item = self._model.get(row)
         if not item:
             return

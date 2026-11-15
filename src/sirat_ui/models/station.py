@@ -13,6 +13,7 @@ from sirat_ui.models.registers import ChipInfo
 
 @dataclass
 class StationStatus:
+    """sys.status: the release, every position's facts, the instruments, and who holds the station (if anyone)."""
     release_id: str
     positions: List[PositionFacts] = field(default_factory=list)
     instruments: List[InstrumentFacts] = field(default_factory=list)
@@ -28,6 +29,7 @@ class RpcAddress:
 
 @dataclass
 class ConnectResult:
+    """dut.connect: the chip, and where the DUT was reached."""
     chip: ChipInfo
     rpc: Optional[RpcAddress] = None          # where the DUT was actually reached
 
@@ -60,6 +62,7 @@ class WriteResult:
 
 @dataclass
 class ReadManyItem:
+    """One register of registers.read_many: a value or an error."""
     name: str
     value: Optional[int] = None
     error: Optional[ApiError] = None
@@ -69,17 +72,19 @@ class ReadManyItem:
 
 @dataclass
 class StatusChanged:
+    """The status event: a new sys.status snapshot."""
     status: StationStatus
 
 
 @dataclass
 class DutDisconnected:
+    """dut.disconnected: which position, why, and what noticed it."""
     position: int
     cause: str
     detected_by: str
 
 
-# ---- PHY loading and PRS routing (req 23, req 24; docs/API_CHANGE_phy_and_prs.md) -------------------
+# ---- PHY loading and PRS routing (req 23, req 24; docs/API_DESIGN.md "dut", "rf") ----------------
 
 @dataclass(frozen=True)
 class LpwPhy:
@@ -98,6 +103,7 @@ PhySpec = Union[LpwPhy, WifiPhy]
 
 @dataclass(frozen=True)
 class LoadPhyResult:
+    """dut.load_phy: the PHY, the function the service called, the overrides."""
     name: str
     function: str = ""                                                     # what the service called
     overrides: Tuple[Tuple[str, str], ...] = ()                            # TestInputs overrides applied
@@ -105,6 +111,7 @@ class LoadPhyResult:
 
 @dataclass(frozen=True)
 class PrsRoute:
+    """A PRS route: a signal to a pin over a channel."""
     signal: str
     pin: str
     channel: int
@@ -116,6 +123,7 @@ class PrsSignalCatalog:
     family: str
     module: str
     signals: Tuple[str, ...]
+
 
 # ---- instruments (req 25-30; docs/API_DESIGN.md "instruments") -------------------------------------------
 
@@ -131,6 +139,7 @@ class SiggenConfig:
 
 @dataclass(frozen=True)
 class ChamberReading:
+    """instruments.chamber.read."""
     actual_c: float
     target_c: float
     stable: bool
@@ -138,6 +147,7 @@ class ChamberReading:
 
 @dataclass(frozen=True)
 class EcaSources:
+    """The ECA's channels and trigger sources."""
     channels: Tuple[str, ...]
     triggers: Tuple[str, ...]          # trigger sources; "immediate" is always allowed too
 
@@ -147,6 +157,7 @@ EDGES = ("rising", "falling", "either")
 
 @dataclass(frozen=True)
 class CaptureSpec:
+    """What an ECA capture records and how it triggers."""
     channels: Tuple[str, ...]
     trigger: str                       # a trigger source, or "immediate"
     edge: str = "rising"
@@ -157,6 +168,7 @@ class CaptureSpec:
 
 @dataclass(frozen=True)
 class CaptureMeta:
+    """A finished capture's spec, start time and sample count."""
     spec: CaptureSpec
     started_at: float
     sample_count: int
@@ -185,6 +197,7 @@ class MemoryBlock:
 
 @dataclass(frozen=True)
 class MemoryWriteRes:
+    """memory.write: what was written and read back."""
     address: int
     value_written: int
     value_readback: int
@@ -192,6 +205,7 @@ class MemoryWriteRes:
 
 @dataclass(frozen=True)
 class Traceback:
+    """A Python error from station-side code."""
     type: str
     message: str
     text: str
@@ -208,6 +222,7 @@ class ExecResult:
 
 @dataclass(frozen=True)
 class NameInfo:
+    """A console namespace entry, for help."""
     name: str
     type: str
     doc: str = ""
@@ -215,6 +230,7 @@ class NameInfo:
 
 @dataclass(frozen=True)
 class ApiParam:
+    """A DUT control method parameter; default_repr is None when it has no default."""
     name: str
     annotation: str
     default_repr: Optional[str]
@@ -223,6 +239,7 @@ class ApiParam:
 
 @dataclass(frozen=True)
 class ApiMethod:
+    """A DUT control method with its signature and first doc paragraph."""
     name: str
     path: str
     signature: str
@@ -232,6 +249,7 @@ class ApiMethod:
 
 @dataclass(frozen=True)
 class ApiModule:
+    """A DUT control module (lpw.radio) and its methods."""
     name: str
     path: str
     methods: Tuple[ApiMethod, ...] = ()
@@ -239,17 +257,20 @@ class ApiModule:
 
 @dataclass(frozen=True)
 class ApiPackage:
+    """A DUT control package (LPW) and its modules."""
     name: str
     modules: Tuple[ApiModule, ...] = ()
 
 
 @dataclass(frozen=True)
 class ApiTree:
+    """advanced.dut_control.describe's result."""
     packages: Tuple[ApiPackage, ...] = ()
 
 
 @dataclass(frozen=True)
 class InvokeRes:
+    """advanced.dut_control.invoke: the result as text, JSON (when it is JSON) and type."""
     result_text: str
     result_json: Any
     result_type: str
@@ -257,6 +278,7 @@ class InvokeRes:
 
 @dataclass
 class WatchValues:
+    """One registers.watch tick: register full name -> value."""
     sub_id: str
     position: int
     ts: float
@@ -284,6 +306,7 @@ class StationTest:
 
 @dataclass
 class ActivityFinished:
+    """activity.finished: ok, the per-op results, the error that ended it, and a kind-specific result."""
     activity_id: str
     position: int
     ok: bool
@@ -295,6 +318,7 @@ class ActivityFinished:
 
 @dataclass
 class LogLine:
+    """A log line, from the station (log events) or the GUI itself. position is None for station-wide lines."""
     ts: float
     level: str
     source: str
@@ -305,7 +329,7 @@ class LogLine:
 @dataclass
 class CallLate:
     """A call that timed out finished after all: did it work? (data.still_running was true on the timeout)."""
-    request_id: int
+    request_id: Union[int, str]   # the JSON-RPC id of the call that timed out (JSON-RPC allows either)
     ok: bool
     result: Any = None
     error: Optional[ApiError] = None

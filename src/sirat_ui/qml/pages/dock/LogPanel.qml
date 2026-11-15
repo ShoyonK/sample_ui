@@ -11,7 +11,7 @@ LogPanelForm {
     searchField.onTextEdited: vm.setSearchText(searchField.text)
     searchField.onAccepted: vm.nextMatch()
     matchLabel.text: vm.matchText
-    previousButton.enabled: vm.matchText !== "" && vm.matchText !== "no matches"
+    previousButton.enabled: vm.hasMatches
     previousButton.onClicked: vm.previousMatch()
     nextButton.enabled: previousButton.enabled
     nextButton.onClicked: vm.nextMatch()

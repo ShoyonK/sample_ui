@@ -1,54 +1,21 @@
-"""Client mirror of the service's check_requires (docs/API_DESIGN.md section 4, "State: facts and requires").
+"""Client mirror of the service's check_requires (docs/STATION_API.md "Requires").
 
-The GUI enables buttons from the same table the service enforces, so a stale GUI is still safe.
+The GUI enables buttons from the same table the service enforces: each protocol method's `requires`
+(station_protocol), so a stale GUI is still safe.
 """
 
 from __future__ import annotations
 
 from typing import Dict, Iterable, List, Optional, Tuple
 
+from station_protocol.catalog import METHODS
 from sirat_ui.models.facts import InstrumentFacts, PositionFacts
 
 
 INSTRUMENT = "instrument:"              # tag prefix: instrument:<kind>
 
-METHOD_REQUIRES: Dict[str, Tuple[str, ...]] = {
-    "dut.connect": ("no_fault",),
-    "dut.reconnect": ("no_fault",),
-    "dut.info": ("dut",),
-    "dut.load_phy": ("dut", "idle"),
-    "registers.tree": ("dut",),
-    "registers.read": ("dut",),
-    "registers.read_many": ("dut",),
-    "registers.write": ("dut", "idle"),
-    "registers.write_field": ("dut", "idle"),
-    "registers.watch": ("dut",),
-    "memory.read": ("dut",),
-    "memory.write": ("dut", "idle"),
-    "rf.paths": ("instrument:rf_switch",),
-    "rf.connect": ("instrument:rf_switch",),
-    "rf.disconnect": ("instrument:rf_switch",),
-    "rf.prs_route": ("dut",),
-    "rf.prs_signals": ("dut",),
-    "instruments.siggen.get": ("instrument:signal_generator",),
-    "instruments.siggen.set": ("instrument:signal_generator", "idle"),
-    "instruments.siggen.waveforms": ("instrument:signal_generator",),
-    "instruments.siggen.trigger": ("instrument:signal_generator",),
-    "instruments.siggen.rf": ("instrument:signal_generator",),
-    "instruments.chamber.read": ("instrument:chamber",),
-    "instruments.chamber.set_temp": ("instrument:chamber", "idle"),
-    "instruments.chamber.wait_stable": ("instrument:chamber", "idle"),
-    "instruments.eca.sources": ("instrument:eca",),
-    "instruments.eca.capture": ("instrument:eca", "idle"),
-    "automation.seq.run": ("dut", "idle", "no_fault"),
-    "tests.list": (),
-    "tests.run": ("dut", "idle", "no_fault"),
-    "advanced.console.open": ("dut",),
-    "advanced.console.exec": ("dut",),
-    "advanced.custom_function": ("dut", "idle"),
-    "advanced.dut_control.describe": ("dut",),
-    "advanced.dut_control.invoke": ("dut", "idle"),
-}
+# method -> the state it requires; methods that need nothing have ()
+METHOD_REQUIRES: Dict[str, Tuple[str, ...]] = {m.wire: m.requires for m in METHODS}
 
 TAG_TEXT = {
     "dut": "a connected DUT",
@@ -98,4 +65,5 @@ def check_requires(method: str, facts: Optional[PositionFacts], instruments: Ite
 
 
 def describe_missing(tags: List[str]) -> str:
+    """Unmet tags in words, for "That needs ... first." ("a connected DUT, the DUT or instrument to be idle")."""
     return ", ".join(TAG_TEXT.get(t, t) for t in tags)

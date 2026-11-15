@@ -33,7 +33,7 @@ Card {
             GridLayout {
                 columns: 2
                 columnSpacing: 10
-                rowSpacing: 4
+                rowSpacing: Theme.s1
                 Layout.fillWidth: true
                 Text { text: "Path"; font.pixelSize: Theme.fontXs; color: Theme.textMuted }
                 Text { text: "DUT position"; font.pixelSize: Theme.fontXs; color: Theme.textMuted }
@@ -53,7 +53,7 @@ Card {
                 }
             }
             RowLayout {
-                spacing: 8
+                spacing: Theme.s2
                 AppButton { id: connectButton; objectName: "rfConnectButton"; text: "Connect path"; iconName: "plug"; variant: "primary" }
                 AppButton { id: disconnectButton; objectName: "rfDisconnectButton"; text: "Disconnect"; iconName: "close"; variant: "danger" }
                 AppButton { id: addButton; objectName: "rfAddToActionsButton"; text: "Add to Actions"; iconName: "bolt" }

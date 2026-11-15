@@ -12,7 +12,7 @@ Rectangle {
 
     Column {
         anchors.top: parent.top
-        anchors.topMargin: 8
+        anchors.topMargin: Theme.s2
         anchors.horizontalCenter: parent.horizontalCenter
         spacing: 2
 
@@ -32,7 +32,7 @@ Rectangle {
         iconName: "settings"
         label: "Settings"
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 8
+        anchors.bottomMargin: Theme.s2
         anchors.horizontalCenter: parent.horizontalCenter
     }
 

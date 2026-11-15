@@ -23,20 +23,30 @@ _HINTS = {
 
 
 def parse_value(text: str, annotation: str = "") -> Any:
-    """Req 22 "Parses parameter values", except that a str parameter keeps what was typed."""
+    """Turns what was typed into a parameter value (req 22 "Parses parameter values").
+
+    The rules are tried in order: None, then a str parameter keeps the text (quotes optional), booleans, hex,
+    floats and scientific notation (whole numbers become int unless the parameter is a float), int, then Python
+    literals such as lists. Anything else stays a string.
+
+    Args:
+        text: The field's text.
+        annotation: The parameter's annotation as text ("str", "float", ...), or "" when it has none.
+    """
     s = text.strip()
-    if s.lower() == "none":
+    lower = s.lower()
+    if lower == "none":
         return None
     if annotation == "str":
         return ast.literal_eval(s) if len(s) >= 2 and s[0] == s[-1] and s[0] in "'\"" else s
-    if s.lower() in ("true", "false"):
-        return s.lower() == "true"
-    if s.lower().startswith(("0x", "-0x")):
+    if lower in ("true", "false"):
+        return lower == "true"
+    if lower.startswith(("0x", "-0x")):
         try:
             return int(s, 16)
         except ValueError:
             return s
-    if re.fullmatch(r"[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?", s) and ("e" in s.lower() or "." in s):
+    if re.fullmatch(r"[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?", s) and ("e" in lower or "." in s):
         value = float(s)
         return int(value) if value.is_integer() and annotation != "float" else value
     try:
@@ -63,7 +73,16 @@ def default_text(default_repr: Optional[str]) -> str:
 
 
 def build_kwargs(params: List[Dict[str, Any]], texts: Dict[str, str]) -> Tuple[Dict[str, Any], List[str]]:
-    """(kwargs, problems). Empty fields fall back to the default, and are a problem when there is none."""
+    """Builds the call's keyword arguments from the parameter form.
+
+    Args:
+        params: The method's parameters as dicts with name, required, default_repr and annotation.
+        texts: Parameter name -> what the user typed.
+
+    Returns:
+        (kwargs, problems). An empty field or one still showing the default is left out so the method uses its
+        own default; an empty required field is a problem instead.
+    """
     kwargs: Dict[str, Any] = {}
     problems: List[str] = []
     for p in params:

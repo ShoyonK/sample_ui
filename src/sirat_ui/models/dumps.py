@@ -15,6 +15,7 @@ _UNSAFE = re.compile(r'[\\/:*?"<>|]')
 
 @dataclass
 class RegisterDump:
+    """A saved set of register values. `values` and `addresses` are keyed by "PERIPHERAL.REGISTER"."""
     name: str
     timestamp: dt.datetime
     description: str = ""
@@ -30,14 +31,16 @@ class RegisterDump:
         return f"{_UNSAFE.sub('_', self.name).strip() or 'dump'}_{self.timestamp.strftime(STAMP)}.csv"
 
     def to_dict(self) -> Dict[str, Any]:
+        """The session record format: ISO timestamp, values and addresses as 0x hex strings."""
         return {"name": self.name, "timestamp": self.timestamp.isoformat(timespec="seconds"),
                 "description": self.description,
                 "values": {k: f"0x{v:08X}" for k, v in self.values.items()},
                 "addresses": {k: f"0x{v:08X}" for k, v in self.addresses.items()}}
 
-    @staticmethod
-    def from_dict(data: Dict[str, Any]) -> "RegisterDump":
-        return RegisterDump(str(data.get("name") or "dump"),
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "RegisterDump":
+        """Reads to_dict()'s format (sessions). Raises ValueError/TypeError for a malformed record."""
+        return cls(str(data.get("name") or "dump"),
                             dt.datetime.fromisoformat(str(data.get("timestamp"))),
                             str(data.get("description") or ""),
                             {k: _int(v) for k, v in (data.get("values") or {}).items()},
@@ -50,6 +53,7 @@ def _int(value: Any) -> int:
 
 @dataclass(frozen=True)
 class DiffRow:
+    """One register that differs, with the fields that changed."""
     register: str
     before: int
     after: int
@@ -65,6 +69,7 @@ class DiffRow:
 
 @dataclass
 class Comparison:
+    """The result of comparing two sets of register values."""
     title: str
     before_label: str
     after_label: str
@@ -76,7 +81,8 @@ class Comparison:
     @property
     def summary(self) -> str:
         count = len(self.rows)
-        text = f"{count} register{'' if count == 1 else 's'} differ{'s' if count == 1 else ''} · {self.compared} compared"
+        differ = "register differs" if count == 1 else "registers differ"
+        text = f"{count} {differ} · {self.compared} compared"
         if self.only_in_one:
             text += f" · {self.only_in_one} in only one"
         if self.errors:

@@ -17,6 +17,8 @@ from sirat_ui.models.station import StationStatus
 
 
 class StationState:
+    """See the module docstring. `position` is the DUT position the GUI shows."""
+
     def __init__(self, position: int = 1, backend_label: str = "") -> None:
         self.position = position or 1
         self.backend_label = backend_label
@@ -35,7 +37,7 @@ class StationState:
 
     @property
     def facts(self) -> PositionFacts:
-        return self._facts.get(self.position) or PositionFacts(self.position)
+        return self.facts_for(self.position)
 
     @property
     def connected(self) -> bool:
@@ -46,6 +48,7 @@ class StationState:
         return self._chips.get(self.position)
 
     def apply_status(self, status: StationStatus) -> None:
+        """Takes a sys.status snapshot (or status event): replaces the facts it lists and every instrument."""
         self.release_id = status.release_id
         for facts in status.positions:
             self._facts[facts.position] = facts
@@ -70,6 +73,7 @@ class StationState:
             self.changed.emit()
 
     def mark_disconnected(self, position: int, cause: str, detected_by: str) -> None:
+        """A dut.disconnected event: clears what a disconnect resets and tells `disconnected` listeners."""
         facts = self._facts.setdefault(position, PositionFacts(position))
         facts.dut_connected = False
         facts.phy = None
@@ -81,6 +85,7 @@ class StationState:
         return self._facts.get(position) or PositionFacts(position)
 
     def missing(self, method: str, instrument_id: Optional[str] = None) -> List[str]:
+        """The requires tags `method` lacks right now on the selected position; empty means it may be called."""
         return check_requires(method, self.facts, self.instruments, instrument_id)
 
     def can(self, method: str, instrument_id: Optional[str] = None) -> bool:

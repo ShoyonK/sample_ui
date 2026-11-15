@@ -6,6 +6,7 @@ import "../../components"
 // A changed register (req 12). Rows stay neutral, like the Radio diff: the After value is in red and the
 // Change cell carries the marker, so Before stays readable.
 Rectangle {
+    property var columns   // the page's diff column table, shared with the header
     objectName: "diff_" + model.register
     width: ListView.view ? ListView.view.width : 900
     height: 34
@@ -16,9 +17,9 @@ Rectangle {
         anchors.leftMargin: Theme.s3
         anchors.rightMargin: Theme.s3
         spacing: Theme.s3
-        Text { text: model.register; font.family: Theme.fontMono; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold; color: Theme.textPrimary; elide: Text.ElideRight; Layout.preferredWidth: 240 }
-        Text { text: model.before; font.family: Theme.fontMono; font.pixelSize: Theme.fontSm; color: Theme.textMuted; Layout.preferredWidth: 190 }
-        Text { text: model.after; font.family: Theme.fontMono; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold; color: Theme.bitOnText; Layout.preferredWidth: 190 }
+        Text { text: model.register; font.family: Theme.fontMono; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold; color: Theme.textPrimary; elide: Text.ElideRight; Layout.preferredWidth: columns.register }
+        Text { text: model.before; font.family: Theme.fontMono; font.pixelSize: Theme.fontSm; color: Theme.textMuted; Layout.preferredWidth: columns.before }
+        Text { text: model.after; font.family: Theme.fontMono; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold; color: Theme.bitOnText; Layout.preferredWidth: columns.after }
         RowLayout {
             spacing: 6
             Layout.fillWidth: true

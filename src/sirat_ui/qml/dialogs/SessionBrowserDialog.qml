@@ -14,22 +14,18 @@ ModalDialog {
     dialogWidth: 860
 
     contentItem: ColumnLayout {
-        spacing: 12
+        spacing: Theme.s3
         DialogHeader {
             title: "Load session"
             message: "Loading replaces your notes, formulas, actions, favorites and history with the session's."
             iconName: "download"
             tone: "info"
-            Layout.fillWidth: true
-            Layout.topMargin: 18
-            Layout.leftMargin: 20
-            Layout.rightMargin: 20
         }
         RowLayout {
             Layout.fillWidth: true
             Layout.leftMargin: 20
             Layout.rightMargin: 20
-            spacing: 12
+            spacing: Theme.s3
 
             Rectangle {
                 Layout.preferredWidth: 380
@@ -49,7 +45,7 @@ ModalDialog {
                         objectName: "sessionRow_" + model.name
                         width: ListView.view ? ListView.view.width : 360
                         height: 54
-                        color: model.selected ? Theme.select : (hover.hovered ? Theme.surface2 : "transparent")
+                        color: Theme.rowColor(model.selected, hover.hovered)
                         HoverHandler { id: hover }
                         TapHandler {
                             onTapped: dialog.vm.select(index)
@@ -61,8 +57,8 @@ ModalDialog {
                         Column {
                             anchors.left: parent.left
                             anchors.right: parent.right
-                            anchors.leftMargin: 12
-                            anchors.rightMargin: 12
+                            anchors.leftMargin: Theme.s3
+                            anchors.rightMargin: Theme.s3
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 2
                             RowLayout {
@@ -110,11 +106,7 @@ ModalDialog {
                 }
             }
         }
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.leftMargin: 20
-            Layout.rightMargin: 20
-            Layout.bottomMargin: 18
+        DialogButtons {
             spacing: Theme.s2
             AppButton {
                 objectName: "sessionDeleteButton"

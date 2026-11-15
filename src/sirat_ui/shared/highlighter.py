@@ -27,6 +27,8 @@ _TRIPLE = ('"""', "'''")
 
 
 class PythonHighlighter(QSyntaxHighlighter):
+    """Colours an editable QML text document as Python, line by line, with block state for triple quotes."""
+
     def __init__(self, document: QTextDocument, dark: bool = False) -> None:
         super().__init__(document)
         self._rules = [(kind, QRegularExpression(pattern)) for kind, pattern in _RULES]
@@ -61,7 +63,8 @@ class PythonHighlighter(QSyntaxHighlighter):
         pos = 0
         while True:
             if state == 0:
-                found = [(text.find(q, pos), i + 1) for i, q in enumerate(_TRIPLE) if text.find(q, pos) >= 0]
+                hits = ((text.find(q, pos), i + 1) for i, q in enumerate(_TRIPLE))
+                found = [hit for hit in hits if hit[0] >= 0]
                 if not found:
                     break
                 start, state = min(found)

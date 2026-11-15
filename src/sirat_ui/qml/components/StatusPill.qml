@@ -21,9 +21,8 @@ Rectangle {
         Rectangle {
             width: 7; height: 7; radius: 4
             anchors.verticalCenter: parent.verticalCenter
-            color: root.level === "ok" ? Theme.okFg
-                 : root.level === "danger" ? Theme.dangerFg
-                 : root.level === "busy" ? Theme.infoFg : Theme.warnFg
+            // busy shows in the info hue; anything unknown as a warning
+            color: Theme.toneFg(({ ok: "ok", danger: "danger", busy: "info" })[root.level] || "warn")
             SequentialAnimation on opacity {
                 running: root.level === "busy"
                 loops: Animation.Infinite

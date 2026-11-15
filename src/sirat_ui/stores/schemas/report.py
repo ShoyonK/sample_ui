@@ -20,6 +20,7 @@ M = TypeVar("M", bound=BaseModel)
 
 @dataclass
 class Report:
+    """The problems found while cleaning one file; truthy when there are any."""
     source: str
     problems: List[Problem] = field(default_factory=list)
 
@@ -29,14 +30,15 @@ class Report:
     def add_error(self, where: str, error: ValidationError) -> None:
         for item in error.errors():
             loc = ".".join(str(part) for part in item["loc"])
-            self.add(".".join(p for p in (where, loc) if p), _message(item["msg"]))
+            self.add(".".join(p for p in (where, loc) if p), clean_message(item["msg"]))
 
     def __bool__(self) -> bool:
         return bool(self.problems)
 
 
-def _message(msg: str) -> str:
-    return msg[len("Value error, "):] if msg.startswith("Value error, ") else msg
+def clean_message(msg: str) -> str:
+    """A pydantic message without the "Value error, " prefix our own validators' messages get."""
+    return msg.removeprefix("Value error, ")
 
 
 def validate_entry(model: Type[M], value: Any, report: Report, where: str) -> Optional[M]:
@@ -53,7 +55,7 @@ def validate_with_defaults(model: Type[M], raw: Any, report: Report) -> M:
     data: Dict[str, Any] = dict(raw) if isinstance(raw, dict) else {}
     if not isinstance(raw, dict) and raw is not None:
         report.add("", f"expected an object, got {type(raw).__name__}; using defaults")
-    for _ in range(len(data) + 1):
+    for _ in range(len(data) + 1):   # each failed pass drops at least one key, so this many passes is enough
         try:
             return model.model_validate(data)
         except ValidationError as error:
@@ -67,6 +69,7 @@ def validate_with_defaults(model: Type[M], raw: Any, report: Report) -> M:
 
 
 def expect_dict(raw: Any, report: Report) -> Dict[str, Any]:
+    """`raw` if it's a dict; otherwise {} and a problem (None, a missing file's content, is no problem)."""
     if isinstance(raw, dict):
         return raw
     if raw is not None:
@@ -75,6 +78,7 @@ def expect_dict(raw: Any, report: Report) -> Dict[str, Any]:
 
 
 def expect_list(raw: Any, report: Report, where: str = "") -> List[Any]:
+    """`raw` if it's a list; otherwise [] and a problem at `where` (None is no problem)."""
     if isinstance(raw, list):
         return raw
     if raw is not None:

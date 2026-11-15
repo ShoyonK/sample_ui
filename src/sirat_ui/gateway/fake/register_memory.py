@@ -12,6 +12,8 @@ _RAC_STATES = (1, 3, 3, 4, 3)
 
 
 class RegisterMemory:
+    """The fake chip's register values, starting at reset values; writes go through each register's writable mask."""
+
     def __init__(self, peripherals: List[PeripheralDef], seed: int = 7) -> None:
         self.registers: Dict[str, RegisterDef] = {r.full_name: r for p in peripherals for r in p.registers}
         self.values: Dict[str, int] = {name: reg.reset for name, reg in self.registers.items()}
@@ -25,6 +27,7 @@ class RegisterMemory:
         return reg
 
     def read(self, name: str) -> int:
+        """The register's value. Raises ApiError NOT_FOUND / ACCESS_DENIED (write-only)."""
         reg = self.get(name)
         if not reg.access.readable:
             raise ApiError(ErrorCode.ACCESS_DENIED, f"{name} is write-only")
@@ -43,6 +46,7 @@ class RegisterMemory:
         return new_value if reg.access.readable else value
 
     def field_insert(self, name: str, field_name: str, value: int) -> int:
+        """The whole register value with one field replaced; doesn't write it. Raises ApiError when invalid."""
         reg = self.get(name)
         field = reg.field(field_name)
         if field is None:

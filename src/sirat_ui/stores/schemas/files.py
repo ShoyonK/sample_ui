@@ -6,7 +6,7 @@ forms earlier builds wrote are converted), with every skipped entry reported.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List, Literal, Type
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing_extensions import Annotated
@@ -26,19 +26,20 @@ class _RegisterItem(BaseModel):
     value: RegisterName
 
 
-def _names(items: Any, report: Report, where: str, model: type = _Name) -> List[str]:
+class _Rate(BaseModel):
+    value: float = Field(gt=0, le=3600)
+
+
+def _names(items: Any, report: Report, where: str, model: Type[BaseModel] = _Name) -> List[str]:
     out = []
     for i, item in enumerate(expect_list(items, report, where)):
         checked = validate_entry(model, {"value": item}, report, f"{where}.{i}")
         if checked is not None:
-            out.append(checked.value)
+            out.append(getattr(checked, "value"))
     return out
 
 
 def _rate(value: Any, default: float, report: Report, where: str) -> float:
-    class _Rate(BaseModel):
-        value: float = Field(gt=0, le=3600)
-
     if value is None:
         return default
     checked = validate_entry(_Rate, {"value": value}, report, where)
@@ -114,14 +115,10 @@ class FormulaModel(BaseModel):
         return value
 
 
-class _FieldKey(BaseModel):
-    value: RegisterOrField
-
-
 def clean_formulas(raw: Any, report: Report) -> Dict[str, Any]:
     out: Dict[str, Any] = {}
     for name, value in expect_dict(raw, report).items():
-        key = validate_entry(_FieldKey, {"value": name}, report, name)
+        key = validate_entry(_Name, {"value": name}, report, name)
         formula = validate_entry(FormulaModel, value, report, name)
         if key is not None and formula is not None:
             out[key.value] = formula.model_dump(mode="json")

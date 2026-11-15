@@ -7,6 +7,7 @@ valid, so the drop-downs never offer a choice the current standard or channel do
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -27,6 +28,8 @@ PHY_FILE_FILTER = "PHY files (*.cfg *.json *.py);;All files (*)"
 
 
 class LpwPhyViewModel(BaseViewModel):
+    """The Load LPW PHY card: a known or typed PHY name, Load (then offer Add to Actions)."""
+
     changed = pyqtSignal()
 
     def __init__(self, service: PhyService, state: StationState, interactions: InteractionService,
@@ -51,7 +54,7 @@ class LpwPhyViewModel(BaseViewModel):
     def knownPhys(self) -> List[str]:  # noqa: N802
         return KNOWN_LPW_PHYS
 
-    def _refresh(self, *_: object) -> None:
+    def _refresh(self) -> None:
         self._update(current_phy=self._state.facts.phy or "", can_load=self._service.can_load and not self._busy)
 
     @pyqtSlot(str)
@@ -100,6 +103,8 @@ class LpwPhyViewModel(BaseViewModel):
 
 
 class WifiPhyViewModel(BaseViewModel):
+    """The WiFi PHY card: the form (kept valid by WifiSettings.normalized), the packet visualizer, Apply."""
+
     changed = pyqtSignal()
 
     def __init__(self, service: PhyService, state: StationState, interactions: InteractionService,
@@ -254,8 +259,7 @@ class WifiPhyViewModel(BaseViewModel):
     # ---- setters ---------------------------------------------------------------------------------------
 
     def _set(self, **changes: Any) -> None:
-        values = dict(self._s.__dict__, **changes)
-        self._s = WifiSettings(**values).normalized()
+        self._s = replace(self._s, **changes).normalized()
         self.changed.emit()
 
     @pyqtSlot(str)

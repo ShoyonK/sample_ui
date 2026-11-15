@@ -3,7 +3,6 @@ import QtQuick 2.15
 WifiPhyCardForm {
     readonly property var vm: app.wifiPhy
 
-    enabled: true
     phyChip.text: vm.phyName
     unavailableBanner.visible: !vm.available
     unavailableLabel.text: vm.unavailableText

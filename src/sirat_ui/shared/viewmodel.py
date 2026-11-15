@@ -20,6 +20,8 @@ class BaseViewModel(QObject):
     """Subclasses declare `changed = pyqtSignal()` and use `qprop(..., notify=changed)`."""
 
     def _update(self, **values: Any) -> None:
+        """Sets backing attributes by name, `_update(foo=1)` -> `self._foo = 1`, and emits `changed` once if any
+        value actually changed."""
         dirty = False
         for name, value in values.items():
             attr = "_" + name
@@ -81,10 +83,12 @@ class DictListModel(QAbstractListModel):
 
 
 def clock_text(ts: float) -> str:
+    """A timestamp as local HH:MM:SS."""
     return time.strftime("%H:%M:%S", time.localtime(ts))
 
 
 def copy_to_clipboard(text: str) -> None:
+    """Puts text on the clipboard; does nothing without a running Qt application (unit tests)."""
     clipboard = QGuiApplication.clipboard() if QGuiApplication.instance() is not None else None
     if clipboard is not None:
         clipboard.setText(text)

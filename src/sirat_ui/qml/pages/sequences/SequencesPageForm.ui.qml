@@ -48,6 +48,7 @@ RowLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 boundsBehavior: Flickable.StopAtBounds
+                ScrollBar.vertical: AppScrollBar {}
                 delegate: SequenceRow {}
             }
             Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.border }

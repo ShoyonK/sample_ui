@@ -12,7 +12,7 @@ import itertools
 import math
 import random
 from array import array
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Dict, List, Optional
 
 from sirat_ui.core.eca import MAX_SAMPLES
@@ -32,6 +32,7 @@ CHAMBER_RAMP_C_PER_S = 2.0
 CAPTURE_STEPS = ("Arming", "Waiting for trigger", "Capturing", "Uploading")
 CAPTURE_STEP_MS = 300
 
+
 @dataclass
 class _Activity:
     activity_id: str
@@ -39,12 +40,16 @@ class _Activity:
     aborted: bool = False
     handle: Optional[Handle] = None
 
+
 @dataclass
 class _Capture:
     meta: CaptureMeta
     samples: Dict[str, array] = field(default_factory=dict)
 
+
 class FakeBench:
+    """The fake bench's instruments and their activities; FakeStationGateway delegates to it."""
+
     def __init__(self, scheduler: Scheduler, emit: Callable[[Any], None], log: Callable[[str, str], None],
                  emit_status: Callable[[], None], clock: Callable[[], float], chip: Callable[[], str]) -> None:
         self._scheduler = scheduler
@@ -145,14 +150,12 @@ class FakeBench:
             raise ApiError(ErrorCode.INVALID_PARAMS, "frequency_hz must be between 0 and 6 GHz")
         if not -150 <= config.power_dbm <= 30:
             raise ApiError(ErrorCode.INVALID_PARAMS, "power_dbm must be between -150 and 30")
-        self.siggen = SiggenConfig(config.sg_type, config.input_config_name, config.frequency_hz, config.power_dbm,
-                                   dict(config.overrides))
+        self.siggen = replace(config, overrides=dict(config.overrides))
         self._log("info", f"Signal generator loaded {config.input_config_name} at {config.frequency_hz / 1e6:g} MHz, "
                           f"{config.power_dbm:g} dBm")
 
     def siggen_get(self) -> SiggenConfig:
-        s = self.siggen
-        return SiggenConfig(s.sg_type, s.input_config_name, s.frequency_hz, s.power_dbm, dict(s.overrides))
+        return replace(self.siggen, overrides=dict(self.siggen.overrides))
 
     def siggen_waveforms(self, reload: bool) -> List[str]:
         if reload:
@@ -205,23 +208,24 @@ class FakeBench:
         if tolerance_c <= 0 or hold_s < 0 or timeout_s <= 0:
             raise ApiError(ErrorCode.INVALID_PARAMS, "tolerance_c and timeout_s must be positive, hold_s at least 0")
         activity = self._start(instrument_id, "waiting")
-        state = {"elapsed": 0, "held": 0}
+        elapsed = held = 0
         total = max(1, int(math.ceil(hold_s)))
 
         def tick() -> None:
+            nonlocal elapsed, held
             if activity.aborted:
                 self._finish(activity, False, error=ApiError(ErrorCode.ABORTED, "Aborted by user"))
                 return
-            state["elapsed"] += 1
+            elapsed += 1
             within = abs(self.chamber_actual - self.chamber_target) <= tolerance_c
-            state["held"] = state["held"] + 1 if within else 0
-            self._progress(activity, min(state["held"], total), total,
+            held = held + 1 if within else 0
+            self._progress(activity, min(held, total), total,
                            f"{self.chamber_actual:.1f} °C, target {self.chamber_target:g} °C, "
-                           f"stable for {state['held']} of {total} s")
-            if state["held"] >= hold_s:
+                           f"stable for {held} of {total} s")
+            if held >= hold_s:
                 self._log("success", f"Chamber stable at {self.chamber_target:g} °C")
                 self._finish(activity, True, result={"actual_c": round(self.chamber_actual, 2)})
-            elif state["elapsed"] >= timeout_s:
+            elif elapsed >= timeout_s:
                 self._finish(activity, False, error=ApiError(
                     ErrorCode.TIMEOUT, f"The chamber didn't settle within {timeout_s:g} s"))
 
@@ -247,15 +251,16 @@ class FakeBench:
             raise ApiError(ErrorCode.INVALID_PARAMS, f"A capture holds 2 to {MAX_SAMPLES:,} samples; "
                                                      f"this one would be {count:,}")
         activity = self._start(instrument_id, "capturing")
-        state = {"step": 0}
+        step = 0
 
         def tick() -> None:
+            nonlocal step
             if activity.aborted:
                 self._finish(activity, False, error=ApiError(ErrorCode.ABORTED, "Aborted by user"))
                 return
-            if state["step"] < len(CAPTURE_STEPS):
-                state["step"] += 1
-                self._progress(activity, state["step"], len(CAPTURE_STEPS), CAPTURE_STEPS[state["step"] - 1])
+            if step < len(CAPTURE_STEPS):
+                step += 1
+                self._progress(activity, step, len(CAPTURE_STEPS), CAPTURE_STEPS[step - 1])
                 return
             capture_id = f"c{next(self._ids)}"
             meta = CaptureMeta(spec, self._clock(), count, self._chip(), 0)
@@ -281,6 +286,7 @@ class FakeBench:
             self.captures.pop(capture_id)  # kept until the last page is read
         return CapturePage(capture.meta, offset, end - offset, channels, more)
 
+
 # ---- waveform synthesis -----------------------------------------------------------------------------------
 
 BURST_PERIOD_S = 1.25e-3     # a TX burst every 1.25 ms (a BLE connection-event cadence)
@@ -288,6 +294,7 @@ TX_S = 0.376e-3              # a 47-byte LE 1M packet on air
 IFS_S = 0.150e-3
 RX_S = 0.300e-3
 HIGH = 3300                  # digital high, in mV
+
 
 def synthesize(spec: CaptureSpec, count: int) -> Dict[str, array]:
     """Each channel's samples (int16, mV): TX bursts start at the trigger point and repeat every period."""
@@ -306,7 +313,8 @@ def synthesize(spec: CaptureSpec, count: int) -> Dict[str, array]:
             elif name == "RX_EN":
                 value = HIGH if rx else 0
             elif name == "PRS_CH0":  # FRAMEDET: a short pulse 40 µs into each receive window
-                value = HIGH if rx and phase - TX_S - IFS_S < 48e-6 and phase - TX_S - IFS_S >= 40e-6 else 0
+                into_rx = phase - TX_S - IFS_S
+                value = HIGH if rx and 40e-6 <= into_rx < 48e-6 else 0
             else:  # RF_ENV: the PA envelope with a 10 µs ramp, plus noise
                 ramp = min(1.0, phase / 10e-6, (TX_S - phase) / 10e-6) if tx else 0.0
                 value = int(1800 * ramp + rng.gauss(40, 12))

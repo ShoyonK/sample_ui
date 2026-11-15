@@ -20,6 +20,11 @@ FUNCTION_PLACEHOLDER = """# Write Python code here. Available:
 
 DEFAULT_FUNCTION_CODE = 'rssi = dut.rta.lpw.GetRSSI()\nprint(f"RSSI: {rssi} dBm")\nreturn rssi\n'
 
+WELCOME: List[Line] = [
+    ("note", "SiRAT Python console. The code runs on the station, next to the DUT."),
+    ("note", "dut is the connected DUT. Type help() or press Help for what else is available."),
+]
+
 
 class CommandHistory:
     """Req 20 "History Navigation": ↑ older, ↓ newer, wrapping at both ends; back to the end after running."""
@@ -47,11 +52,16 @@ class CommandHistory:
 
 
 def echo(code: str) -> List[Line]:
+    """The command as the console shows it: the first line after >>>, the rest after ...."""
     lines = code.rstrip("\n").split("\n")
     return [("input", (">>> " if i == 0 else "... ") + line) for i, line in enumerate(lines)]
 
 
 def result_lines(stdout: str, stderr: str, result_text: Optional[str], error_text: Optional[str]) -> List[Line]:
+    """Output lines for one run: stdout, then stderr and the error as errors, else the result.
+
+    The result is left out when there's an error, because a failed run has no value to show.
+    """
     out: List[Line] = []
     if stdout:
         out.append(("stdout", stdout.rstrip("\n")))
@@ -62,12 +72,6 @@ def result_lines(stdout: str, stderr: str, result_text: Optional[str], error_tex
     elif result_text is not None:
         out.append(("result", result_text))
     return out
-
-
-WELCOME: List[Line] = [
-    ("note", "SiRAT Python console. The code runs on the station, next to the DUT."),
-    ("note", "dut is the connected DUT. Type help() or press Help for what else is available."),
-]
 
 
 def help_lines(names: Sequence[Tuple[str, str, str]]) -> List[Line]:

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections import deque
 from pathlib import Path
-from typing import Any, Deque, Dict, List, Optional, Protocol, Tuple
+from typing import Any, Callable, Deque, Dict, List, Optional, Protocol, Tuple
 
 from sirat_ui.gateway.call import Call
 from sirat_ui.models.dialogs import Alert, ConfirmAnswer, ConfirmRequest, PromptRequest
@@ -22,6 +22,35 @@ class InteractionService(Protocol):
     def choose_open_file(self, title: str, filters: str,
                          start_dir: Optional[Path] = None) -> Call: ...  # -> path str | None; opens in the home folder
     def show_code(self, title: str, code: str) -> None: ...       # req 16 code dialog
+
+
+def save_text(interactions: InteractionService, title: str, suggested: str, filters: str,
+              text: Callable[[], str], done: Callable[[str], str], encoding: str = "utf-8") -> Call:
+    """Asks for a file name, writes the text there, and toasts how it went.
+
+    Args:
+        interactions: Where to ask and toast.
+        title: The save dialog's title.
+        suggested: The suggested file name or path.
+        filters: The dialog's file type filter, e.g. "CSV files (*.csv)".
+        text: Builds the text, called only once a path was chosen.
+        done: The success toast for the chosen path.
+        encoding: The file's encoding ("utf-8-sig" adds the BOM Excel wants for non-ASCII).
+
+    Returns:
+        The file dialog's call (resolved with the path, or None when cancelled).
+    """
+    def chosen(path: Optional[str]) -> None:
+        if not path:
+            return
+        try:
+            Path(path).write_text(text(), encoding=encoding)
+        except OSError as exc:
+            interactions.toast("error", f"Couldn't save: {exc}")
+            return
+        interactions.toast("success", done(path))
+
+    return interactions.choose_save_file(title, suggested, filters).then(chosen)
 
 
 class ScriptedInteractions:
@@ -40,6 +69,8 @@ class ScriptedInteractions:
         self._open_paths: Deque[Optional[str]] = deque()
 
     def answer_next(self, answer: Any) -> None:
+        """Queues the answer to the next confirm or prompt. A bool becomes a ConfirmAnswer; with nothing queued,
+        a confirm is declined and a prompt cancelled."""
         self._answers.append(answer)
 
     def confirm(self, request: ConfirmRequest) -> Call:

@@ -11,13 +11,19 @@ from sirat_ui.stores.json_store import JsonStore
 
 
 class FavoritesService:
+    """The favorite registers (~/.sirat_favorites.json), in the order they were added."""
+
     def __init__(self, store: JsonStore) -> None:
         self._store = store
-        self.names: List[str] = read_favorites(store.load())
+        self.names: List[str] = []
         self.changed = Event()
+        self._load()
+
+    def _load(self) -> None:
+        self.names = read_favorites(self._store.load())
 
     def reload(self) -> None:
-        self.names = read_favorites(self._store.load())
+        self._load()
         self.changed.emit()
 
     def replace(self, names: List[str]) -> None:
@@ -28,6 +34,7 @@ class FavoritesService:
         return full_name in self.names
 
     def toggle(self, full_name: str) -> bool:
+        """Adds or removes a favorite. Returns whether it's a favorite now."""
         if full_name in self.names:
             self.names.remove(full_name)
         else:
@@ -46,18 +53,23 @@ class FavoritesService:
 
 
 class AnnotationService:
+    """Field notes (~/.sirat/field_notes.json) and field formulas (~/.sirat/field_formulas.json)."""
+
     def __init__(self, notes_store: JsonStore, formulas_store: JsonStore) -> None:
         self._notes_store = notes_store
         self._formulas_store = formulas_store
-        notes = notes_store.load()
-        self.notes: Dict[str, str] = dict(notes) if isinstance(notes, dict) else {}
-        self.formulas: Dict[str, Tuple[str, str]] = read_formulas(formulas_store.load())
+        self.notes: Dict[str, str] = {}
+        self.formulas: Dict[str, Tuple[str, str]] = {}   # field -> (formula, unit)
         self.changed = Event()
+        self._load()
 
-    def reload(self) -> None:
+    def _load(self) -> None:
         notes = self._notes_store.load()
         self.notes = dict(notes) if isinstance(notes, dict) else {}
         self.formulas = read_formulas(self._formulas_store.load())
+
+    def reload(self) -> None:
+        self._load()
         self.changed.emit()
 
     def replace(self, notes: Dict[str, str], formulas: Dict[str, Tuple[str, str]]) -> None:
@@ -110,6 +122,7 @@ class AnnotationService:
             return None
 
     def format_calculated(self, full_name: str, raw: Optional[int]) -> str:
+        """The calculated value with its unit; "" without a formula or value, "error" when the formula fails."""
         entry = self.formulas.get(full_name)
         if not entry or raw is None:
             return ""

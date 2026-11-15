@@ -1,8 +1,9 @@
 """On-disk formats of the original SiRAT settings files (sirat_requirements.txt, DATA REQUIREMENTS).
 
 Readers accept the original format and the plain-list format earlier builds of this frontend wrote,
-so nothing already saved is lost. Writers always produce the original format, so the old and new GUIs
-can share one home folder.
+so nothing already saved is lost. The app's stores already normalise legacy shapes in their schema cleaners
+(stores/schemas); the readers stay tolerant anyway, for stores built without a cleaner. Writers always produce
+the original format, so the old and new GUIs can share one home folder.
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ def write_favorites(names: List[str]) -> Dict[str, Any]:
 # ---- ~/.sirat_watch_list.json (req 18): {"watched_fields": [...], "refresh_rate": 1.0} --------
 
 def read_watch_list(raw: Any) -> Tuple[List[str], float]:
+    """(watched field names, refresh rate in s)."""
     if isinstance(raw, dict):
         return _names(raw.get("watched_fields")), _rate(raw.get("refresh_rate"), 1.0)
     return _names(raw), 1.0
@@ -48,6 +50,7 @@ def write_watch_list(names: List[str], refresh_rate: float) -> Dict[str, Any]:
 # ---- ~/.sirat_data_logger.json (req 17): {"tracked_fields": [...], "sample_rate": 1.0} --------
 
 def read_data_logger(raw: Any) -> Tuple[List[str], float]:
+    """(tracked field names, sample rate in s)."""
     if not isinstance(raw, dict):
         return [], 1.0
     names = raw.get("tracked_fields", raw.get("fields"))
@@ -66,8 +69,8 @@ class SequenceRecord:
     description: str = ""
 
 
-def read_sequences(raw: Any) -> "OrderedDict[str, SequenceRecord]":
-    sequences: "OrderedDict[str, SequenceRecord]" = OrderedDict()
+def read_sequences(raw: Any) -> OrderedDict[str, SequenceRecord]:
+    sequences: OrderedDict[str, SequenceRecord] = OrderedDict()
     if not isinstance(raw, dict):
         return sequences
     for name, value in raw.items():
@@ -78,7 +81,7 @@ def read_sequences(raw: Any) -> "OrderedDict[str, SequenceRecord]":
     return sequences
 
 
-def write_sequences(sequences: "OrderedDict[str, SequenceRecord]") -> Dict[str, Any]:
+def write_sequences(sequences: OrderedDict[str, SequenceRecord]) -> Dict[str, Any]:
     return {name: {"action_names": list(r.action_names), "description": r.description}
             for name, r in sequences.items()}
 

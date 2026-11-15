@@ -13,6 +13,7 @@ from PyQt5.QtCore import QObject
 
 from sirat_ui.app.commands import palette_commands
 from sirat_ui.app.paths import samples_dir
+from sirat_ui.core.naming import count
 from sirat_ui.domains.advanced.advanced_viewmodel import AdvancedViewModel
 from sirat_ui.domains.advanced.console import ConsoleService
 from sirat_ui.domains.advanced.console_viewmodel import ConsoleViewModel
@@ -29,8 +30,6 @@ from sirat_ui.domains.automation.action_editor import ActionEditorViewModel
 from sirat_ui.domains.automation.actions import ActionService
 from sirat_ui.domains.automation.actions_viewmodel import ActionsViewModel
 from sirat_ui.domains.automation.sequences import SequenceService
-from sirat_ui.domains.station_tests.service import StationTestService
-from sirat_ui.domains.station_tests.viewmodel import StationTestsViewModel
 from sirat_ui.domains.automation.sequences_viewmodel import SequencesViewModel
 from sirat_ui.domains.connection.service import ConnectionService
 from sirat_ui.domains.connection.system_info_viewmodel import SystemInfoViewModel
@@ -72,7 +71,7 @@ from sirat_ui.domains.registers.read_all_viewmodel import ReadAllViewModel
 from sirat_ui.domains.registers.service import RegisterService
 from sirat_ui.domains.registers.shortcuts_viewmodel import RegisterShortcutsViewModel
 from sirat_ui.domains.registers.tree_viewmodels import FavoritesViewModel, PeripheralTreeViewModel
-from sirat_ui.domains.sessions.service import SessionService, count
+from sirat_ui.domains.sessions.service import SessionService
 from sirat_ui.domains.sessions.viewmodel import SessionsViewModel
 from sirat_ui.domains.settings.hardware import HardwareConfigService
 from sirat_ui.domains.settings.transfer import SettingsTransfer
@@ -81,6 +80,8 @@ from sirat_ui.domains.shell.command_palette import CommandPaletteViewModel
 from sirat_ui.domains.shell.dock import DockViewModel
 from sirat_ui.domains.shell.viewmodels import ShellViewModel, StateViewModel, with_children
 from sirat_ui.domains.shell.windows import WindowsViewModel
+from sirat_ui.domains.station_tests.service import StationTestService
+from sirat_ui.domains.station_tests.viewmodel import StationTestsViewModel
 from sirat_ui.gateway.activities import ActivityTracker
 from sirat_ui.gateway.port import StationGateway
 from sirat_ui.gateway.scheduler import Scheduler
@@ -98,6 +99,7 @@ from sirat_ui.stores.json_store import JsonStore, UserStores
 
 @dataclass
 class Services:
+    """Every service the container builds, by the name the ViewModels and tests use."""
     log: LogService
     history: HistoryLog
     errors: ErrorPresenter
@@ -132,6 +134,8 @@ class Services:
 
 
 class ServiceContainer:
+    """Builds every service and ViewModel for one station gateway and one home folder (see the module docstring)."""
+
     def __init__(self, gateway: StationGateway, home: Path, scheduler: Scheduler, backend_label: str = "",
                  interactions: Optional[InteractionService] = None, dumps_dir: Optional[Path] = None) -> None:
         self.gateway = gateway
@@ -196,9 +200,13 @@ class ServiceContainer:
                                           errors)
         dut_control = DutControlService(self.gateway, self.state, actions, errors)
         memory = MemoryService(self.gateway, self.state, self.stores.memory_viewer, errors, log)
-        return Services(log, history, errors, catalog, registers, read_all, connection, favorites, annotations,
-                        watch, logger, actions, sequences, station_tests, hardware, transfer, dumps, phy, prs, sessions, bench,
-                        siggen, rf_switch, chamber, eca, packets, session, console, functions, dut_control, memory)
+        return Services(
+            log=log, history=history, errors=errors, catalog=catalog, registers=registers, read_all=read_all,
+            connection=connection, favorites=favorites, annotations=annotations, watch=watch, logger=logger,
+            actions=actions, sequences=sequences, station_tests=station_tests, hardware=hardware, transfer=transfer,
+            dumps=dumps, phy=phy, prs=prs, sessions=sessions, bench=bench, siggen=siggen, rf_switch=rf_switch,
+            chamber=chamber, eca=eca, packets=packets, session=session, console=console, functions=functions,
+            dut_control=dut_control, memory=memory)
 
     def _build_viewmodels(self) -> ShellViewModel:
         """One method per area; each returns the ViewModels it adds, by the name QML uses (app.<name>)."""
@@ -243,7 +251,8 @@ class ServiceContainer:
             "sessions": SessionsViewModel(s.sessions, ix),
             "dialogs": self.dialogs,
             "connection": ConnectionViewModel(s.connection, st, s.log, s.hardware, ix),
-            "recovery": DisconnectRecoveryViewModel(s.connection, st, s.actions, ix, open_radio_page=self._go("radio")),
+            "recovery": DisconnectRecoveryViewModel(s.connection, st, s.actions, ix,
+                                                    open_radio_page=self._go("radio")),
             "faultRecovery": FaultRecoveryViewModel(s.connection, st, ix),
             "log": LogViewModel(s.log, ix),
             "windows": WindowsViewModel(),
@@ -256,7 +265,7 @@ class ServiceContainer:
         return {
             "tree": PeripheralTreeViewModel(st, self.selection, self.prefs, s.catalog, s.registers, s.read_all),
             "readAll": ReadAllViewModel(s.read_all, ix),
-            "favorites": FavoritesViewModel(st, self.selection, s.catalog, s.favorites),
+            "favorites": FavoritesViewModel(self.selection, s.catalog, s.favorites),
             "detail": RegisterDetailViewModel(st, self.selection, self.prefs, s.registers, s.favorites, s.annotations,
                                               ix, s.actions.run_finished),
             "registerShortcuts": RegisterShortcutsViewModel(self.selection, s.registers, s.favorites, s.watch,
@@ -320,8 +329,9 @@ class ServiceContainer:
         commands = palette_commands(
             self._go, cast(ConnectionViewModel, vms["connection"]), cast(StateViewModel, vms["state"]),
             cast(RegisterDetailViewModel, vms["detail"]), cast(PeripheralTreeViewModel, vms["tree"]), actions,
-            cast(WatchListViewModel, vms["watch"]), cast(DockViewModel, vms["dock"]), cast(DumpsViewModel, vms["dumps"]),
-            cast(AdvancedViewModel, vms["advanced"]), cast(SessionsViewModel, vms["sessions"]))
+            cast(WatchListViewModel, vms["watch"]), cast(DockViewModel, vms["dock"]),
+            cast(DumpsViewModel, vms["dumps"]), cast(AdvancedViewModel, vms["advanced"]),
+            cast(SessionsViewModel, vms["sessions"]))
         return CommandPaletteViewModel(self.selection, s.catalog, s.actions, s.sequences,
                                        navigate=lambda key: self.shell.navigate(key),
                                        select_action=actions.select_name, select_sequence=sequences.select_name,
@@ -332,6 +342,9 @@ class ServiceContainer:
         self.services.sessions.stop_autosave()
         self.services.sessions.autosave()
         self.services.chamber.stop_polling()
+        close = getattr(self.gateway, "close", None)   # ApiStationGateway: end the link and its retries
+        if callable(close):
+            close()
 
     def reload_user_data(self) -> None:
         """After importing or clearing settings: every service re-reads its file (no restart needed)."""
@@ -384,6 +397,8 @@ class ServiceContainer:
                                            "Details are in the log; the original files are kept as .bak.")
 
     def start(self, autoconnect: bool = False, position: int = 1) -> None:
+        """After the window shows: report skipped settings, restore the auto-save, start the station handshake,
+        and connect `position` when asked."""
         self.services.log.info("SiRAT window initialized")
         self.report_settings_problems()
         self.services.sessions.restore_autosave()  # req 34: "Restored on next launch if exists"

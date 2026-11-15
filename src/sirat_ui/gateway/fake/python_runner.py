@@ -15,7 +15,7 @@ import io
 import sys
 import time
 import traceback
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, List, Optional, Sequence, Set
 
 from sirat_ui.models.station import ExecResult, Traceback
 
@@ -26,10 +26,10 @@ class _TimeLimit(BaseException):  # not Exception, so `except Exception` in user
     pass
 
 
-def _stored_names(body: list) -> Set[str]:
+def _stored_names(body: Sequence[ast.AST]) -> Set[str]:
     """Names a function body binds, not counting nested functions, classes and lambdas."""
     names: Set[str] = set()
-    stack = list(body)
+    stack: List[ast.AST] = list(body)
     while stack:
         node = stack.pop()
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
@@ -79,6 +79,16 @@ def format_traceback(exc: BaseException) -> Traceback:
 
 def run(code: str, namespace: Dict[str, Any], mode: str = "auto", function_name: Optional[str] = None,
         time_limit_s: float = 2.0) -> ExecResult:
+    """Runs console or custom-function code in `namespace`. Never raises: failures are in ExecResult.error.
+
+    Args:
+        code: The source.
+        namespace: The session's globals; assignments stay in it.
+        mode: auto (eval, falling back to exec), eval or exec.
+        function_name: Set for a custom function: a top-level return works, and the result is stored as
+            result_<name> and last_dut_api_result.
+        time_limit_s: Code still running after this is stopped with a TimeoutError.
+    """
     out, err = io.StringIO(), io.StringIO()
     filename = f"<{function_name}>" if function_name else "<console>"
     namespace.setdefault("__builtins__", __builtins__)

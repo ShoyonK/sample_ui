@@ -7,7 +7,6 @@ import "../theme"
 Item {
     id: plot
     property var samples: []     // x values (sample numbers)
-    readonly property int strokeRun: 24
     property var points: []      // y values
     property real xMin: -1
     property real xMax: -1
@@ -24,6 +23,7 @@ Item {
     readonly property int marginRight: 10
     readonly property int marginTop: 8
     readonly property int marginBottom: 34
+    readonly property int strokeRun: 24   // points per stroked path in onPaint (see the comment there)
     readonly property real plotWidth: Math.max(1, width - marginLeft - marginRight)
     readonly property real plotHeight: Math.max(1, height - marginTop - marginBottom)
 

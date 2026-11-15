@@ -9,6 +9,8 @@ Popup {
     id: palette
     objectName: "commandPalette"
     readonly property var vm: app.palette
+    readonly property var kindTones: ({ register: "ok", page: "info", action: "warn", sequence: "split" })
+    readonly property var monoKinds: ["register", "action", "sequence"]   // names shown in the code font
 
     parent: Overlay.overlay
     visible: vm.isOpen
@@ -39,7 +41,7 @@ Popup {
             id: field
             objectName: "paletteField"
             Layout.fillWidth: true
-            Layout.margins: 12
+            Layout.margins: Theme.s3
             implicitHeight: 36
             leadingIcon: "search"
             placeholderText: "Jump to a register, field, page, action or sequence"
@@ -66,18 +68,17 @@ Popup {
                 objectName: "paletteItem_" + model.key
                 width: ListView.view ? ListView.view.width : 600
                 height: 44
-                color: model.current ? Theme.select : (hover.hovered ? Theme.surface2 : "transparent")
+                color: Theme.rowColor(model.current, hover.hovered)
                 HoverHandler { id: hover }
                 TapHandler { onTapped: palette.vm.activate(index) }
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: 16
-                    anchors.rightMargin: 16
+                    anchors.leftMargin: Theme.s4
+                    anchors.rightMargin: Theme.s4
                     spacing: 10
                     Chip {
                         text: model.kind
-                        tone: model.kind === "register" ? "ok" : model.kind === "page" ? "info"
-                            : model.kind === "action" ? "warn" : model.kind === "sequence" ? "split" : "mute"
+                        tone: palette.kindTones[model.kind] || "mute"
                         Layout.preferredWidth: 72
                     }
                     Column {
@@ -86,8 +87,7 @@ Popup {
                             text: model.title
                             width: parent.width
                             elide: Text.ElideRight
-                            font.family: model.kind === "register" || model.kind === "action" || model.kind === "sequence"
-                                         ? Theme.fontMono : Theme.fontUi
+                            font.family: palette.monoKinds.indexOf(model.kind) >= 0 ? Theme.fontMono : Theme.fontUi
                             font.pixelSize: Theme.fontMd
                             color: Theme.textPrimary
                         }
@@ -128,7 +128,7 @@ Popup {
         }
         Text {
             Layout.margins: 10
-            Layout.leftMargin: 16
+            Layout.leftMargin: Theme.s4
             text: "↑↓ to move · Enter to open · Esc to close"
             font.pixelSize: Theme.fontXs
             color: Theme.textMuted

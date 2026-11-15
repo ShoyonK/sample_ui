@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-from bisect import bisect_left, bisect_right
-from typing import List, Optional, Tuple
-
 import time
+from bisect import bisect_left, bisect_right
 from pathlib import Path
+from typing import List, Optional, Tuple
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
+from sirat_ui.core.formatting import parse_seconds
 from sirat_ui.core.thinning import thin
 from sirat_ui.domains.monitoring.logger import RATE_MAX_S, RATE_MIN_S, DataLoggerService, Series
 from sirat_ui.shared.interactions import InteractionService
-from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
 from sirat_ui.shared.qt import pyqtProperty
+from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, qprop
 
 PLOT_BUCKETS = 400   # each plot gets at most about 800 points, however long the run
 
@@ -73,10 +73,11 @@ class DataLoggerViewModel(BaseViewModel):
         logger = self._logger
         elapsed = logger.elapsed_s
         state = "Recording" if logger.recording else "Stopped"
+        clock = f"{int(elapsed // 60)}:{elapsed % 60:04.1f}"
         self._update(
             recording=logger.recording, field_count=len(logger.series), sample_count=logger.sample_count,
             rate_text=f"{logger.rate_s:g}",
-            status_text=f"{state} · {logger.sample_count:,} samples · {int(elapsed // 60)}:{elapsed % 60:04.1f} elapsed",
+            status_text=f"{state} · {logger.sample_count:,} samples · {clock} elapsed",
             mode_text="station watch" if logger.mode == "watch" else "polling (rate outside 0.1–60 s watch range)",
         )
 
@@ -91,11 +92,8 @@ class DataLoggerViewModel(BaseViewModel):
 
     @pyqtSlot(str)
     def setRateText(self, text: str) -> None:  # noqa: N802
-        try:
-            rate = float(text.replace("s", "").strip())
-        except ValueError:
-            rate = -1
-        if not RATE_MIN_S <= rate <= RATE_MAX_S:
+        rate = parse_seconds(text)
+        if rate is None or not RATE_MIN_S <= rate <= RATE_MAX_S:
             self._interactions.toast("error", f"Enter a sample rate between {RATE_MIN_S:g} and {RATE_MAX_S:g} seconds")
             self._rebuild()
             return

@@ -14,15 +14,11 @@ ModalDialog {
     dialogWidth: 700
 
     contentItem: ColumnLayout {
-        spacing: 12
+        spacing: Theme.s3
         DialogHeader {
             title: dialog.vm.viewTitle
             iconName: "eye"
             tone: "info"
-            Layout.fillWidth: true
-            Layout.topMargin: 18
-            Layout.leftMargin: 20
-            Layout.rightMargin: 20
         }
         ScrollView {
             Layout.fillWidth: true
@@ -41,15 +37,11 @@ ModalDialog {
                 font.family: Theme.fontUi
                 font.pixelSize: Theme.fontSm
                 color: Theme.textPrimary
-                padding: 12
+                padding: Theme.s3
                 background: null
             }
         }
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.leftMargin: 20
-            Layout.rightMargin: 20
-            Layout.bottomMargin: 18
+        DialogButtons {
             Item { Layout.fillWidth: true }
             AppButton {
                 objectName: "actionViewCloseButton"

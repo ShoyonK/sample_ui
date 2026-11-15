@@ -7,10 +7,11 @@ from typing import List, Optional
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from sirat_ui.core.instruments import format_overrides, parse_overrides, siggen_code, siggen_problems
+from sirat_ui.core.instruments import parse_float as number
+from sirat_ui.core.ops import DEFAULT_SIGGEN
 from sirat_ui.domains.instruments.bench import InstrumentBench
-from sirat_ui.domains.instruments.instrument_viewmodel import (InstrumentViewModel, instrument_properties,
-                                                              number)
-from sirat_ui.domains.instruments.siggen import KIND, SignalGeneratorService
+from sirat_ui.domains.instruments.instrument_viewmodel import InstrumentViewModel, instrument_properties
+from sirat_ui.domains.instruments.siggen import SignalGeneratorService
 from sirat_ui.models.instruments import SiggenSettings
 from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
@@ -21,7 +22,9 @@ FIELDS = ("sgType", "frequency", "power", "overrides")
 
 
 class SignalGeneratorViewModel(InstrumentViewModel):
-    KIND = KIND
+    """The signal generator card. Valid edits are remembered as you type."""
+
+    KIND = SignalGeneratorService.KIND
     changed = pyqtSignal()
     instrumentText, instrumentFound, instrumentConnected, errors, errorText = instrument_properties(changed)
 
@@ -104,22 +107,24 @@ class SignalGeneratorViewModel(InstrumentViewModel):
 
     # ---- editing ------------------------------------------------------------------------------------------
 
+    def _edited(self) -> None:
+        """Re-validates, and remembers the settings when they're valid (req 25 persistence)."""
+        self._validate()
+        if not self._errors:
+            self._service.remember(self._settings())
+
     @pyqtSlot(str, str)
     def setField(self, name: str, value: str) -> None:  # noqa: N802
         if name in FIELDS:
             setattr(self, "_" + name, value)
-            self._validate()
-            if not self._errors:
-                self._service.remember(self._settings())
+            self._edited()
 
     @pyqtSlot(int)
     def setWaveform(self, index: int) -> None:  # noqa: N802
         names = self.waveforms
         if 0 <= index < len(names):
             self._waveform = names[index]
-            self._validate()
-            if not self._errors:
-                self._service.remember(self._settings())
+            self._edited()
 
     # ---- instrument -----------------------------------------------------------------------------------------
 
@@ -167,4 +172,4 @@ class SignalGeneratorViewModel(InstrumentViewModel):
     def showCode(self) -> None:  # noqa: N802
         if not self._errors:
             self._interactions.show_code("Signal generator code",
-                                         siggen_code(self._settings(), self._service.instrument_id or "siggen1"))
+                                         siggen_code(self._settings(), self._service.instrument_id or DEFAULT_SIGGEN))

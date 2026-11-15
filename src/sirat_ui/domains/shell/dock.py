@@ -19,6 +19,8 @@ COLLAPSED_BY_DEFAULT = {"watch", "sequences"}
 
 
 class DockViewModel(BaseViewModel):
+    """The bottom dock's open/collapsed state per page, and the collapsed strip's summary texts."""
+
     changed = pyqtSignal()
 
     def __init__(self, history: HistoryLog, log: LogService, actions: ActionService,
@@ -52,7 +54,8 @@ class DockViewModel(BaseViewModel):
         last = entries[-1] if entries else None
         history = f"{last.operation.title()}  {last.target} = 0x{last.value:X}" if last else "No reads or writes yet"
         line = self._log.lines[-1] if self._log.lines else None
-        self._update(last_history=history, last_log=line.text if line else "", last_log_level=line.level if line else "info",
+        self._update(last_history=history, last_log=line.text if line else "",
+                     last_log_level=line.level if line else "info",
                      checked=sum(1 for a in self._actions.actions.values() if a.enabled))
 
     @pyqtSlot(str)

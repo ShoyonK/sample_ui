@@ -21,10 +21,6 @@ ColumnLayout {
         id: header
         title: "Confirm write to critical register"
         message: "CMU is a critical peripheral. Check the value before writing."
-        Layout.fillWidth: true
-        Layout.topMargin: 18
-        Layout.leftMargin: 20
-        Layout.rightMargin: 20
     }
     KeyValueGrid {
         id: details
@@ -50,11 +46,7 @@ ColumnLayout {
             color: Theme.dangerFg
         }
     }
-    RowLayout {
-        Layout.fillWidth: true
-        Layout.leftMargin: 20
-        Layout.rightMargin: 20
-        Layout.bottomMargin: 18
+    DialogButtons {
         spacing: Theme.s2
         AppCheckBox { id: dontShowBox; objectName: "dontShowAgainBox"; text: "Don't show this again" }
         Item { Layout.fillWidth: true }

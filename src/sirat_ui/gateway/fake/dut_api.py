@@ -18,15 +18,15 @@ from sirat_ui.models.station import ApiMethod, ApiModule, ApiPackage, ApiParam, 
 
 
 class RpcTimeout(Exception):
-    pass
+    """The DUT didn't answer an RPC within the timeout."""
 
 
 class RpcTransportError(Exception):
-    pass
+    """The RPC link to the DUT dropped."""
 
 
 class RailAssert(Exception):
-    pass
+    """RAIL rejected a call (bad channel, power out of range ...)."""
 
 
 for _error in (RpcTimeout, RpcTransportError, RailAssert):
@@ -217,12 +217,14 @@ class _Package:
 
 
 class DutControl:
+    """dut.dut_control: one attribute per package in PACKAGES."""
     def __init__(self, dut: "FakeDut") -> None:
         for _, attr, modules in PACKAGES:
             setattr(self, attr, _Package(dut, modules))
 
 
 class RpcIo:
+    """dut.rpc_io: raw memory reads and the RPC reconnect."""
     def __init__(self, dut: "FakeDut") -> None:
         self._dut = dut
 
@@ -235,6 +237,7 @@ class RpcIo:
 
 
 class RegisterMap:
+    """dut.rm: registers by name."""
     def __init__(self, dut: "FakeDut") -> None:
         self._dut = dut
 
@@ -262,6 +265,7 @@ class _Rta:
 
 
 class FakeDut:
+    """The `dut` object the console and custom functions get."""
     def __init__(self, host: DutHost, position: int) -> None:
         self.host = host
         self.position = position
@@ -296,16 +300,18 @@ def _annotation(param: inspect.Parameter) -> str:
 
 def _method(path: str, fn: Any) -> ApiMethod:
     sig = inspect.signature(fn, eval_str=True)
+    visible = [p for p in sig.parameters.values() if p.name not in ("self", "dut")]   # dut is injected
     params = tuple(
         ApiParam(p.name, _annotation(p), None if p.default is inspect.Parameter.empty else repr(p.default),
                  p.default is inspect.Parameter.empty)
-        for p in sig.parameters.values() if p.name not in ("self", "dut"))   # dut is injected
-    shown = sig.replace(parameters=[p for p in sig.parameters.values() if p.name not in ("self", "dut")])
+        for p in visible)
+    shown = sig.replace(parameters=visible)
     doc = (inspect.getdoc(fn) or "").split("\n\n")[0].replace("\n", " ")
     return ApiMethod(fn.__name__, path, f"{fn.__name__}{shown}", doc, params)
 
 
 def describe() -> ApiTree:
+    """advanced.dut_control.describe: every public method of PACKAGES, with signature and first doc paragraph."""
     packages = []
     for title, attr, modules in PACKAGES:
         out = []

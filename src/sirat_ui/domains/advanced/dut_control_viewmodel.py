@@ -17,6 +17,9 @@ from sirat_ui.state.station import StationState
 
 
 class DutControlViewModel(BaseViewModel):
+    """The DUT control tab: the API tree flattened to rows (package > module > method), the selected method's
+    parameter form, Execute and Add to Actions."""
+
     changed = pyqtSignal()
 
     def __init__(self, service: DutControlService, state: StationState, interactions: InteractionService,
@@ -165,6 +168,7 @@ class DutControlViewModel(BaseViewModel):
     # ---- parameters ----------------------------------------------------------------------------------------
 
     def _param_dicts(self) -> List[Dict[str, Any]]:
+        # core.dut_control.build_kwargs takes plain dicts (it has no model types); the conversion is cheap
         m = self._method()
         return [{"name": p.name, "annotation": p.annotation, "default_repr": p.default_repr,
                  "required": p.required} for p in (m.params if m else ())]

@@ -23,6 +23,8 @@ Block = Tuple[int, bytes]
 
 
 class MemoryService:
+    """The memory viewer's reads and writes (see the module docstring)."""
+
     def __init__(self, gateway: MemoryPort, state: StationState, store: JsonStore, errors: ErrorPresenter,
                  log: LogService) -> None:
         self._gateway = gateway
@@ -41,6 +43,7 @@ class MemoryService:
         return str(self._store.load().get("last_address") or "0x20000000")
 
     def read(self, address: int, size: int) -> Call[MemoryBlock]:
+        """Reads `size` bytes at `address` (the station aligns to 4) and remembers the address on success."""
         self.busy = True
         self.changed.emit()
 
@@ -61,6 +64,7 @@ class MemoryService:
         return self._gateway.memory_read(self._state.position, address, size).then(done, failed)
 
     def write(self, address: int, value: int, size: int) -> Call[MemoryWriteRes]:
+        """Writes a byte, word or dword; a write inside the shown block reads the block again."""
         def done(res: MemoryWriteRes) -> None:
             digits = size * 2
             self._log.success(f"Wrote 0x{value:0{digits}X} to 0x{address:08X} "

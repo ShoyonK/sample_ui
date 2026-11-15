@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field
 from typing import List, Tuple
 
 
 @dataclass
 class ConfirmRequest:
+    """The confirmation dialog: title, message, key/value details, an optional warning box, and the button."""
     title: str
     message: str
     details: List[Tuple[str, str]] = field(default_factory=list)
@@ -19,12 +20,14 @@ class ConfirmRequest:
 
 @dataclass
 class ConfirmAnswer:
+    """The user's answer to a ConfirmRequest."""
     accepted: bool
     dont_show_again: bool = False
 
 
 @dataclass
 class PromptField:
+    """One field of a prompt; non-empty options make it a drop-down."""
     key: str
     label: str
     value: str = ""
@@ -35,6 +38,7 @@ class PromptField:
 
 @dataclass
 class PromptRequest:
+    """The prompt dialog: one or more fields; the answer is {field key: text}, or None when cancelled."""
     title: str
     fields: List[PromptField]
     message: str = ""
@@ -43,6 +47,7 @@ class PromptRequest:
 
 @dataclass
 class Alert:
+    """A modal message with an OK button. level: warning | error | info."""
     title: str
     message: str
     level: str = "warning"

@@ -1,6 +1,7 @@
 import QtQuick 2.15
 
 TestsPageForm {
+    id: page
     readonly property var vm: app.stationTests
 
     Component.onCompleted: vm.ensureLoaded()   // pages load on first visit
@@ -30,6 +31,7 @@ TestsPageForm {
     resultList.model: vm.results
     resultList.onCountChanged: resultList.positionViewAtEnd()   // the newest result stays in view
     resultList.delegate: TestResultRow {
+        columns: page.resultColumns
         onActivated: vm.selectResult(index)
     }
     emptyResults.visible: !vm.hasRun

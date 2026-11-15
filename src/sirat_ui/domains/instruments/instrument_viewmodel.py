@@ -16,13 +16,6 @@ from sirat_ui.shared.viewmodel import BaseViewModel
 from sirat_ui.state.station import StationState
 
 
-def number(text: str) -> Optional[float]:
-    try:
-        return float(text.strip())
-    except ValueError:
-        return None
-
-
 def _instrument_text(self: Any) -> str:
     return self._bench.describe(self.KIND)
 
@@ -71,6 +64,7 @@ class InstrumentViewModel(BaseViewModel):
         self._bench.connect(self.KIND)
 
     def _set_field(self, name: str, value: str, validate: Callable[[], Dict[str, str]]) -> None:
+        """Stores a QML field as self._<name> and re-validates the form."""
         setattr(self, "_" + name, value)
         self._errors = validate()
         self.changed.emit()  # type: ignore[attr-defined]

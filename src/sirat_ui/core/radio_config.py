@@ -18,35 +18,42 @@ from sirat_ui.models.radio import ConfigEntry, RadioConfig
 _LINE = re.compile(r"^(?P<p>[A-Za-z_]\w*)\.(?P<r>[A-Za-z_]\w*)\.(?P<f>[A-Za-z_]\w*)\s*=\s*(?P<v>\S+)$")
 
 MATCH, MISMATCH, ERROR = "match", "mismatch", "error"
-STATUS_TEXT = {MATCH: "✓ Match", MISMATCH: "⚠ Mismatch", ERROR: "❌ Error"}
+STATUS_LABEL = {MATCH: "Match", MISMATCH: "Mismatch", ERROR: "Error"}
 COLUMNS = ["peripheral", "register", "field", "expected", "actual", "status"]
 _STATUS_ORDER = {MISMATCH: 0, ERROR: 1, MATCH: 2}  # sorting by Status puts problems first
 
 
 def parse_config(text: str, name: str = "config") -> RadioConfig:
+    """Parses a Radio Calculator config. Lines that aren't `P.R.F = value` are listed in `skipped`, not raised."""
     config = RadioConfig(name)
     for number, raw in enumerate(text.splitlines(), start=1):
         line = raw.split("#", 1)[0].strip()
         if not line:
             continue
         match = _LINE.match(line)
-        try:
-            if not match:
-                raise ValueError
-            config.entries.append(ConfigEntry(match["p"], match["r"], match["f"], int(match["v"], 0)))
-        except ValueError:
+        value: Optional[int] = None
+        if match:
+            try:
+                value = int(match["v"], 0)
+            except ValueError:
+                pass
+        if match and value is not None:
+            config.entries.append(ConfigEntry(match["p"], match["r"], match["f"], value))
+        else:
             config.skipped.append(f"line {number}: {raw.strip()}")
     return config
 
 
 @dataclass(frozen=True)
 class FieldResult:
+    """One config line checked against the chip: the live field value (None on error) and the status."""
     entry: ConfigEntry
     actual: Optional[int]
     status: str
     note: str = ""  # why it's an error
 
     def row(self) -> Dict[str, Union[int, str]]:
+        # actual is -1 when there is none, only so the Actual column still sorts as numbers
         return {"peripheral": self.entry.peripheral, "register": self.entry.register, "field": self.entry.field,
                 "expected": self.entry.expected, "actual": self.actual if self.actual is not None else -1,
                 "status": self.status}
@@ -69,6 +76,7 @@ def _sort_key(result: FieldResult, column: str) -> Tuple[int, str]:
 
 @dataclass
 class RadioComparison:
+    """Every config line checked against the chip, with counts, sorting and a CSV report."""
     config_name: str
     results: List[FieldResult]
 
@@ -90,6 +98,7 @@ class RadioComparison:
         return sorted(self.results, key=lambda r: _sort_key(r, key), reverse=descending)
 
     def report_csv(self) -> str:
+        """The comparison as CSV: title, summary, then one row per field."""
         out = io.StringIO()
         writer = csv.writer(out, lineterminator="\n")
         writer.writerow([f"Radio Calculator comparison: {self.config_name}"])
@@ -97,5 +106,5 @@ class RadioComparison:
         writer.writerow(["Peripheral", "Register", "Field", "Expected", "Actual", "Status"])
         for r in self.results:
             writer.writerow([r.entry.peripheral, r.entry.register, r.entry.field, r.entry.expected,
-                             r.actual if r.actual is not None else r.note, r.status.capitalize()])
+                             r.actual if r.actual is not None else r.note, STATUS_LABEL[r.status]])
         return out.getvalue()

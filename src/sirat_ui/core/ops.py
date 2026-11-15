@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
+from sirat_ui.models.radio import WifiPhyConfig
+
 Op = Dict[str, Any]
 Functions = Mapping[str, str]          # custom function name -> code (~/.sirat_custom_functions.json)
 
@@ -23,6 +25,8 @@ class WireError(ValueError):
 
 @dataclass(frozen=True)
 class OpKind:
+    """Everything the client knows about one kind of operation (see the module docstring)."""
+
     name: str
     describe: Callable[[Op], str]
     code: Callable[[Op, Functions], List[str]]
@@ -32,6 +36,7 @@ class OpKind:
     editable: bool = False                           # the action editor's register/field rows
 
     def wire(self, op: Op, functions: Functions) -> Op:
+        """The op for automation.seq.run. Raises WireError for kinds that never go on the wire."""
         if self.to_wire is not None:
             return self.to_wire(op, functions)
         if self.wire_fields is None:
@@ -47,6 +52,7 @@ def _register(kind: OpKind) -> None:
 
 
 def op_kind(op: Op) -> str:
+    """The op's kind: its "type", or register_write/field_write for the untyped register ops."""
     if op.get("type"):
         return str(op["type"])
     return "field_write" if "field" in op else "register_write"
@@ -67,6 +73,11 @@ def code_lines(op: Op, functions: Functions) -> List[str]:
 
 
 def to_wire(op: Op, functions: Functions) -> Op:
+    """The op as automation.seq.run takes it.
+
+    Raises:
+        WireError: The kind can't run on the station, or a custom function's code is missing.
+    """
     kind = kind_of(op)
     if kind is None:
         raise WireError(f"'{op_kind(op)}' operations can't be run on the station")
@@ -74,11 +85,13 @@ def to_wire(op: Op, functions: Functions) -> Op:
 
 
 def carries_code(kind: str) -> bool:
-    return kind in KINDS and KINDS[kind].carries_code
+    found = KINDS.get(kind)
+    return found is not None and found.carries_code
 
 
 def editable(kind: str) -> bool:
-    return kind in KINDS and KINDS[kind].editable
+    found = KINDS.get(kind)
+    return found is not None and found.editable
 
 
 # ---- register access ------------------------------------------------------------------------------------
@@ -127,10 +140,22 @@ def _describe_wifi(op: Op) -> str:
     return f"Load WiFi PHY {c.get('phy_name')} ({c.get('mode')} {c.get('standard')} ch {c.get('channel')})"
 
 
+def _wifi_wire(op: Op, _: Functions) -> Op:
+    """The action file keeps the original format (dcm as 0/1); the wire's config is WifiPhyConfig as JSON, with
+    dcm a boolean like every other flag."""
+    try:
+        config = WifiPhyConfig.from_dict(op.get("config") or {}).to_dict()
+    except (KeyError, ValueError, TypeError) as exc:
+        raise WireError(f"The WiFi PHY in this action is incomplete: {exc}") from None
+    if config.get("advanced"):
+        config["advanced"]["dcm"] = bool(config["advanced"]["dcm"])
+    return {"type": "load_wifi_phy", "config": config}
+
+
 _register(OpKind(
     "load_wifi_phy", describe=_describe_wifi,
     code=lambda op, _: [f"dut.configurators.phy.load_wifi_phy(**{op.get('config', {})!r})"],
-    wire_fields=("config",)))
+    to_wire=_wifi_wire))
 
 _register(OpKind(
     "prs_route",

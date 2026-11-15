@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import time
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
-from sirat_ui.core.formatting import format_value, parse_value
+from sirat_ui.core.formatting import format_value, parse_seconds, parse_value
 from sirat_ui.domains.annotations.service import AnnotationService
 from sirat_ui.domains.monitoring.logger import DataLoggerService
 from sirat_ui.domains.monitoring.subscription import WATCH_MAX_S, WATCH_MIN_S
@@ -22,7 +22,7 @@ from sirat_ui.state.preferences import PreferencesState
 ROLES = ["name", "valueText", "enumName", "calcText", "changed", "changedText", "trend", "writable", "selected"]
 
 
-def _ago(ts, now: float) -> str:
+def _ago(ts: Optional[float], now: float) -> str:
     if ts is None:
         return "—"
     seconds = now - ts
@@ -34,6 +34,8 @@ def _ago(ts, now: float) -> str:
 
 
 class WatchListViewModel(BaseViewModel):
+    """The watch list: live values in the main window's format, selection, writes, send to the logger."""
+
     changed = pyqtSignal()
 
     def __init__(self, watch: WatchService, logger: DataLoggerService, annotations: AnnotationService,
@@ -82,10 +84,11 @@ class WatchListViewModel(BaseViewModel):
         for item in self._watch.items:
             enum = item.field.enum_for(item.value) if (item.field and item.value is not None) else None
             access = item.field.access if item.field else item.register.access
+            width = item.field.width if item.field else item.register.width
+            value_text = format_value(item.value, fmt, width) if item.value is not None else "—"
             rows.append({
                 "name": item.name,
-                "valueText": format_value(item.value, fmt, item.field.width if item.field else item.register.width)
-                if item.value is not None else "—",
+                "valueText": value_text,
                 "enumName": enum.name if enum else "", "changed": item.changed,
                 "calcText": self._annotations.format_calculated(item.name, item.value),
                 "changedText": _ago(item.changed_at, now), "trend": list(item.trend),
@@ -102,11 +105,8 @@ class WatchListViewModel(BaseViewModel):
 
     @pyqtSlot(str)
     def setIntervalText(self, text: str) -> None:  # noqa: N802
-        try:
-            interval = float(text.replace("s", "").strip())
-        except ValueError:
-            interval = -1
-        if not WATCH_MIN_S <= interval <= WATCH_MAX_S:
+        interval = parse_seconds(text)
+        if interval is None or not WATCH_MIN_S <= interval <= WATCH_MAX_S:
             self._interactions.toast("error", f"Enter a refresh rate between {WATCH_MIN_S:g} and {WATCH_MAX_S:g} seconds")
             self._rebuild()
             return
@@ -148,7 +148,7 @@ class WatchListViewModel(BaseViewModel):
             return
         fmt = self._prefs.value.format
 
-        def answered(values) -> None:
+        def answered(values: Optional[Dict[str, Any]]) -> None:
             if not values:
                 return
             try:

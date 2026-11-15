@@ -6,7 +6,7 @@ which shows and edits the register itself.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from PyQt5.QtCore import QObject, pyqtSlot
 
@@ -24,6 +24,8 @@ from sirat_ui.state.selection import SelectionState
 
 
 class RegisterShortcutsViewModel(QObject):
+    """The register page's "send to" slots (see the module docstring)."""
+
     def __init__(self, selection: SelectionState, registers: RegisterService, favorites: FavoritesService,
                  watch: WatchService, logger: DataLoggerService, actions: ActionRecorder,
                  formula_editor: FormulaEditorViewModel, read_all: ReadAllService, interactions: InteractionService,
@@ -72,7 +74,7 @@ class RegisterShortcutsViewModel(QObject):
             self._interactions.toast("error", "Read the register before saving it to actions")
             return
 
-        def answered(values) -> None:
+        def answered(values: Optional[Dict[str, Any]]) -> None:
             if values and values.get("name", "").strip():
                 action = self._actions.add(values["name"], [{"register": reg.full_name, "value": value}])
                 self._interactions.toast("success", f"Saved action {action.name}")

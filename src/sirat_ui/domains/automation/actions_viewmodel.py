@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
@@ -20,11 +20,10 @@ from sirat_ui.state.station import StationState
 NEW_SEQUENCE = "New sequence…"
 
 
-def show_code(interactions: InteractionService, title: str, code: str) -> None:
-    interactions.show_code(title, code)
-
-
 class ActionsViewModel(BaseViewModel):
+    """The Actions list. Selected rows (click, Ctrl, Shift) are what View, Edit, Move and Delete act on; checked
+    rows (the checkboxes, the action's `enabled`) are what Run checked runs."""
+
     changed = pyqtSignal()
 
     def __init__(self, actions: ActionService, sequences: SequenceService, editor: ActionEditorViewModel,
@@ -115,7 +114,7 @@ class ActionsViewModel(BaseViewModel):
 
     @pyqtSlot()
     def deselectAll(self) -> None:  # noqa: N802
-        self._actions.deselect_all()
+        self._actions.set_all_enabled(False)
 
     @pyqtSlot(bool)
     def setAllChecked(self, checked: bool) -> None:  # noqa: N802
@@ -189,7 +188,7 @@ class ActionsViewModel(BaseViewModel):
             return
         choices = [NEW_SEQUENCE] + list(self._sequences.sequences)
 
-        def answered(values) -> None:
+        def answered(values: Optional[Dict[str, Any]]) -> None:
             if not values:
                 return
             target = values.get("sequence", NEW_SEQUENCE)
@@ -214,4 +213,4 @@ class ActionsViewModel(BaseViewModel):
     @pyqtSlot()
     def generateCode(self) -> None:  # noqa: N802
         names = self._checked() or list(self._actions.actions)
-        show_code(self._interactions, "Generated code", self._actions.generate_code(names))
+        self._interactions.show_code("Generated code", self._actions.generate_code(names))

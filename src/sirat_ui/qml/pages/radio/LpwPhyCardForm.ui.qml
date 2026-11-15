@@ -38,7 +38,7 @@ Card {
                 Layout.fillWidth: true
             }
             RowLayout {
-                spacing: 8
+                spacing: Theme.s2
                 Layout.fillWidth: true
                 AppTextField {
                     id: phyField
@@ -57,7 +57,7 @@ Card {
                 AppButton { id: browseButton; objectName: "lpwBrowseButton"; text: "PHY file…"; iconName: "upload"; small: true }
             }
             RowLayout {
-                spacing: 8
+                spacing: Theme.s2
                 AppButton { id: loadButton; objectName: "lpwLoadButton"; text: "Load PHY"; iconName: "download"; variant: "primary" }
                 AppButton { id: addButton; objectName: "lpwAddToActionsButton"; text: "Add to Actions"; iconName: "bolt" }
             }

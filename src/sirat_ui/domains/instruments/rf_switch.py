@@ -9,7 +9,7 @@ from typing import Any, Dict, List
 
 from sirat_ui.core.observable import Event
 from sirat_ui.domains.automation.recorder import ActionRecorder
-from sirat_ui.domains.instruments.bench import InstrumentBench
+from sirat_ui.domains.instruments.bench import InstrumentBench, InstrumentService
 from sirat_ui.domains.logs.service import LogService
 from sirat_ui.gateway.call import Call
 from sirat_ui.gateway.port import RfPort
@@ -17,7 +17,6 @@ from sirat_ui.models.actions import Action
 from sirat_ui.shared.error_presenter import ErrorPresenter
 from sirat_ui.state.station import StationState
 
-KIND = "rf_switch"
 
 
 def rf_switch_op(path: str, position: int) -> Dict[str, Any]:
@@ -25,30 +24,29 @@ def rf_switch_op(path: str, position: int) -> Dict[str, Any]:
     return {"type": "rf_switch", "path": path, "dut_position": position}
 
 
-class RfSwitchService:
+class RfSwitchService(InstrumentService):
+    """The RF switch: its paths (loaded when it connects), connect/disconnect a DUT position, Add to Actions."""
+
+    KIND = "rf_switch"
+
     def __init__(self, gateway: RfPort, state: StationState, bench: InstrumentBench, actions: ActionRecorder,
                  errors: ErrorPresenter, log: LogService) -> None:
+        super().__init__(state, bench)
         self._gateway = gateway
-        self._state = state
-        self._bench = bench
         self._actions = actions
         self._errors = errors
         self._log = log
         self.paths: List[str] = []
         self.changed = Event()
-        self._was_connected = False
-        state.changed.connect(self._on_state)
-        self._on_state()
+        self._watch_connection()
 
-    def _on_state(self, *_: object) -> None:
-        found = self._bench.instrument(KIND)
-        connected = bool(found and found.connected)
-        if connected and not self._was_connected:
+    def _connection_changed(self, connected: bool, was_connected: bool) -> None:
+        if connected and not was_connected:
             self.load_paths()
-        self._was_connected = connected
         self.changed.emit()
 
     def current_path(self, position: int) -> str:
+        """The path connected to that position, or ""."""
         return self._state.facts_for(position).rf_path or ""
 
     def load_paths(self) -> Call[List[str]]:

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import keyword
 import time
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from sirat_ui.core.console import DEFAULT_FUNCTION_CODE, result_lines
 from sirat_ui.core.observable import Event
@@ -22,6 +22,7 @@ from sirat_ui.models.actions import Action
 from sirat_ui.models.station import ExecResult
 from sirat_ui.shared.error_presenter import ErrorPresenter
 from sirat_ui.state.station import StationState
+from sirat_ui.stores.formats import read_custom_functions
 from sirat_ui.stores.json_store import JsonStore
 
 
@@ -37,6 +38,8 @@ def name_problem(name: str, taken: List[str]) -> str:
 
 
 class CustomFunctionService:
+    """The custom functions file and running a function (see the module docstring)."""
+
     def __init__(self, store: JsonStore, gateway: AdvancedPort, state: StationState, session: PythonSession,
                  actions: ActionRecorder, errors: ErrorPresenter) -> None:
         self._store = store
@@ -53,9 +56,8 @@ class CustomFunctionService:
         self.reload()
 
     def reload(self) -> None:
-        raw: Any = self._store.load()
-        self.functions = [{"name": str(f["name"]), "code": str(f.get("code") or "")}
-                          for f in (raw if isinstance(raw, list) else []) if isinstance(f, dict) and f.get("name")]
+        self.functions = [{"name": name, "code": code}
+                          for name, code in read_custom_functions(self._store.load()).items()]
         self.changed.emit()
 
     @property
@@ -76,6 +78,7 @@ class CustomFunctionService:
         return f"function_{n}"
 
     def create(self, name: str) -> str:
+        """Adds an empty function (the first one gets example code). Returns the problem, or "" when created."""
         problem = name_problem(name, self.names)
         if not problem:
             self.functions.append({"name": name, "code": DEFAULT_FUNCTION_CODE if not self.functions else ""})
@@ -83,6 +86,7 @@ class CustomFunctionService:
         return problem
 
     def rename(self, old: str, new: str) -> str:
+        """Renames a function. Returns the problem with the new name, or "" when renamed (or unchanged)."""
         if new == old:
             return ""
         problem = name_problem(new, self.names)
@@ -137,5 +141,4 @@ class CustomFunctionService:
 
     def add_to_actions(self, name: str) -> Action:
         """Req 15 "Adding to Actions": {'type': 'custom_function', 'function_name': name}."""
-        return self._actions.add(name, [{"type": "custom_function",
-                                                                     "function_name": name}])
+        return self._actions.add(name, [{"type": "custom_function", "function_name": name}])

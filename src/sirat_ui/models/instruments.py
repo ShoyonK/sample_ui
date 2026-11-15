@@ -31,6 +31,7 @@ class SiggenSettings:
 
 @dataclass(frozen=True)
 class BlePacket:
+    """The BLE packet card's settings (req 26)."""
     access_address: int = 0x8E89BED6
     crc_init: int = 0x555555
     whitening_init: int = 37
@@ -48,6 +49,7 @@ class BlePacket:
 
 @dataclass(frozen=True)
 class GfskPacket:
+    """The GFSK packet card's settings (req 27): kbps, kHz, MHz and dBm as the GUI shows them."""
     symbol_rate_kbps: float = 1000.0
     deviation_khz: float = 250.0
     bt: float = 0.5
@@ -59,6 +61,7 @@ class GfskPacket:
 
 @dataclass
 class Capture:
+    """A downloaded ECA capture: its metadata and each channel's samples in mV."""
     meta: CaptureMeta
     channels: Dict[str, List[int]]
 
@@ -73,11 +76,13 @@ class Capture:
         return spec.duration_s * spec.pretrigger_pct / 100 * 1e3
 
     def time_ms(self, index: int) -> float:
+        """The time of sample `index`, in ms from the start of the capture."""
         return index / self.rate * 1e3
 
 
 @dataclass(frozen=True)
 class Measurement:
+    """core.eca.measure's result for one channel."""
     channel: str
     minimum: int
     maximum: int

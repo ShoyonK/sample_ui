@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from sirat_ui.core.observable import Event
 from sirat_ui.domains.automation.recorder import ActionRecorder
@@ -10,6 +10,7 @@ from sirat_ui.domains.connection.service import ConnectionService
 from sirat_ui.gateway.call import Call
 from sirat_ui.models.actions import Action
 from sirat_ui.models.radio import WifiPhyConfig
+from sirat_ui.models.registers import ChipInfo
 from sirat_ui.models.station import LoadPhyResult, LpwPhy, WifiPhy
 from sirat_ui.state.station import StationState
 
@@ -19,7 +20,13 @@ KNOWN_LPW_PHYS: List[str] = ["BLE_1M", "BLE_2M", "BLE_CODED_125K", "BLE_CODED_50
 WIFI_FAMILY = "EVEREST"  # req 23: "Load WiFi PHY... (enabled only for Everest family)"
 
 
+def supports_wifi(chip: Optional[ChipInfo]) -> bool:
+    """Whether WiFi PHYs can be loaded: only Everest-family chips have WiFi."""
+    return chip is not None and chip.family.upper() == WIFI_FAMILY
+
+
 def lpw_op(name: str) -> Dict[str, Any]:
+    """The load_phy action op for an LPW PHY."""
     return {"type": "load_phy", "phy_name": name, "method_name": "reset_and_download_lpw_phy"}
 
 
@@ -29,6 +36,8 @@ def wifi_op(config: WifiPhyConfig) -> Dict[str, Any]:
 
 
 class PhyService:
+    """Loading PHYs on the selected DUT, and turning them into actions."""
+
     def __init__(self, connection: ConnectionService, state: StationState, actions: ActionRecorder) -> None:
         self._connection = connection
         self._state = state
@@ -41,8 +50,7 @@ class PhyService:
 
     @property
     def wifi_supported(self) -> bool:
-        chip = self._state.chip
-        return chip is not None and chip.family.upper() == WIFI_FAMILY
+        return supports_wifi(self._state.chip)
 
     @property
     def chip_family(self) -> str:

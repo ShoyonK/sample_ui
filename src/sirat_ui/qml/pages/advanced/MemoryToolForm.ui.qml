@@ -66,7 +66,7 @@ Card {
             font.pixelSize: Theme.fontXs
             color: Theme.textMuted
             Layout.leftMargin: Theme.s3
-            Layout.bottomMargin: 4
+            Layout.bottomMargin: Theme.s1
         }
 
         Rectangle {

@@ -13,6 +13,9 @@ Rectangle {
     radius: Theme.radius
     color: Theme.consoleBg
 
+    readonly property var levelColors: ({ success: Theme.consoleOk, error: Theme.consoleError,
+                                          warning: Theme.consoleWarn })
+
     Text {
         id: heading
         x: 12
@@ -20,25 +23,25 @@ Rectangle {
         text: panel.title
         font.pixelSize: Theme.fontXs
         font.weight: Font.DemiBold
-        color: "#9A9A9A"
+        color: Theme.consoleTitle
     }
     AbstractButton {
         objectName: "consoleClear_" + panel.title
         visible: panel.clearable
         anchors.right: parent.right
-        anchors.rightMargin: 8
+        anchors.rightMargin: Theme.s2
         y: 4
         width: clearLabel.implicitWidth + 16
         height: 20
         hoverEnabled: true
         Accessible.name: "Clear " + panel.title
         onClicked: panel.clearRequested()
-        background: Rectangle { radius: 4; color: parent.hovered ? "#2A2A2A" : "transparent" }
+        background: Rectangle { radius: 4; color: parent.hovered ? Theme.consoleHover : "transparent" }
         contentItem: Text {
             id: clearLabel
             text: "Clear"
             font.pixelSize: Theme.fontXs
-            color: "#BDBDBD"
+            color: Theme.consoleButton
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
         }
@@ -47,20 +50,20 @@ Rectangle {
         id: lines
         anchors.fill: parent
         anchors.topMargin: 28
-        anchors.margins: 12
+        anchors.margins: Theme.s3
         clip: true
         model: panel.model
         onCountChanged: positionViewAtEnd()
         ScrollBar.vertical: AppScrollBar {}
         delegate: Text {
             width: ListView.view ? ListView.view.width : 400
-            text: "<font color='#7A7A7A'>" + model.time + "</font>  " + model.text.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+            text: "<font color='" + Theme.consoleTime + "'>" + model.time + "</font>  "
+                  + model.text.replace(/&/g, "&amp;").replace(/</g, "&lt;")
             textFormat: Text.StyledText
             wrapMode: Text.WrapAnywhere
             font.family: Theme.fontMono
             font.pixelSize: Theme.fontXs
-            color: model.level === "success" ? "#7EE29A" : model.level === "error" ? "#FF8A8A"
-                 : model.level === "warning" ? "#FFC66B" : "#8EC7FF"
+            color: panel.levelColors[model.level] || Theme.consoleInfo
         }
     }
 }

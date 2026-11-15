@@ -74,8 +74,8 @@ Window {
         objectName: "popoutContent_" + win.key
         anchors.fill: parent
         anchors.margins: 10
-        sourceComponent: win.kind === "page" ? pageContent : win.kind === "watchList" ? watchContent
-                       : win.kind === "logger" ? loggerContent : win.kind === "tool" ? toolContent : graphContent
+        sourceComponent: ({ page: pageContent, watchList: watchContent, logger: loggerContent,
+                            tool: toolContent })[win.kind] || graphContent
     }
 
     ToastStack {

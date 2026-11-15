@@ -22,10 +22,13 @@ _SIZES = {PAGE: (1400, 820), WATCH_LIST: (1100, 820), LOGGER: (560, 820), GRAPH:
 
 
 def window_key(kind: str, arg: str = "") -> str:
+    """The key a pop-out window is known by: "page:registers", "watchList", "graph:AGC.RSSI.RSSI" ..."""
     return f"{kind}:{arg}" if kind in (PAGE, GRAPH, TOOL) else kind
 
 
 class WindowsViewModel(BaseViewModel):
+    """The open pop-out windows; QML makes one Window per row of `model`."""
+
     changed = pyqtSignal()
     raiseRequested = pyqtSignal(str)  # key: bring that window to the front
 

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Hashable, List, Optional, Set
+from typing import Hashable, Iterable, List, Optional, Set
 
 
 class RowSelection:
+    """Selected row keys plus the anchor a Shift+click range starts from."""
+
     def __init__(self) -> None:
         self.selected: Set[Hashable] = set()
         self._anchor: Optional[Hashable] = None
@@ -22,7 +24,8 @@ class RowSelection:
             self.selected = {key}
             self._anchor = key
 
-    def keep_only(self, keys) -> None:
+    def keep_only(self, keys: Iterable[Hashable]) -> None:
+        """Drops selected keys that no longer exist (rows removed)."""
         self.selected &= set(keys)
 
     def clear(self) -> None:

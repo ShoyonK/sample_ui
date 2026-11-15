@@ -24,6 +24,8 @@ RowLayout {
     property alias resultList: resultList
     property alias emptyResults: emptyResults
     property alias output: output
+    // Column widths shared by the results header and TestResultRow; Notes takes the rest.
+    readonly property var resultColumns: ({ num: 24, name: 220, status: 56, started: 72, duration: 52 })
 
     Card {
         Layout.preferredWidth: 320
@@ -140,12 +142,12 @@ RowLayout {
                 Layout.topMargin: Theme.s2
                 Layout.bottomMargin: Theme.s2
                 spacing: 10
-                Text { text: ""; Layout.preferredWidth: 24 }
-                Text { text: "Test"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: 220 }
-                Text { text: "Status"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: 56 }
+                Text { text: ""; Layout.preferredWidth: root.resultColumns.num }
+                Text { text: "Test"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: root.resultColumns.name }
+                Text { text: "Status"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: root.resultColumns.status }
                 Text { text: "Notes"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.fillWidth: true }
-                Text { text: "Started"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: 72 }
-                Text { text: "Duration"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 52 }
+                Text { text: "Started"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: root.resultColumns.started }
+                Text { text: "Duration"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: root.resultColumns.duration }
             }
             Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.border }
 
@@ -159,7 +161,7 @@ RowLayout {
                     clip: true
                     boundsBehavior: Flickable.StopAtBounds
                     ScrollBar.vertical: AppScrollBar {}
-                    delegate: TestResultRow {}
+                    delegate: TestResultRow { columns: root.resultColumns }
                 }
                 EmptyState {
                     id: emptyResults

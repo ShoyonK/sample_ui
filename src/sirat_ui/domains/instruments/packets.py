@@ -9,6 +9,7 @@ from typing import Callable
 
 from sirat_ui.core.instruments import ble_from_json, gfsk_op
 from sirat_ui.core.observable import Event
+from sirat_ui.core.ops import DEFAULT_SIGGEN
 from sirat_ui.domains.automation.recorder import ActionRecorder
 from sirat_ui.models.actions import Action
 from sirat_ui.models.instruments import BlePacket, GfskPacket
@@ -16,6 +17,8 @@ from sirat_ui.stores.json_store import JsonStore
 
 
 class PacketService:
+    """The BLE packet settings (persisted) and GFSK packet actions."""
+
     def __init__(self, store: JsonStore, actions: ActionRecorder, siggen_id: Callable[[], str]) -> None:
         self._store = store
         self._actions = actions
@@ -33,8 +36,9 @@ class PacketService:
 
     @property
     def siggen_id(self) -> str:
-        return self._siggen_id() or "siggen1"
+        return self._siggen_id() or DEFAULT_SIGGEN
 
     def add_gfsk_action(self, packet: GfskPacket) -> Action:
+        """Saves a gfsk_packet action, unchecked so Run checked doesn't start the generator unasked."""
         name = f"gfsk_{packet.symbol_rate_kbps:g}k_{packet.frequency_mhz:g}".replace(".", "p")
         return self._actions.add(name, [gfsk_op(packet, self.siggen_id)], enabled=False)

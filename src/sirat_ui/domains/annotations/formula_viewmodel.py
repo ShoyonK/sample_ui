@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from sirat_ui.core import formula
 from sirat_ui.domains.annotations.service import AnnotationService
-from sirat_ui.models.dialogs import ConfirmRequest
+from sirat_ui.models.dialogs import ConfirmAnswer, ConfirmRequest
 from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
 from sirat_ui.shared.viewmodel import BaseViewModel, qprop
@@ -23,6 +23,8 @@ EXAMPLES = [
 
 
 class FormulaEditorViewModel(BaseViewModel):
+    """The field formula dialog: edit, test with x = 100, save or remove."""
+
     changed = pyqtSignal()
 
     def __init__(self, annotations: AnnotationService, interactions: InteractionService,
@@ -47,10 +49,11 @@ class FormulaEditorViewModel(BaseViewModel):
     hasExisting = qprop(bool, "_has_existing", changed)
 
     @pyqtProperty("QVariantList", constant=True)
-    def examples(self):
+    def examples(self) -> List[Dict[str, Any]]:
         return EXAMPLES
 
     def open_for(self, field_full_name: str) -> None:
+        """Opens the dialog for a field ("PERIPH.REG.FIELD"), filled with its current formula if it has one."""
         expr, unit = self._annotations.formula(field_full_name) or ("", "")
         self._update(open=True, field_name=field_full_name, expr=expr, unit=unit, test_text="", test_ok=True,
                      has_existing=bool(expr))
@@ -96,7 +99,7 @@ class FormulaEditorViewModel(BaseViewModel):
         request = ConfirmRequest("Remove formula", f"Are you sure? The calculated value for {name} will go away.",
                                  confirm_text="Remove", tone="danger")
 
-        def answered(answer) -> None:
+        def answered(answer: ConfirmAnswer) -> None:
             if answer.accepted:
                 self._annotations.set_formula(name, "", "")
                 self._interactions.toast("info", f"Removed formula for {name}")

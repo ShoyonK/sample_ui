@@ -13,8 +13,7 @@ Rectangle {
     objectName: "step_" + model.title
     width: ListView.view ? ListView.view.width : 1000
     height: 48
-    color: model.state === "running" ? Theme.changed
-         : model.selected ? Theme.select : (hover.hovered ? Theme.surface2 : "transparent")
+    color: model.state === "running" ? Theme.changed : Theme.rowColor(model.selected, hover.hovered)
     Behavior on color { ColorAnimation { duration: 150 } }
     HoverHandler { id: hover }
     TapHandler { onTapped: row.activated() }

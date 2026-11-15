@@ -1,5 +1,6 @@
 """QtScheduler.every keeps its rate: the data logger's polling depends on it (req 17)."""
 
+import statistics
 import time
 
 import pytest
@@ -26,12 +27,18 @@ def test_short_intervals_use_the_precise_timer(qapp):
 
 @pytest.mark.parametrize("ms", [50, 20, 10])
 def test_a_repeating_timer_fires_at_the_rate_asked_for(qapp, ms):
-    """Qt's coarse timer on Windows snaps to the ~15.6 ms system tick: 50 ms ran at 62.5 ms (16 Hz, not 20)."""
+    """Qt's coarse timer on Windows snaps to the ~15.6 ms system tick: 50 ms ran at 62.5 ms (16 Hz, not 20).
+
+    Checks the median gap between ticks, not the tick count: a busy machine can stall the event loop for a moment,
+    which loses ticks from a count but barely moves the median. The coarse timer's gaps are 1.25 to 1.56 times
+    the interval, well past the 1.15 allowed here.
+    """
     ticks = []
     handle = QtScheduler().every(ms, lambda: ticks.append(time.perf_counter()))
     loop = QEventLoop()
     QTimer.singleShot(1000, loop.quit)
     loop.exec_()
     handle.cancel()
-    expected = 1000 / ms
-    assert len(ticks) >= expected * 0.85, f"{len(ticks)} ticks in 1 s at {ms} ms, expected about {expected:.0f}"
+    assert len(ticks) >= 5, f"only {len(ticks)} ticks in 1 s at {ms} ms"
+    gap_ms = statistics.median(b - a for a, b in zip(ticks, ticks[1:])) * 1000
+    assert gap_ms <= ms * 1.15, f"ticks every {gap_ms:.1f} ms when asked for {ms} ms"

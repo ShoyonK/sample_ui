@@ -130,7 +130,7 @@ RowLayout {
                             color: Theme.textMuted
                             Layout.fillWidth: true
                         }
-                        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.border; Layout.topMargin: 4 }
+                        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.border; Layout.topMargin: Theme.s1 }
                         Text { text: "Parameters"; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold; color: Theme.textPrimary }
                         ColumnLayout {
                             id: paramList

@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 def package_dir() -> Path:
+    """The sirat_ui package folder (where qml/ lives)."""
     # PyInstaller unpacks data next to the frozen package under sys._MEIPASS
     base = getattr(sys, "_MEIPASS", None)
     return Path(base) / "sirat_ui" if base else Path(__file__).resolve().parent.parent
@@ -25,7 +26,7 @@ def samples_dir() -> Path:
 def default_home(backend: str) -> Path:
     """The fake backend keeps its data in a demo folder so it never touches real SiRAT settings."""
     home = Path.home()
-    return home / ".sirat" / "demo_home" if backend == "fake" else home
+    return home / ".sirat" / "demo_home" if backend in ("fake", "fake-tcp") else home
 
 
 def session_log_dir() -> Path:

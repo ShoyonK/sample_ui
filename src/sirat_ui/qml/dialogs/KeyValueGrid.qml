@@ -5,6 +5,7 @@ import "../theme"
 Rectangle {
     property var rows: []   // [{ key, value }]
     property bool monoValues: true
+    property string emphasisKey: ""   // the row whose value is bold (e.g. "New value" in a write confirmation)
 
     implicitHeight: grid.implicitHeight + 24
     radius: Theme.radius
@@ -15,9 +16,9 @@ Rectangle {
     GridLayout {
         id: grid
         anchors.fill: parent
-        anchors.margins: 12
+        anchors.margins: Theme.s3
         columns: 2
-        columnSpacing: 12
+        columnSpacing: Theme.s3
         rowSpacing: 6
         Repeater {
             model: rows.length * 2
@@ -27,7 +28,7 @@ Rectangle {
                 text: isKey ? entry.key : entry.value
                 font.family: isKey || !monoValues ? Theme.fontUi : Theme.fontMono
                 font.pixelSize: Theme.fontSm
-                font.weight: !isKey && entry.key === "New value" ? Font.Bold : Font.Normal
+                font.weight: !isKey && emphasisKey !== "" && entry.key === emphasisKey ? Font.Bold : Font.Normal
                 color: isKey ? Theme.textMuted : Theme.textPrimary
                 Layout.preferredWidth: isKey ? 110 : -1
                 Layout.fillWidth: !isKey

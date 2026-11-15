@@ -9,8 +9,8 @@ from typing import List, Optional, Tuple
 
 from sirat_ui.models.memory import DumpRow
 
-FORMATS = ("Bytes", "Words", "DWords")
-UNIT = {"Bytes": 1, "Words": 2, "DWords": 4}
+UNIT = {"Bytes": 1, "Words": 2, "DWords": 4}   # bytes per cell
+FORMATS = tuple(UNIT)
 PER_LINE = {"Bytes": 16, "Words": 8, "DWords": 4}   # units per line (req 19 "Memory Display Format")
 WRITE_SIZES = (("Byte", 1), ("Word", 2), ("DWord", 4))
 MAX_READ = 4096
@@ -27,6 +27,7 @@ def parse_number(text: str) -> Optional[int]:
 
 
 def address_problem(text: str) -> str:
+    """Why the address field is invalid, or "" when it's fine (the *_problem functions all work this way)."""
     value = parse_number(text)
     if value is None:
         return "Enter an address in hex (0x20000000) or decimal"
@@ -43,10 +44,12 @@ def size_problem(text: str) -> str:
 
 
 def crosses_word(address: int, size: int) -> bool:
+    """Whether a `size`-byte access at `address` spills into the next 4-byte word (the station refuses those)."""
     return address % 4 + size > 4
 
 
 def write_problem(address_text: str, value_text: str, size: int) -> str:
+    """Why a write can't be sent: bad address, bad value, too big for `size` bytes, or crossing a word."""
     problem = address_problem(address_text)
     if problem:
         return problem
@@ -72,6 +75,15 @@ def _ascii(chunk: bytes) -> str:
 
 
 def rows(address: int, data: bytes, fmt: str, previous: Optional[Tuple[int, bytes]] = None) -> List[DumpRow]:
+    """The hex dump as rows of cells.
+
+    Args:
+        address: The address of data[0].
+        data: The bytes read.
+        fmt: "Bytes", "Words" or "DWords".
+        previous: The previous read as (address, data), so cells that differ are flagged as changed. Cells the
+            previous read didn't cover are never flagged.
+    """
     unit, per_line = UNIT[fmt], PER_LINE[fmt]
     line_bytes = unit * per_line
     old_start, old = previous or (0, b"")

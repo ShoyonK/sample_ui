@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -10,6 +10,7 @@ from sirat_ui.core import bits
 
 
 class AccessType(str, Enum):
+    """A register's or field's access, from the SVD."""
     READ_ONLY = "ro"
     WRITE_ONLY = "wo"
     READ_WRITE = "rw"
@@ -19,6 +20,7 @@ class AccessType(str, Enum):
 
     @classmethod
     def from_svd(cls, text: str) -> "AccessType":
+        """The access type for an SVD access string ("read-write", "rw", ...); UNKNOWN for anything else."""
         return _SVD_ACCESS.get((text or "").strip(), cls.UNKNOWN)
 
     @property
@@ -57,6 +59,7 @@ _ACCESS_LABELS = {
 
 @dataclass(frozen=True)
 class EnumValue:
+    """A named value of a field."""
     name: str
     value: int
     description: str = ""
@@ -64,6 +67,7 @@ class EnumValue:
 
 @dataclass(frozen=True)
 class FieldDef:
+    """A register field: bits [lsb, lsb + width) of `register` (the register's full name)."""
     register: str
     name: str
     lsb: int
@@ -99,14 +103,13 @@ class FieldDef:
         return bits.insert(register_value, self.lsb, self.width, value)
 
     def enum_for(self, value: int) -> Optional[EnumValue]:
-        for enum in self.enums:
-            if enum.value == value:
-                return enum
-        return None
+        return next((enum for enum in self.enums if enum.value == value), None)
 
 
 @dataclass(frozen=True)
 class RegisterDef:
+    """A register. critical: writes need confirmation (CMU, EMU). read_sensitive: reading has side effects
+    (clears a FIFO or flags), so bulk reads and watches skip it."""
     peripheral: str
     name: str
     address: int
@@ -138,14 +141,12 @@ class RegisterDef:
         return value
 
     def field(self, name: str) -> Optional[FieldDef]:
-        for f in self.fields:
-            if f.name == name:
-                return f
-        return None
+        return next((f for f in self.fields if f.name == name), None)
 
 
 @dataclass(frozen=True)
 class PeripheralDef:
+    """A peripheral and its registers."""
     name: str
     base_address: int
     description: str = ""
@@ -153,11 +154,12 @@ class PeripheralDef:
 
     @property
     def is_secure_variant(self) -> bool:
-        return self.name.endswith("_NS") or self.name.endswith("_S")
+        return self.name.endswith(("_NS", "_S"))
 
 
 @dataclass(frozen=True)
 class ChipInfo:
+    """The connected chip: part, revision, family."""
     part: str
     revision: str
     family: str
@@ -173,6 +175,8 @@ class ChipInfo:
 
 @dataclass
 class SearchResult:
+    """The tree filter's result (core/search.py): the peripherals to show, which of their registers, which are
+    expanded by the search, and a register to select when exactly one matched."""
     peripherals: List[str] = field(default_factory=list)
     # None means "show every register of this peripheral"
     registers: Dict[str, Optional[List[str]]] = field(default_factory=dict)

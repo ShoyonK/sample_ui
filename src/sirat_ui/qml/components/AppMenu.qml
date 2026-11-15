@@ -5,7 +5,7 @@ import "../theme"
 // A themed context menu. Fill it with AppMenuItem.
 Menu {
     id: menu
-    padding: 4
+    padding: Theme.s1
     background: Rectangle {
         implicitWidth: 230
         radius: Theme.radius

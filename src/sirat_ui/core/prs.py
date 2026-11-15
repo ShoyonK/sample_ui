@@ -28,7 +28,7 @@ def fallback_signals() -> List[Signal]:
 
 
 def split_pin(pin: str) -> Tuple[str, int]:
-    """"PC3" -> ("C", 3)."""
+    """Splits a pin name: "PC3" -> ("C", 3). Raises ValueError for anything that isn't P<A-D><n>."""
     if len(pin) < 3 or pin[0] != "P" or pin[1] not in "ABCD" or not pin[2:].isdigit():
         raise ValueError(f"{pin} isn't a pin like PA0")
     return pin[1], int(pin[2:])
@@ -36,12 +36,11 @@ def split_pin(pin: str) -> Tuple[str, int]:
 
 def channel_problem(pin: str, channel: int) -> Optional[str]:
     """Req 24 validation: None when the pin's port may use this channel."""
-    port, _ = split_pin(pin)
-    allowed = range(0, 6) if port in "AB" else range(6, 12)
-    return None if channel in allowed else CONSTRAINT_TEXT
+    return None if channel in allowed_channels(pin) else CONSTRAINT_TEXT
 
 
 def allowed_channels(pin: str) -> List[int]:
+    """The PRS channels a pin's port may use: 0-5 for ports A/B, 6-11 for C/D."""
     port, _ = split_pin(pin)
     return list(range(0, 6)) if port in "AB" else list(range(6, 12))
 

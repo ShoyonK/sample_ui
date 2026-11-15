@@ -6,8 +6,9 @@ The generated scripts import from `packet_generator`, the station's packet gener
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
+from sirat_ui.core.ops import DEFAULT_SIGGEN
 from sirat_ui.models.instruments import BlePacket, GfskPacket, SiggenSettings
 
 # ---- signal generator (req 25) -----------------------------------------------------------------------------
@@ -16,11 +17,20 @@ FREQ_RANGE_MHZ = (0.001, 6000.0)
 POWER_RANGE_DBM = (-150.0, 30.0)
 
 
-def _number(text: str) -> Optional[float]:
+def parse_float(text: str) -> Optional[float]:
+    """The text as a float, or None when it isn't a number."""
     try:
         return float(text.strip())
     except ValueError:
         return None
+
+
+def _coerce(value: str) -> Any:
+    """An override value: "3" -> 3, "2.5" -> 2.5, anything else stays text."""
+    number = parse_float(value)
+    if number is None:
+        return value
+    return int(number) if number.is_integer() and "." not in value else number
 
 
 def parse_overrides(text: str) -> Tuple[Dict[str, Any], Optional[str]]:
@@ -30,10 +40,7 @@ def parse_overrides(text: str) -> Tuple[Dict[str, Any], Optional[str]]:
         key, sep, value = part.partition("=")
         if not sep or not key.strip():
             return {}, f"'{part}' isn't KEY=value"
-        value = value.strip()
-        number = _number(value)
-        out[key.strip()] = (int(number) if number is not None and number.is_integer() and "." not in value
-                            else number if number is not None else value)
+        out[key.strip()] = _coerce(value.strip())
     return out, None
 
 
@@ -41,24 +48,35 @@ def format_overrides(overrides: Dict[str, Any]) -> str:
     return ", ".join(f"{k}={v}" for k, v in overrides.items())
 
 
-def siggen_problems(sg_type: str, frequency: str, power: str, overrides: str) -> Dict[str, str]:
+def _freq_power_problems(frequency: str, power: str) -> Dict[str, str]:
     errors: Dict[str, str] = {}
-    if not sg_type.strip():
-        errors["sgType"] = "Type can't be empty"
-    freq = _number(frequency)
+    freq = parse_float(frequency)
     lo, hi = FREQ_RANGE_MHZ
     if freq is None or not lo <= freq <= hi:
         errors["frequency"] = f"Frequency must be between {lo:g} and {hi:g} MHz"
-    pwr = _number(power)
+    pwr = parse_float(power)
     plo, phi = POWER_RANGE_DBM
     if pwr is None or not plo <= pwr <= phi:
         errors["power"] = f"Power must be between {plo:g} and {phi:g} dBm"
+    return errors
+
+
+def siggen_problems(sg_type: str, frequency: str, power: str, overrides: str) -> Dict[str, str]:
+    """Validates the signal generator form.
+
+    Returns:
+        QML field name (sgType, frequency, power, overrides) -> message, for every invalid field.
+    """
+    errors: Dict[str, str] = {}
+    if not sg_type.strip():
+        errors["sgType"] = "Type can't be empty"
+    errors.update(_freq_power_problems(frequency, power))
     if parse_overrides(overrides)[1]:
         errors["overrides"] = "Use KEY=value, separated by commas"
     return errors
 
 
-def siggen_code(s: SiggenSettings, instrument_id: str = "siggen1") -> str:
+def siggen_code(s: SiggenSettings, instrument_id: str = DEFAULT_SIGGEN) -> str:
     """Req 25 "Includes generated code for reproduction"."""
     return "\n".join([
         f"sg_role = dut.instruments['{instrument_id}']  # the bench's signal generator role",
@@ -99,6 +117,7 @@ def _hex(text: str, bits: int) -> Optional[int]:
 
 
 def ble_problems(access_address: str, crc_init: str, whitening: str, preamble: str) -> Dict[str, str]:
+    """Validates the BLE packet form. Returns QML field name -> message for every invalid field."""
     errors: Dict[str, str] = {}
     if _hex(access_address, 32) is None:
         errors["accessAddress"] = "A 32-bit hex value, like 0x8E89BED6"
@@ -115,6 +134,7 @@ def ble_problems(access_address: str, crc_init: str, whitening: str, preamble: s
 
 
 def parse_ble(access_address: str, crc_init: str, whitening: str, preamble: str) -> Optional[BlePacket]:
+    """The packet the form describes, or None while any field is invalid."""
     if ble_problems(access_address, crc_init, whitening, preamble):
         return None
     aa, crc, pre = _hex(access_address, 32), _hex(crc_init, 24), _hex(preamble, 8)
@@ -153,15 +173,16 @@ PAYLOADS = ["PRBS9", "0x00", "0xFF", "0x55"]
 
 
 def gfsk_problems(rate: str, deviation: str, bt: str, frequency: str, power: str, length: str) -> Dict[str, str]:
+    """Validates the GFSK packet form. Returns QML field name -> message for every invalid field."""
     errors: Dict[str, str] = {}
-    r, d, b = _number(rate), _number(deviation), _number(bt)
+    r, d, b = parse_float(rate), parse_float(deviation), parse_float(bt)
     if r is None or not 1 <= r <= 4000:
         errors["rate"] = "Symbol rate must be between 1 and 4000 kbps"
     if d is None or not 0 < d <= 2000:
         errors["deviation"] = "Deviation must be between 0 and 2000 kHz"
     if b is None or not 0.1 <= b <= 1.0:
         errors["bt"] = "BT must be between 0.1 and 1.0"
-    errors.update({k: v for k, v in siggen_problems("x", frequency, power, "").items()})
+    errors.update(_freq_power_problems(frequency, power))
     try:
         if not 1 <= int(length.strip()) <= 255:
             raise ValueError
@@ -170,7 +191,7 @@ def gfsk_problems(rate: str, deviation: str, bt: str, frequency: str, power: str
     return errors
 
 
-def gfsk_code(g: GfskPacket, instrument_id: str = "siggen1") -> str:
+def gfsk_code(g: GfskPacket, instrument_id: str = DEFAULT_SIGGEN) -> str:
     """Req 27: self-contained code that builds the packet and plays it on the signal generator."""
     payload = ("prbs9(length)" if g.payload == "PRBS9"
                else f"bytes([{g.payload}] * length)")
@@ -191,9 +212,6 @@ def gfsk_code(g: GfskPacket, instrument_id: str = "siggen1") -> str:
     ])
 
 
-def gfsk_op(g: GfskPacket, instrument_id: str = "siggen1") -> Dict[str, Any]:
+def gfsk_op(g: GfskPacket, instrument_id: str = DEFAULT_SIGGEN) -> Dict[str, Any]:
     """Req 27 "Action Format"."""
     return {"type": "gfsk_packet", "code": gfsk_code(g, instrument_id)}
-
-
-__all__: List[str] = ["SiggenSettings", "BlePacket", "GfskPacket"]

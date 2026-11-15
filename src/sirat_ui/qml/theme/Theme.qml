@@ -59,8 +59,21 @@ QtObject {
     readonly property color checkMark:     surface
     readonly property color noteBg:   dark ? "#2E2A16" : "#FFFBEA"   // field has a note (req 10)
 
-    readonly property color consoleBg:   "#141414"
-    readonly property color consoleText: "#D8D8D8"
+    // the dark consoles (run output, Python output, connect log) stay dark in both themes
+    readonly property color consoleBg:        "#141414"
+    readonly property color consoleText:      "#D8D8D8"
+    readonly property color consoleTitle:     "#9A9A9A"
+    readonly property color consoleButton:    "#BDBDBD"
+    readonly property color consoleHover:     "#2A2A2A"
+    readonly property color consoleTime:      "#7A7A7A"
+    readonly property color consoleOk:        "#7EE29A"
+    readonly property color consoleError:     "#FF8A8A"
+    readonly property color consoleWarn:      "#FFC66B"
+    readonly property color consoleInfo:      "#8EC7FF"
+    readonly property color consoleInput:     "#E8D37A"
+    readonly property color consoleNote:      "#8A8A8A"
+    readonly property color consoleSelection: "#3B5BDB"
+    readonly property color selectedText:     "#FFFFFF"   // text inside a selection, on infoFg/consoleSelection
     readonly property color overlay:     dark ? "#99000000" : "#59111111"
 
     // spacing, shape, type
@@ -110,16 +123,18 @@ QtObject {
                   signal_generator: "warn", gfsk_packet: "warn" })[kind] || "mute"
     }
     // action/operation type colors (req 13: "Items colored by type")
+    readonly property var kindColorsLight: ({ custom_function: "#E8590C", rf_switch: "#7950F2",
+        signal_generator: "#0C8599", gfsk_packet: "#0C8599", load_phy: "#1C7ED6", load_wifi_phy: "#1098AD",
+        dut_control_method: "#C2255C", dut_reconnect: "#2B8A3E", sequence: "#862E9C", prs_route: "#5F3DC4" })
+    readonly property var kindColorsDark: ({ custom_function: "#FF922B", rf_switch: "#9775FA",
+        signal_generator: "#3BC9DB", gfsk_packet: "#3BC9DB", load_phy: "#4DABF7", load_wifi_phy: "#66D9E8",
+        dut_control_method: "#F06595", dut_reconnect: "#69DB7C", sequence: "#DA77F2", prs_route: "#B197FC" })
     function kindColor(kind) {
-        var light = { custom_function: "#E8590C", rf_switch: "#7950F2", signal_generator: "#0C8599",
-                      gfsk_packet: "#0C8599", load_phy: "#1C7ED6", load_wifi_phy: "#1098AD",
-                      dut_control_method: "#C2255C", dut_reconnect: "#2B8A3E", sequence: "#862E9C",
-                      prs_route: "#5F3DC4" }
-        var darkColors = { custom_function: "#FF922B", rf_switch: "#9775FA", signal_generator: "#3BC9DB",
-                           gfsk_packet: "#3BC9DB", load_phy: "#4DABF7", load_wifi_phy: "#66D9E8",
-                           dut_control_method: "#F06595", dut_reconnect: "#69DB7C", sequence: "#DA77F2",
-                           prs_route: "#B197FC" }
-        return (dark ? darkColors : light)[kind] || textMuted
+        return (dark ? kindColorsDark : kindColorsLight)[kind] || textMuted
+    }
+    // a list row's background: selected, hovered or plain
+    function rowColor(selected, hovered) {
+        return selected ? select : (hovered ? surface2 : "transparent")
     }
     function logColor(level) {
         return ({ error: dangerFg, warning: warnFg, success: okFg })[level] || textMuted

@@ -8,7 +8,7 @@ Rectangle {
     objectName: "sequence_" + model.name
     width: ListView.view ? ListView.view.width : 280
     height: 52
-    color: model.selected ? Theme.select : (hover.hovered ? Theme.surface2 : "transparent")
+    color: Theme.rowColor(model.selected, hover.hovered)
     HoverHandler { id: hover }
     TapHandler { onTapped: row.activated() }
 

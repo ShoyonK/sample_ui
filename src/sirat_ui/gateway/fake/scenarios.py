@@ -23,6 +23,7 @@ _NORMAL_LATENCY = {
 
 @dataclass
 class Scenario:
+    """A named fake-backend setup: latencies, autoconnect, DUT drops, chip family."""
     name: str
     description: str
     latency: Dict[str, int] = field(default_factory=dict)
@@ -44,6 +45,11 @@ SCENARIOS: Dict[str, Scenario] = {
 
 
 def apply_scenario(fake: FakeStationGateway, name: str) -> Scenario:
+    """Sets up the fake for a named scenario (latencies, drops, chip) and returns it.
+
+    Raises:
+        ValueError: There's no scenario with that name.
+    """
     if name not in SCENARIOS:
         raise ValueError(f"Unknown scenario '{name}'. Choose one of: {', '.join(SCENARIOS)}")
     scenario = SCENARIOS[name]

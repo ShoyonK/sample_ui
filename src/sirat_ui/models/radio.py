@@ -13,6 +13,7 @@ Mode = Literal["RX", "TX"]
 
 @dataclass(frozen=True)
 class WifiTxParams:
+    """WiFi TX settings (only sent for TX)."""
     pkt_length: int
     num_pkts: int
     transmit_mode: str
@@ -21,6 +22,7 @@ class WifiTxParams:
 
 @dataclass(frozen=True)
 class WifiAdvanced:
+    """802.11ax/be settings (only sent when enabled)."""
     ppdu_type: str
     gi_ltf: str
     dcm: bool
@@ -59,6 +61,7 @@ class WifiPhyConfig:
             raise ValueError(f"mode must be RX or TX, not {mode}")
         tx = data.get("tx_params")
         adv = data.get("advanced")
+        # "RX" if ... else "TX": mode is already checked; spelled out so the type checker sees a Mode literal
         return WifiPhyConfig(
             "RX" if mode == "RX" else "TX", str(data["standard"]), int(data["channel"]), str(data["power_mode"]),
             str(data["rate"]), str(data["phy_name"]),
@@ -70,6 +73,7 @@ class WifiPhyConfig:
 
 @dataclass(frozen=True)
 class Segment:
+    """One field of the packet visualizer's PPDU."""
     name: str
     us: Optional[float]   # duration; None for the data part when it isn't known (RX)
     kind: str             # legacy | standard | data | pad
@@ -77,12 +81,14 @@ class Segment:
 
 @dataclass
 class PacketLayout:
+    """The visualizer's segments and its caption."""
     segments: List[Segment] = field(default_factory=list)
     caption: str = ""
 
 
 @dataclass(frozen=True)
 class ConfigEntry:
+    """One Radio Calculator line: PERIPHERAL.REGISTER.FIELD = expected."""
     peripheral: str
     register: str
     field: str
@@ -99,6 +105,7 @@ class ConfigEntry:
 
 @dataclass
 class RadioConfig:
+    """A parsed Radio Calculator config."""
     name: str
     entries: List[ConfigEntry] = field(default_factory=list)
     skipped: List[str] = field(default_factory=list)  # "line 7: ..." for lines that aren't assignments
@@ -111,6 +118,7 @@ class RadioConfig:
 
 @dataclass(frozen=True)
 class Signal:
+    """A PRS signal and its category (for the drop-down label)."""
     name: str
     category: str = ""
 

@@ -10,12 +10,14 @@ Rectangle {
     property bool descending: false
     signal sortRequested(string column)
 
+    // Column widths, shared with RadioRow; Status takes the rest.
+    readonly property var widths: ({ peripheral: 120, register: 160, field: 170, expected: 200, actual: 220 })
     readonly property var columns: [
-        { key: "peripheral", title: "Peripheral", width: 120 },
-        { key: "register", title: "Register", width: 160 },
-        { key: "field", title: "Field", width: 170 },
-        { key: "expected", title: "Expected", width: 200 },
-        { key: "actual", title: "Actual", width: 220 },
+        { key: "peripheral", title: "Peripheral", width: widths.peripheral },
+        { key: "register", title: "Register", width: widths.register },
+        { key: "field", title: "Field", width: widths.field },
+        { key: "expected", title: "Expected", width: widths.expected },
+        { key: "actual", title: "Actual", width: widths.actual },
         { key: "status", title: "Status", width: -1 }
     ]
 
@@ -38,7 +40,7 @@ Rectangle {
                 TapHandler { onTapped: root.sortRequested(modelData.key) }
                 Row {
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 4
+                    spacing: Theme.s1
                     Text {
                         text: modelData.title
                         font.pixelSize: Theme.fontXs

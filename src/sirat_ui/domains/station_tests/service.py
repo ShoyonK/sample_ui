@@ -25,6 +25,7 @@ from sirat_ui.state.station import StationState
 
 @dataclass
 class TestResult:
+    """One finished test."""
     test: StationTest
     passed: bool
     started: float
@@ -35,6 +36,7 @@ class TestResult:
 
 @dataclass
 class TestRun:
+    """A run of the selected tests: which one is going, and the results so far."""
     tests: List[StationTest]
     position: int
     started: float
@@ -51,6 +53,8 @@ class TestRun:
 
 
 class StationTestService:
+    """The station's tests and one run at a time (see the module docstring)."""
+
     def __init__(self, gateway: TestsPort, state: StationState, activities: ActivityTracker, errors: ErrorPresenter,
                  log: LogService, scheduler: Scheduler, clock: Callable[[], float] = time.time) -> None:
         self._gateway = gateway
@@ -85,6 +89,7 @@ class StationTestService:
         return 0.0 if run is None else (run.finished or self._clock()) - run.started
 
     def start(self, test_ids: List[str]) -> None:
+        """Runs the tests with these ids, in the station's order. Ignored while a run is going."""
         wanted = set(test_ids)
         tests = [t for t in self.tests if t.id in wanted]   # in the station's order
         if not tests or (self.run is not None and self.run.running):
@@ -115,8 +120,10 @@ class StationTestService:
 
     def _on_progress(self, event: ActivityProgress) -> None:
         run = self.run
-        test = next((t for t in run.tests if t.id == event.group), None) if run is not None else None
-        if run is None or test is None:
+        if run is None:
+            return
+        test = next((t for t in run.tests if t.id == event.group), None)
+        if test is None:
             return
         if event.result is None:
             run.current = test

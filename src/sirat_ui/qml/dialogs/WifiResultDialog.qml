@@ -13,16 +13,12 @@ ModalDialog {
     dialogWidth: 720
 
     contentItem: ColumnLayout {
-        spacing: 12
+        spacing: Theme.s3
         DialogHeader {
             title: "WiFi PHY loaded successfully!"
             message: "The DUT is running the configuration below."
             iconName: "check"
             tone: "ok"
-            Layout.fillWidth: true
-            Layout.topMargin: 18
-            Layout.leftMargin: 20
-            Layout.rightMargin: 20
         }
         KeyValueGrid {
             objectName: "wifiResultRows"
@@ -59,11 +55,7 @@ ModalDialog {
             Layout.leftMargin: 20
             Layout.rightMargin: 20
         }
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.leftMargin: 20
-            Layout.rightMargin: 20
-            Layout.bottomMargin: 18
+        DialogButtons {
             Item { Layout.fillWidth: true }
             AppButton { objectName: "wifiResultActionsButton"; text: "Add to Actions"; iconName: "bolt"; onClicked: dialog.vm.addToActions() }
             AppButton { objectName: "wifiResultCloseButton"; text: "Close"; variant: "primary"; onClicked: dialog.vm.closeResult() }

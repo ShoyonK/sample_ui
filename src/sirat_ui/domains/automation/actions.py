@@ -25,6 +25,8 @@ from sirat_ui.stores.json_store import JsonStore
 
 
 class ActionService:
+    """The saved actions (~/.sirat_actions.json): editing, running on the station, and code generation."""
+
     def __init__(self, store: JsonStore, gateway: AutomationPort, state: StationState, activities: ActivityTracker,
                  errors: ErrorPresenter, log: LogService, custom_functions: Optional[JsonStore] = None) -> None:
         self._store = store
@@ -34,7 +36,7 @@ class ActionService:
         self._activities = activities
         self._errors = errors
         self._log = log
-        self.actions: "OrderedDict[str, Action]" = migrate_actions(store.load())
+        self.actions: OrderedDict[str, Action] = migrate_actions(store.load())
         self.changed = Event()
         self.run_finished = Event()  # (ok: bool)
         self.console = Event()       # (level, text): run output for the Actions console (req 13)
@@ -55,6 +57,7 @@ class ActionService:
         return unique_name(name, self.actions, "action")
 
     def add(self, name: str, ops: List[Dict[str, Any]], enabled: bool = True) -> Action:
+        """Saves a new action; the name is made unique (load_phy, load_phy_2 ...)."""
         action = Action(self.unique_name(name), list(ops), enabled)
         self.actions[action.name] = action
         self._save()
@@ -67,9 +70,6 @@ class ActionService:
             self.actions[name].operations = list(ops)
             self._save()
             self._log.info(f"Updated action {name}")
-
-    def deselect_all(self) -> None:
-        self.set_all_enabled(False)
 
     def set_all_enabled(self, enabled: bool) -> None:
         for action in self.actions.values():
@@ -94,6 +94,7 @@ class ActionService:
             self._save()
 
     def move(self, name: str, delta: int) -> None:
+        """Swaps the action with its neighbour `delta` places away (clamped to the list)."""
         names = list(self.actions)
         if name not in names:
             return
@@ -114,6 +115,12 @@ class ActionService:
         return [op for n in names if n in self.actions for op in self.wire_ops(n)]
 
     def run(self, names: List[str]) -> Call:
+        """Runs the actions as one automation.seq.run. Refused (BUSY) while a run is going.
+
+        Returns:
+            The start call (resolved with the activity id). Progress and the end go to `console` and
+            `run_finished`.
+        """
         if self.running:   # e.g. Run double-clicked: the station would refuse the second one as busy
             return Call.failed(ApiError(ErrorCode.BUSY, "An action run is already going"))
         label = ", ".join(names)
@@ -130,7 +137,7 @@ class ActionService:
             self._log.info(f"Running {label} ({len(ops)} ops)…")
             self.console.emit("info", f"▶ {label} ({len(ops)} ops)")
 
-        def failed(error) -> None:
+        def failed(error: ApiError) -> None:
             self.running = False
             self.console.emit("error", f"✗ {label}: {error.message}")
             self._errors.present(error, f"Run {label}")

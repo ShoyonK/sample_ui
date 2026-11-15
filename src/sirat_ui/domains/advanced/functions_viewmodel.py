@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
@@ -18,6 +18,8 @@ from sirat_ui.state.station import StationState
 
 
 class CustomFunctionsViewModel(BaseViewModel):
+    """The Custom functions tab: the list, the highlighted editor (saves as you type), Run, Add to Actions."""
+
     changed = pyqtSignal()
 
     def __init__(self, service: CustomFunctionService, state: StationState, interactions: InteractionService,
@@ -97,40 +99,34 @@ class CustomFunctionsViewModel(BaseViewModel):
     def attachHighlighter(self, document: QObject, dark: bool) -> None:  # noqa: N802
         self._highlighters.attach(document, dark)
 
-    @pyqtSlot()
-    def newFunction(self) -> None:  # noqa: N802
+    def _after_name(self, apply: Callable[[str], str]) -> Callable[[Optional[Dict[str, Any]]], None]:
+        """A prompt answer handler: applies the typed name, then selects it or toasts the problem."""
         def answered(values: Optional[Dict[str, Any]]) -> None:
             if values is None:
                 return
             name = str(values.get("name", "")).strip()
-            problem = self._service.create(name)
+            problem = apply(name)
             if problem:
                 self._interactions.toast("error", problem)
             else:
                 self._update(selected=name)
+        return answered
 
+    @pyqtSlot()
+    def newFunction(self) -> None:  # noqa: N802
         self._interactions.prompt(PromptRequest(
             "New function", [PromptField("name", "Name", self._service.new_name(), "read_rssi")],
-            "Its result is stored as result_<name>, so use a Python name.", confirm_text="Create")).then(answered)
+            "Its result is stored as result_<name>, so use a Python name.", confirm_text="Create")).then(
+            self._after_name(self._service.create))
 
     @pyqtSlot()
     def renameFunction(self) -> None:  # noqa: N802
         old = self._selected
-
-        def answered(values: Optional[Dict[str, Any]]) -> None:
-            if values is None:
-                return
-            name = str(values.get("name", "")).strip()
-            problem = self._service.rename(old, name)
-            if problem:
-                self._interactions.toast("error", problem)
-            else:
-                self._update(selected=name)
-
         if old:
             self._interactions.prompt(PromptRequest(f"Rename {old}", [PromptField("name", "New name", old)],
                                                     "Actions that call the old name won't find it.",
-                                                    confirm_text="Rename")).then(answered)
+                                                    confirm_text="Rename")).then(
+                self._after_name(lambda name: self._service.rename(old, name)))
 
     @pyqtSlot()
     def deleteFunction(self) -> None:  # noqa: N802

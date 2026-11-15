@@ -160,7 +160,7 @@ flowchart TB
     svc["<b>Services</b> · domains/*<br/>one per area: RegisterService, ActionService, ChamberService, …"]
     gw["<b>Gateway</b> · gateway/<br/>area interfaces (RegistersPort, InstrumentsPort, …) · ActivityTracker"]
     fake["<b>FakeStationGateway</b><br/>in memory, today"]
-    api["<b>ApiStationGateway</b><br/>client SDK, later"]
+    api["<b>ApiStationGateway</b><br/>JSON-RPC 2.0 over TCP · gateway/api"]
     state["<b>State</b> · state/<br/>StationState · SelectionState<br/>PreferencesState · StatusLine"]
     base["<b>Shared helpers</b><br/>models/ dataclasses · core/ pure functions<br/>stores/ ~/.sirat JSON files"]
 
@@ -215,7 +215,7 @@ sections.append("""## 3. How the app is assembled
 
 ```mermaid
 flowchart TB
-    launch["launch.py · build_app(backend, scenario)"] --> gw["FakeStationGateway(scheduler)"]
+    launch["launch.py · build_app(backend, scenario)"] --> gw["FakeStationGateway(scheduler)<br/>or ApiStationGateway(host, port, scheduler, post)"]
     launch --> container["ServiceContainer(gateway, home, scheduler)"]
     subgraph init["ServiceContainer.__init__"]
         direction TB
@@ -406,6 +406,29 @@ FakeBench(scheduler: Scheduler, emit: Callable, log: Callable, emit_status: Call
 ```
 
 </details>
+
+### The wire: ApiStationGateway and the fake over TCP
+
+The wire is two packages beside the app, shared with every other tool and the station service, which import
+nothing of the GUI (a test checks it) and are meant to move to the station's repository:
+
+- `station_protocol`: framing, the JSON-RPC 2.0 envelope, error codes, validation (pydantic, strict JSON mode),
+  and one module per method group (`system.py` is `sys`, `dut.py`, `registers.py`...) with its methods
+  (parameters with ranges, result, `wrap`, `requires`), types and events. `catalog.py` collects them;
+  `scripts/api/build.py` writes the reference and JSON Schema from it.
+- `station_client`: `Connection` (the socket, a reader thread, requests in flight) and `Link` (reconnecting with
+  backoff, holding calls made while connecting, the sys.hello heartbeat, subscribing again, spotting lost
+  events).
+
+`ApiStationGateway` (`gateway/api/`) is the second `StationGateway`, on a `Link`: each method sends the protocol
+method it's bound to (`gateway/wire/bindings.py`, checked against both sides when it loads) and decodes the reply
+into the app's `models/` dataclasses (`gateway/wire/codec.py`), which a test keeps field for field the same as
+the protocol's; events become GatewayEvents (`gateway/wire/events.py`). What's the GUI's own is there too: a
+dropped link becomes DutDisconnected per position and a fresh status, and call.late is decoded with the method
+that timed out. Messages are posted to the GUI thread (`app/qt_post.py`). `FakeStationServer`
+(`gateway/fake/server.py`) puts the fake behind a socket, checking params with the protocol's types and running
+on one `ThreadScheduler` thread. `sirat --backend fake-tcp` runs the whole app over the wire; `--backend api
+--host --port` connects to a station service. The contract is docs/STATION_API.md.
 """)
 
 sections.append(class_diagram(

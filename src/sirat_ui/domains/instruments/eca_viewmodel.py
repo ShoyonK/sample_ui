@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from sirat_ui.core.eca import MAX_SAMPLES, decimate, format_frequency, format_ms, measure
 from sirat_ui.domains.instruments.bench import InstrumentBench
-from sirat_ui.domains.instruments.eca import KIND, EcaService
-from sirat_ui.domains.instruments.instrument_viewmodel import (InstrumentViewModel, instrument_properties,
-                                                              number)
+from sirat_ui.domains.instruments.eca import EcaService
+from sirat_ui.core.instruments import parse_float as number
+from sirat_ui.domains.instruments.instrument_viewmodel import InstrumentViewModel, instrument_properties
+from sirat_ui.models.instruments import Capture
 from sirat_ui.models.station import CaptureSpec, EDGES
 from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
@@ -22,7 +23,13 @@ FIELDS = ("rate", "duration", "pretrigger", "markerA", "markerB")
 EDGE_LABELS = ["Rising", "Falling", "Either"]
 SERIES_COLORS = ["info", "ok", "warn", "danger"]   # Theme tone names, cycled per channel
 
+
+def _sample_count(rate_mhz: float, duration_ms: float) -> int:
+    return int(round(rate_mhz * 1e6 * duration_ms * 1e-3))
+
+
 def problems(rate: str, duration: str, pretrigger: str, marker_a: str, marker_b: str) -> Dict[str, str]:
+    """Validates the ECA card's fields, including the samples-per-channel limit."""
     errors: Dict[str, str] = {}
     r, d, p = number(rate), number(duration), number(pretrigger)
     if r is None or not 0 < r <= 100:
@@ -32,7 +39,7 @@ def problems(rate: str, duration: str, pretrigger: str, marker_a: str, marker_b:
     if p is None or not 0 <= p <= 90 or not p.is_integer():
         errors["pretrigger"] = "Pre-trigger must be a whole number from 0 to 90 %"
     if r is not None and d is not None and "rate" not in errors and "duration" not in errors:
-        count = int(round(r * 1e6 * d * 1e-3))
+        count = _sample_count(r, d)
         if not 2 <= count <= MAX_SAMPLES:
             errors["duration"] = f"That's {count:,} samples per channel; a capture holds 2 to {MAX_SAMPLES:,}"
     for key, text in (("markerA", marker_a), ("markerB", marker_b)):
@@ -40,8 +47,11 @@ def problems(rate: str, duration: str, pretrigger: str, marker_a: str, marker_b:
             errors[key] = "A time in ms"
     return errors
 
+
 class EcaViewModel(InstrumentViewModel):
-    KIND = KIND
+    """The ECA card: channels and trigger, capture, plots with zoom and markers, measurements, CSV."""
+
+    KIND = EcaService.KIND
     changed = pyqtSignal()
     instrumentText, instrumentFound, instrumentConnected, errors, errorText = instrument_properties(changed)
 
@@ -56,7 +66,7 @@ class EcaViewModel(InstrumentViewModel):
         self._trigger = "immediate"
         self._edge = "rising"
         self._window: Optional[Tuple[float, float]] = None
-        self._shown_capture: Any = None
+        self._shown_capture: Optional[Capture] = None
         self._channels = DictListModel(["name", "checked"], self)
         self._plots = DictListModel(["name", "xs", "ys", "tone"], self)
         self._measurements = DictListModel(["channel", "range", "mean", "edges", "frequency", "highTime",
@@ -122,7 +132,7 @@ class EcaViewModel(InstrumentViewModel):
         r, d = number(self._rate), number(self._duration)
         if r is None or d is None or "rate" in self._errors:
             return ""
-        return f"{int(round(r * 1e6 * d * 1e-3)):,} samples per channel"
+        return f"{_sample_count(r, d):,} samples per channel"
 
     @pyqtProperty(bool, notify=changed)
     def canCapture(self) -> bool:  # noqa: N802
@@ -181,10 +191,10 @@ class EcaViewModel(InstrumentViewModel):
 
     def _remeasure(self) -> None:
         capture = self._service.capture
-        rows = []
         if capture is None:
             self._measurements.set_items([])
             return
+        rows = []
         for name, values in capture.channels.items():
             m = measure(name, values, capture.rate)
             rows.append({"channel": name, "range": f"{m.minimum} to {m.maximum} mV", "mean": f"{m.mean:.0f} mV",
@@ -239,6 +249,7 @@ class EcaViewModel(InstrumentViewModel):
 
     @pyqtSlot(float, float)
     def zoom(self, start: float, end: float) -> None:
+        """Shows only start..end ms (in either order), at full detail."""
         lo, hi = sorted((start, end))
         if hi - lo > 0:
             self._window = (max(0.0, lo), hi)
@@ -269,5 +280,3 @@ class EcaViewModel(InstrumentViewModel):
             self._interactions.toast("success", f"Saved {Path(path).name}")
 
         self._interactions.choose_save_file("Save ECA capture", suggested, "CSV files (*.csv)").then(chosen)
-
-__all__: List[str] = ["EcaViewModel"]

@@ -3,31 +3,37 @@ import QtQuick.Layouts 1.15
 import "../theme"
 import "../components"
 
+// A dialog's icon, title and message. Carries the dialogs' standard top and side margins.
 RowLayout {
+    id: root
     property string title: ""
     property string message: ""
     property string iconName: "warning"
     property string tone: "warn"
     spacing: Theme.s3
+    Layout.fillWidth: true
+    Layout.topMargin: 18
+    Layout.leftMargin: 20
+    Layout.rightMargin: 20
 
     Rectangle {
         Layout.alignment: Qt.AlignTop
         width: 36
         height: 36
         radius: Theme.radius
-        color: Theme.toneBg(parent.tone)
+        color: Theme.toneBg(root.tone)
         Icon {
             anchors.centerIn: parent
-            name: parent.parent.iconName
+            name: root.iconName
             size: 17
-            color: Theme.toneFg(parent.parent.tone)
+            color: Theme.toneFg(root.tone)
         }
     }
     ColumnLayout {
-        spacing: 4
+        spacing: Theme.s1
         Layout.fillWidth: true
         Text {
-            text: parent.parent.title
+            text: root.title
             font.pixelSize: Theme.fontHeading
             font.weight: Font.DemiBold
             color: Theme.textPrimary
@@ -35,7 +41,7 @@ RowLayout {
             Layout.fillWidth: true
         }
         Text {
-            text: parent.parent.message
+            text: root.message
             visible: text !== ""
             font.pixelSize: Theme.fontSm
             color: Theme.textMuted

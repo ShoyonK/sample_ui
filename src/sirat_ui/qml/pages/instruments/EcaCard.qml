@@ -3,6 +3,7 @@ import QtQuick.Layouts 1.15
 import "../../components"
 
 EcaCardForm {
+    id: card
     readonly property var vm: app.eca
 
     status.text: vm.instrumentText
@@ -68,5 +69,5 @@ EcaCardForm {
     resetZoomButton.onClicked: vm.resetZoom()
     saveButton.onClicked: vm.saveCsv()
     measureList.model: vm.measurements
-    measureList.delegate: MeasurementRow {}
+    measureList.delegate: MeasurementRow { columns: card.measureColumns }
 }

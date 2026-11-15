@@ -13,13 +13,15 @@ import logging
 import sys
 import time
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, TextIO
 
 RETENTION_DAYS = 30
 SESSION_FORMAT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 
 
 class DailyFormatter(logging.Formatter):
+    """The req 35 line format: [YYYY-MM-DD HH:MM:SS.mmm] [LEVEL] Message."""
+
     def format(self, record: logging.LogRecord) -> str:
         stamp = dt.datetime.fromtimestamp(record.created)
         return f"[{stamp:%Y-%m-%d %H:%M:%S}.{int(record.msecs):03d}] [{record.levelname}] {record.getMessage()}"
@@ -35,7 +37,7 @@ class DailyFileHandler(logging.Handler):
         self.retention_days = retention_days
         self._today = today
         self._date: Optional[dt.date] = None
-        self._stream = None
+        self._stream: Optional[TextIO] = None
         self.setFormatter(DailyFormatter())
         self.directory.mkdir(parents=True, exist_ok=True)
         self.prune()
@@ -44,6 +46,7 @@ class DailyFileHandler(logging.Handler):
         return self.directory / f"sirat_{day:%Y-%m-%d}.log"
 
     def prune(self) -> None:
+        """Deletes daily logs older than retention_days."""
         cutoff = self._today() - dt.timedelta(days=self.retention_days)
         for path in self.directory.glob("sirat_*.log"):
             try:

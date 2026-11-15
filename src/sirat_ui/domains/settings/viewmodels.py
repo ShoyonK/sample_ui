@@ -6,14 +6,15 @@ import logging
 import platform
 import time
 from pathlib import Path
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, List, Optional
 
 from PyQt5.QtCore import PYQT_VERSION_STR, QT_VERSION_STR, QObject, QTimer, pyqtSignal, pyqtSlot
 
 from sirat_ui import __version__
 from sirat_ui.domains.settings.hardware import HardwareConfigService, validate
 from sirat_ui.domains.settings.transfer import SettingsTransfer
-from sirat_ui.models.dialogs import ConfirmRequest
+from sirat_ui.gateway.errors import ApiError
+from sirat_ui.models.dialogs import ConfirmAnswer, ConfirmRequest
 from sirat_ui.models.settings import HardwareConfig
 from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
@@ -22,21 +23,26 @@ from sirat_ui.state.preferences import PreferencesState
 from sirat_ui.state.station import StationState
 
 STATUS_RESET_MS = 3000
+IDLE_STATUS = "Modify settings and click Save"
 
 log = logging.getLogger("SiRAT.settings")
 
 
 class SettingsViewModel(BaseViewModel):
+    """The Settings page: preferences, Clear register cache, user settings export/import/clear, About."""
+
     changed = pyqtSignal()
 
-    def __init__(self, state: StationState, prefs: PreferencesState, on_clear_cache: Callable[[], None], transfer: SettingsTransfer,
-                 interactions: InteractionService, parent: Optional[QObject] = None) -> None:
+    def __init__(self, state: StationState, prefs: PreferencesState, on_clear_cache: Callable[[], None],
+                 transfer: SettingsTransfer, interactions: InteractionService, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._state = state
         self._prefs = prefs
         self._on_clear_cache = on_clear_cache
         self._transfer = transfer
         self._interactions = interactions
+        self._dark_mode = self._auto_read = self._confirm_critical = self._show_secure = False
+        self._about_rows: List[Dict[str, str]] = []
         self._refresh()
         prefs.changed.connect(lambda _: self._refresh())
         state.changed.connect(self._refresh)
@@ -88,7 +94,7 @@ class SettingsViewModel(BaseViewModel):
 
     @pyqtSlot()
     def exportSettings(self) -> None:  # noqa: N802
-        def chosen(path) -> None:
+        def chosen(path: Optional[str]) -> None:
             if not path:
                 return
             try:
@@ -102,7 +108,7 @@ class SettingsViewModel(BaseViewModel):
 
     @pyqtSlot()
     def importSettings(self) -> None:  # noqa: N802
-        def chosen(path) -> None:
+        def chosen(path: Optional[str]) -> None:
             if not path:
                 return
             request = ConfirmRequest("Import user settings",
@@ -111,7 +117,7 @@ class SettingsViewModel(BaseViewModel):
                                      confirm_text="Import", tone="danger")
             self._interactions.confirm(request).then(lambda answer: do_import(path) if answer.accepted else None)
 
-        def do_import(path) -> None:
+        def do_import(path: str) -> None:
             try:
                 names, skipped = self._transfer.import_(Path(path))
                 if skipped:
@@ -134,7 +140,7 @@ class SettingsViewModel(BaseViewModel):
                                  "export first if you might want them back.",
                                  confirm_text="Clear everything", tone="danger")
 
-        def answered(answer) -> None:
+        def answered(answer: ConfirmAnswer) -> None:
             if answer.accepted:
                 self._transfer.clear_all()
                 self._interactions.toast("info", "All user settings cleared")
@@ -156,13 +162,13 @@ class HardwareConfigViewModel(BaseViewModel):
         self._timeout = ""
         self._position = ""
         self._override = False
-        self._status = "Modify settings and click Save"
+        self._status = IDLE_STATUS
         self._status_level = "mute"
         self._busy = False
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
         self._timer.setInterval(STATUS_RESET_MS)
-        self._timer.timeout.connect(lambda: self._set_status("Modify settings and click Save", "mute", reset=False))
+        self._timer.timeout.connect(lambda: self._set_status(IDLE_STATUS, "mute", reset=False))
         self._load()
         service.config_changed.connect(self._load)
 
@@ -176,7 +182,7 @@ class HardwareConfigViewModel(BaseViewModel):
     busy = qprop(bool, "_busy", changed)
 
     @pyqtProperty("QVariantMap", notify=changed)
-    def errors(self):
+    def errors(self) -> Dict[str, str]:
         return dict(self._errors)
 
     @pyqtProperty(bool, notify=changed)
@@ -236,7 +242,7 @@ class HardwareConfigViewModel(BaseViewModel):
             self._update(busy=False)
             self._set_status(message, "ok")
 
-        def failed(error) -> None:
+        def failed(error: ApiError) -> None:
             self._update(busy=False)
             self._set_status(f"Connection failed: {error.message}", "danger", reset=False)
 

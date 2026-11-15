@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from typing import Iterable, List
 
-from sirat_ui.models.registers import PeripheralDef
-from sirat_ui.models.registers import SearchResult
+from sirat_ui.models.registers import PeripheralDef, SearchResult
 
 
 def visible_peripherals(peripherals: Iterable[PeripheralDef], show_secure: bool) -> List[PeripheralDef]:
@@ -14,6 +13,9 @@ def visible_peripherals(peripherals: Iterable[PeripheralDef], show_secure: bool)
 
 
 def search(peripherals: Iterable[PeripheralDef], text: str, show_secure: bool) -> SearchResult:
+    """Filters the tree (req 6). A peripheral whose name matches shows all its registers; otherwise it shows the
+    registers whose name or a field's name matches. Matching peripherals are expanded, and a single matching
+    register is auto-selected."""
     candidates = visible_peripherals(peripherals, show_secure)
     query = (text or "").strip().lower()
     if not query:

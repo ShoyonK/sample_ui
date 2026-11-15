@@ -15,6 +15,7 @@ from PyQt5.QtCore import QObject, QTimer, pyqtSignal, pyqtSlot
 from sirat_ui.core.highlight import highlight_python
 from sirat_ui.gateway.call import Call
 from sirat_ui.models.dialogs import Alert, ConfirmAnswer, ConfirmRequest, PromptRequest
+from sirat_ui.shared.interactions import save_text
 from sirat_ui.shared.qt import pyqtProperty
 from sirat_ui.shared.viewmodel import BaseViewModel, DictListModel, copy_to_clipboard, qprop
 
@@ -22,15 +23,22 @@ TOAST_MS = 3500
 
 
 class DialogsViewModel(BaseViewModel):
+    """Holds the dialog requests QML shows.
+
+    Confirmations queue: one is shown at a time and the next appears when it's answered. A new prompt cancels
+    (answers None to) the one still open. Toasts stack, at most four, and expire after TOAST_MS.
+    """
+
     changed = pyqtSignal()
 
     def __init__(self, is_dark: Callable[[], bool] = lambda: False,
                  chooser: Optional[Callable[[str, str, str], Optional[str]]] = None,
+                 opener: Optional[Callable[[str, str, Optional[Path]], Optional[str]]] = None,
                  parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._is_dark = is_dark
         self._chooser = chooser or _native_save_dialog
-        self._opener = _native_open_dialog
+        self._opener = opener or _native_open_dialog
         self._code: Dict[str, Any] = {}
         self._code_raw = ""
         self._confirm: Dict[str, Any] = {}
@@ -85,6 +93,7 @@ class DialogsViewModel(BaseViewModel):
         # The timer is a child of this VM, so it dies with it instead of firing into a deleted model.
         timer = QTimer(self)
         timer.setSingleShot(True)
+
         def expire() -> None:
             self.dismissToast(toast_id)
             timer.deleteLater()
@@ -109,14 +118,8 @@ class DialogsViewModel(BaseViewModel):
 
     @pyqtSlot()
     def saveCode(self) -> None:  # noqa: N802
-        path = self.choose_save_file("Save generated code", "sirat_actions.py", "Python files (*.py)")
-        if not path:
-            return
-        try:
-            Path(path).write_text(self._code_raw, encoding="utf-8")
-            self.show_toast("success", f"Saved {path}")
-        except OSError as exc:
-            self.show_toast("error", f"Couldn't save: {exc}")
+        save_text(QmlInteractions(self), "Save generated code", "sirat_actions.py", "Python files (*.py)",
+                  lambda: self._code_raw, lambda path: f"Saved {path}")
 
     @pyqtSlot()
     def closeCode(self) -> None:  # noqa: N802
@@ -161,7 +164,11 @@ class DialogsViewModel(BaseViewModel):
 
 
 class QmlInteractions:
-    """Adapts DialogsViewModel to the InteractionService protocol used by services."""
+    """Adapts DialogsViewModel to the InteractionService protocol used by services.
+
+    A separate adapter because the protocol's names (confirm, prompt, alert) are taken on the ViewModel by the Qt
+    properties QML binds to.
+    """
 
     def __init__(self, dialogs: DialogsViewModel) -> None:
         self._dialogs = dialogs

@@ -25,21 +25,17 @@ ModalDialog {
     }
 
     contentItem: ColumnLayout {
-        spacing: 12
+        spacing: Theme.s3
         DialogHeader {
             title: dialog.req.title || ""
             message: dialog.req.message || ""
             iconName: "edit"
             tone: "info"
-            Layout.fillWidth: true
-            Layout.topMargin: 18
-            Layout.leftMargin: 20
-            Layout.rightMargin: 20
         }
         Repeater {
             model: dialog.req.fields || []
             delegate: ColumnLayout {
-                spacing: 4
+                spacing: Theme.s1
                 Layout.fillWidth: true
                 Layout.leftMargin: 20
                 Layout.rightMargin: 20
@@ -67,11 +63,7 @@ ModalDialog {
                 }
             }
         }
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.leftMargin: 20
-            Layout.rightMargin: 20
-            Layout.bottomMargin: 18
+        DialogButtons {
             Item { Layout.fillWidth: true }
             AppButton { objectName: "promptCancelButton"; text: "Cancel"; onClicked: dialog.vm.cancelPrompt() }
             AppButton {

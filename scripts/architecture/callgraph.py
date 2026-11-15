@@ -116,7 +116,7 @@ if __name__ == "__main__":
     print(json.dumps({"vms": v, "api": a, "services": s}, indent=1))
 
 # Endpoints services call on their own (startup, timers, state changes), and when. The trace above only
-# follows ViewModel slots, so these are listed by hand; build.py and backend_doc.py both use them.
+# follows ViewModel slots, so these are listed by hand; build.py uses them.
 SERVICE_CALLS = {
     "sys.hello": ("ConnectionService", "startup"), "sys.subscribe": ("ConnectionService", "startup"),
     "sys.status": ("ConnectionService", "startup, after connect"),

@@ -101,7 +101,8 @@ color exist.
 | `stores/schemas/operations.py` | A pydantic model with `type: Literal["my_kind"]`, added to `OPERATION_MODELS` (the file schema) | required |
 | `qml/theme/Theme.qml` | A color in both maps of `kindColor` (light and dark), or a tone in `kindTone` | required |
 | `gateway/fake/fake_station.py` | Handle the kind in `_execute_op` so sequences can run it against the fake | required |
-| `docs/API_DESIGN.md` | The wire op (`automation` section) so the real service implements it | required |
+| `station_protocol/automation.py` | The op's wire shape (a `TypedDict` with `type: Literal["my_kind"]`), added to `WireOp`, so the station validates it | required |
+| `docs/STATION_API.md` | The op in section 11, so the real service implements it; then `uv run python scripts/api/build.py` | required |
 | `tests/unit/domains/…` | A test that records and runs the kind | recommended |
 
 `describe` is what the Actions list shows, `code` returns the lines for Generate code (req 16), and the wire
@@ -132,19 +133,22 @@ on_done)`; don't subscribe to `gateway.events` yourself for activities.
 
 ## 6. A station endpoint
 
-An endpoint is an API method the real station service must answer (`docs/API_DESIGN.md`).
+An endpoint is an API method the real station service must answer (`docs/STATION_API.md`).
 
 | File | Change | |
 |---|---|---|
-| `docs/API_DESIGN.md` | The method, its parameters, result model and requires | required |
+| `docs/STATION_API.md` | What the method does, its errors and the facts and events it changes (section 8) | required |
+| `station_protocol/<group>.py` | Its `Method` in the group's `METHODS`: wire name, parameters with their wire types and ranges (in the order the gateway method takes them), result type, `wrap` and `requires`; a new result type is a dataclass there. A new group is a new module, added to `catalog.GROUPS` | required |
 | `gateway/port.py` | The method on its area interface (or a new area interface added to `StationGateway`), returning `Call[Result]` | required |
-| `models/station.py` | The result dataclass, if new | conditional |
-| `core/requires.py` | `METHOD_REQUIRES["area.method"] = ("dut", "idle", …)`; a new tag also needs `TAG_TEXT` | required |
+| `gateway/wire/bindings.py` | `"attr": "area.method"` in `WIRE_OF` (the parameters and types come from the two sides; loading checks they agree) | required |
+| `gateway/api/client.py` | The method on `ApiStationGateway`: `return self._call("attr", ...)` | required |
+| `models/station.py` | The app's result dataclass, if new: the same name and fields as the protocol's (a test compares them) | conditional |
+| `core/requires.py` | Only a new tag: its wording in `TAG_TEXT` (the tags themselves are the protocol method's `requires`) | conditional |
 | `gateway/fake/fake_station.py` | `def method(...)`: `return self._respond("area.method", position, run, **params)`. Instrument calls use `_instrument_call`; memory and Python calls live in `gateway/fake/advanced.py` (`FakeAdvanced` plus a one-line method on `AdvancedMethods`) | required |
 | the service that uses it | Call it, report failures with `ErrorPresenter` | required |
 | `tests/unit/gateway/test_fake_station.py` | The fake answers it and refuses it when requires aren't met | recommended |
-| `scripts/architecture/backend_doc.py` | Its entry in `F` (signature, behaviour, errors, changes) and a sample call in `payloads.py`; then `uv run python scripts/architecture/backend_doc.py` regenerates `docs/BACKEND_DESIGN.md` | required |
-| later: `gateway/api/` | `ApiStationGateway` maps it to the client SDK | when the backend exists |
+| `scripts/api/build.py` | A sample call in `Capture.run`; then `uv run python scripts/api/build.py` regenerates `docs/STATION_API_REFERENCE.md` and `docs/station_api.schema.json` (a test fails until you do) | required |
+| `tests/contract/` | A call over TCP by its wire name (`station.call("area.method", ...)`); the result is checked against the protocol type | recommended |
 
 The fake must keep the same rules as the real service (requires, error codes), or the GUI will rely on
 behaviour the real backend won't have.

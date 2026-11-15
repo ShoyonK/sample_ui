@@ -58,7 +58,7 @@ Rectangle {
         delay: 0
         x: 0
         y: root.height + 6
-        padding: 12
+        padding: Theme.s3
         width: root.tipWidth + leftPadding + rightPadding  // otherwise it sizes to the unwrapped text
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
         onClosed: root.pinned = false

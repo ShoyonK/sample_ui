@@ -1,7 +1,7 @@
 """DumpService (req 12): take a dump, diff live values against a dump, compare two dump files, and
 compare the chip with a Radio Calculator config (req 21).
 
-Reads go one register at a time (like Read all) so the progress dialog can show
+Reads go one register at a time (domains/registers/sequential.py, like Read all) so the progress dialog can show
 "Reading PERIPHERAL.REGISTER..." and Cancel stops before the next register. Write-only and
 read-sensitive registers are skipped (req 7). Dumps taken this run are kept for sessions (req 34),
 newest last, at most MAX_DUMPS.
@@ -10,7 +10,7 @@ newest last, at most MAX_DUMPS.
 from __future__ import annotations
 
 import datetime as dt
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
 
@@ -19,18 +19,18 @@ from sirat_ui.core.observable import Event
 from sirat_ui.core.radio_config import ERROR, FieldResult, MATCH, MISMATCH, RadioComparison
 from sirat_ui.domains.logs.service import LogService
 from sirat_ui.domains.registers.catalog import RegisterCatalog
+from sirat_ui.domains.registers.sequential import RegisterReadJob, read_one_by_one
 from sirat_ui.domains.registers.service import RegisterService
-from sirat_ui.gateway.errors import ApiError, ErrorCode
 from sirat_ui.models.dumps import Comparison, RegisterDump
 from sirat_ui.models.radio import RadioConfig
 from sirat_ui.models.registers import RegisterDef
 
 MAX_DUMPS = 50  # req 12: "Limit to prevent unbounded growth"
-_STOP_CODES = (ErrorCode.DUT_DISCONNECTED, ErrorCode.WRONG_STATE)
 
 
 @dataclass
 class DumpFile:
+    """A dump CSV in the dumps folder, as the file list shows it."""
     path: Path
     name: str
     timestamp: dt.datetime
@@ -38,29 +38,21 @@ class DumpFile:
     peripherals: List[str]
 
 
-@dataclass
-class DumpJob:
+@dataclass(kw_only=True)   # keyword-only, so these stay required after the base class's defaulted fields
+class DumpJob(RegisterReadJob):
+    """The reads behind one dump, live diff or Radio Calculator diff; on_done gets it once it finishes."""
     kind: str  # "take" | "live" | "radio"
-    registers: List[RegisterDef]
     on_done: Callable[["DumpJob"], None]
-    values: Dict[str, int] = field(default_factory=dict)
-    index: int = 0
-    failed: int = 0
-    current: str = ""
-    cancelled: bool = False
-    stopped_reason: str = ""
-    finished: bool = False
-
-    @property
-    def total(self) -> int:
-        return len(self.registers)
 
 
 def readable(registers: Iterable[RegisterDef]) -> List[RegisterDef]:
+    """The registers a dump reads: readable and not read-sensitive."""
     return [r for r in registers if r.access.readable and not r.read_sensitive]
 
 
 class DumpService:
+    """Dump files and the reads behind each kind of comparison (see the module docstring)."""
+
     def __init__(self, directory: Path, catalog: RegisterCatalog, registers: RegisterService, log: LogService,
                  clock: Callable[[], dt.datetime] = lambda: dt.datetime.now().replace(microsecond=0)) -> None:
         self.directory = Path(directory)
@@ -112,8 +104,13 @@ class DumpService:
     # ---- reading: take a dump / diff vs live ----------------------------------------------------
 
     def take(self, peripherals: List[str], on_done: Callable[[DumpJob], None]) -> bool:
+        """Reads every dumpable register of the peripherals; on_done gets the job (see new_dump).
+
+        Returns:
+            False when another read is still running.
+        """
         regs = [r for name in peripherals for r in readable(self._peripheral_registers(name))]
-        return self._start(DumpJob("take", regs, on_done), f"Taking a dump of {', '.join(peripherals)}")
+        return self._start(DumpJob(regs, kind="take", on_done=on_done), f"Taking a dump of {', '.join(peripherals)}")
 
     def diff_live(self, path: Path, on_done: Callable[[Optional[Comparison]], None]) -> bool:
         """Reads every register in the dump that the chip has; registers it doesn't have count as errors."""
@@ -132,7 +129,7 @@ class DumpService:
             result.errors = missing + job.failed
             on_done(result)
 
-        return self._start(DumpJob("live", known, finished), f"Comparing live values with {dump.name}")
+        return self._start(DumpJob(known, kind="live", on_done=finished), f"Comparing live values with {dump.name}")
 
     def radio_diff(self, config: RadioConfig, peripherals: List[str],
                    on_done: Callable[[Optional[RadioComparison]], None]) -> bool:
@@ -177,19 +174,20 @@ class DumpService:
             self._log.info(f"Radio Calculator diff with {config.name}: {comparison.summary}")
             on_done(comparison)
 
-        return self._start(DumpJob("radio", list(to_read.values()), finished),
+        return self._start(DumpJob(list(to_read.values()), kind="radio", on_done=finished),
                            f"Comparing with Radio Calculator config {config.name} ({len(entries)} fields)")
 
     def cancel(self) -> None:
-        if self.job is not None and not self.job.finished:
-            self.job.cancelled = True
+        if self.job is not None:
+            self.job.cancel()
 
     def stop(self, reason: str) -> None:
         """Ends the job as stopped (nothing is saved), e.g. when the user switches DUT."""
-        if self.job is not None and not self.job.finished:
-            self.job.stopped_reason = reason
+        if self.job is not None:
+            self.job.stop(reason)
 
     def new_dump(self, job: DumpJob, name: str, description: str = "") -> RegisterDump:
+        """The dump a finished "take" job read, with the registers' addresses for the CSV."""
         addresses = {r.full_name: r.address for r in job.registers if r.full_name in job.values}
         return RegisterDump(name, self._clock(), description, dict(job.values), addresses)
 
@@ -202,40 +200,12 @@ class DumpService:
             return False
         self.job = job
         self._log.info(f"{message} ({job.total} registers)…")
-        self._next()
+        read_one_by_one(self._registers, job, self.progress.emit, self._finished)
         return True
 
-    def _next(self) -> None:
-        job = self.job
-        if job is None or job.finished:
-            return
-        if job.cancelled or job.stopped_reason or job.index >= job.total:
-            job.finished, job.current = True, ""
-            self.progress.emit(job)
-            job.on_done(job)
-            return
-        self._read_next(job)
-
-    def _read_next(self, job: DumpJob) -> None:
-        reg = job.registers[job.index]
-        job.current = reg.full_name
+    def _finished(self, job: DumpJob) -> None:
         self.progress.emit(job)
-
-        def done(value: int) -> None:
-            job.values[reg.full_name] = value
-            advance()
-
-        def failed(error: ApiError) -> None:
-            job.failed += 1
-            if error.code in _STOP_CODES and not job.stopped_reason:   # keep the first reason (e.g. a DUT switch)
-                job.stopped_reason = error.message
-            advance()
-
-        def advance() -> None:
-            job.index += 1
-            self._next()
-
-        self._registers.read(reg, manual=False, quiet=True).then(done, failed)
+        job.on_done(job)
 
     # ---- sessions (req 34) ---------------------------------------------------------------------
 

@@ -21,16 +21,8 @@ ModalDialog {
             message: dialog.req.message || ""
             iconName: dialog.req.level === "info" ? "info" : "warning"
             tone: dialog.req.level === "info" ? "info" : "warn"
-            Layout.fillWidth: true
-            Layout.topMargin: 18
-            Layout.leftMargin: 20
-            Layout.rightMargin: 20
         }
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.leftMargin: 20
-            Layout.rightMargin: 20
-            Layout.bottomMargin: 18
+        DialogButtons {
             Item { Layout.fillWidth: true }
             AppButton {
                 objectName: "alertOkButton"

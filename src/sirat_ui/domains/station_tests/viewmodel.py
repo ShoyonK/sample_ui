@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Optional, Set
+from typing import List, Optional, Set, Tuple
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
-from sirat_ui.domains.station_tests.service import StationTestService
+from sirat_ui.domains.station_tests.service import StationTestService, TestResult, TestRun
 from sirat_ui.shared.interactions import InteractionService
 from sirat_ui.shared.qt import pyqtProperty
 from sirat_ui.shared.viewmodel import BaseViewModel, ConsoleModel, DictListModel, clock_text, qprop
@@ -20,6 +20,8 @@ def _minutes(seconds: float) -> str:
 
 
 class StationTestsViewModel(BaseViewModel):
+    """The Tests page: the checklist, Run/Stop, progress, results, the selected result's output, Export."""
+
     changed = pyqtSignal()
 
     def __init__(self, tests: StationTestService, state: StationState, interactions: InteractionService,
@@ -109,7 +111,7 @@ class StationTestsViewModel(BaseViewModel):
         if run is None:
             return
 
-        def chosen(path) -> None:
+        def chosen(path: Optional[str]) -> None:
             if not path:
                 return
             try:
@@ -134,31 +136,36 @@ class StationTestsViewModel(BaseViewModel):
              "selected": i == self._selected_result} for i, r in enumerate(results)])
 
         running = run is not None and run.running
-        if run is None:
-            status, verdict, current = "", "", ""
-        elif running:
-            done = len(results) + (1 if run.current else 0)
-            status, verdict = f"Running · test {done} of {len(run.tests)}", "running"
-            current = run.stop_reason or (f"Current test: {run.current.name}" if run.current else "")
-        else:
-            ended = "Stopped" if run.stop_reason else "Finished"
-            status = f"{ended} · {run.summary()}"
-            verdict = "stopped" if run.stop_reason else ("pass" if all(r.passed for r in results) else "fail")
-            current = run.stop_reason
-        if not self._tests.loaded:
-            empty = ""
-        elif self._tests.load_error:
-            empty = f"Couldn't list the tests: {self._tests.load_error}"
-        else:
-            empty = "" if self._tests.tests else "No tests to run"
+        status, verdict, current = self._status(run, results)
         self._update(running=running, has_run=run is not None, verdict=verdict, status_text=status,
                      progress=len(results) / len(run.tests) if run is not None else 0.0, current_text=current,
                      elapsed_text=_minutes(self._tests.elapsed_s()) if run is not None else "",
                      checked_count=len(self._checked),
                      can_run=bool(self._checked) and not running and self._state.can("tests.run"),
-                     empty_text=empty)
+                     empty_text=self._empty_message())
 
         shown = results[self._selected_result] if self._selected_result >= 0 else None
         self._update(output_title=f"Output · {shown.test.name}" if shown else "Output")
         self._output.set_items([{"time": "", "level": "info", "text": line} for line in shown.output] if shown else [])
         self.changed.emit()
+
+    @staticmethod
+    def _status(run: Optional[TestRun], results: List[TestResult]) -> Tuple[str, str, str]:
+        """(status line, verdict, current-test line) for the run."""
+        if run is None:
+            return "", "", ""
+        if run.running:
+            done = len(results) + (1 if run.current else 0)
+            current = run.stop_reason or (f"Current test: {run.current.name}" if run.current else "")
+            return f"Running · test {done} of {len(run.tests)}", "running", current
+        ended = "Stopped" if run.stop_reason else "Finished"
+        verdict = "stopped" if run.stop_reason else ("pass" if all(r.passed for r in results) else "fail")
+        return f"{ended} · {run.summary()}", verdict, run.stop_reason
+
+    def _empty_message(self) -> str:
+        """Why the test list is empty, if it is."""
+        if not self._tests.loaded:
+            return ""
+        if self._tests.load_error:
+            return f"Couldn't list the tests: {self._tests.load_error}"
+        return "" if self._tests.tests else "No tests to run"

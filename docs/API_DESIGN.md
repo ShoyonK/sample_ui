@@ -1,7 +1,10 @@
 # SiRAT Station API: design, revision 2 (draft)
 
-Revises the Oct 27, 2026 design document. Inputs: that document, `docs/API_REVIEW.md`, and the two frontend
-proposals (`API_CHANGE_phy_and_prs.md`, `API_CHANGE_dut_connect_rpc_address.md`), which are folded in here.
+> **The current contract is [STATION_API.md](STATION_API.md)** (protocol 2), with its generated [reference](STATION_API_REFERENCE.md). This file is revision 2 of the design and the reasoning behind it; where they differ, STATION_API.md wins (its section 13 lists how).
+
+Revises the Oct 27, 2026 design document. Inputs: that document, the frontend's review of it, and two frontend
+proposals (a per-connection RPC address on `dut.connect`; the WiFi PHY config, `load_phy` result and PRS signal
+list), all folded in here.
 
 The requirements were read for what the user needs to get done, not as a list of library calls to copy.
 Where this design differs from how the original GUI worked, the reason is given.
@@ -79,24 +82,42 @@ page, not agreed yet (11.4).
 
 ### Request, reply, event
 
+Messages are **JSON-RPC 2.0** (docs/JSONRPC_MIGRATION.md has the plan and the reasons).
+
 ```
-request  { "id": 17, "method": "registers.read", "params": {...}, "timeout_ms": 5000 }
-reply    { "id": 17, "ok": true,  "result": {...} }
-         { "id": 17, "ok": false, "error": { "code": "wrong_state", "message": "...", "data": {...} } }
-event    { "event": "registers.watch", "seq": 912, "data": {...} }
+request  { "jsonrpc": "2.0", "id": 17, "method": "registers.read",
+           "params": { "pos": 1, "name": "CMU.CLKEN0", "_meta": { "timeout_ms": 5000 } } }
+reply    { "jsonrpc": "2.0", "id": 17, "result": 3 }
+         { "jsonrpc": "2.0", "id": 17,
+           "error": { "code": -32001, "message": "...", "data": { "reason": "wrong_state", ... } } }
+event    { "jsonrpc": "2.0", "method": "registers.watch", "params": { "seq": 912, "data": {...} } }
 ```
 
-- Replies may arrive out of order; `id` matches them to requests.
+- `params` is always an object of named parameters. `_meta` is reserved for call options; today it holds
+  `timeout_ms`, which defaults to the RPC timeout setting (5 s, range 1–300 s).
+- A reply has `result` or `error`. Replies may arrive out of order; `id` matches them to requests.
+- `error.code` is an integer (section 8 has the table); `error.data.reason` is the string code, and the rest
+  of `data` is the code's detail (`missing`, `still_running`...).
+- Events are notifications: no `id`, the event name as `method`, `params.seq` and `params.data`.
 - `seq` is per connection and goes up by one for every event *sent*. A gap means the connection lost
   events, so the client refetches `sys.status`. Watch events the server drops (keeping only the newest per
   subscription) never consume a `seq`.
-- `timeout_ms` defaults to the RPC timeout setting (5 s, range 1–300 s).
+- Batches aren't supported (`-32600`). A request without an `id` runs and gets no reply; clients don't send
+  them.
+- Events go only for the topics the connection subscribed to (`sys.subscribe`); `call.late` always goes to the
+  connection whose call timed out. A new connection starts with no topics.
+- When a connection closes, the watch subscriptions and console sessions it opened end. Activities keep
+  running and still send `activity.finished` to whoever is subscribed.
+- Results and events encode the models field by field (dataclass → object, tuple → array, enum → value).
+  `PhySpec` is tagged by `kind`; an `ApiError` inside a result is `{code, message, data}`; calls that start an
+  activity return `{activity_id}`; `registers.tree` returns `{tree_id, peripherals}`.
 
 ### Timeouts
 
 When a call runs past `timeout_ms`:
 
-1. The service replies `timeout` with `data: { still_running: true }`.
+1. The service replies `timeout` with `data: { still_running: true, request_id }`, where `request_id` is
+   the call's JSON-RPC `id`.
 2. The hardware call keeps running, and its position or instrument stays locked. Other calls for that
    position get `busy` with `data: { request_id }`.
 3. When the call ends, the service sends `call.late { request_id, ok, result | error }`.
@@ -466,26 +487,28 @@ class StationTestResult(Model):  id: str; passed: bool; started: float; duration
 
 ## 8. Errors
 
-One shared set of codes. Domains add detail in `data`.
+One shared set of codes. Domains add detail in `data`. On the wire, `error.code` is the JSON-RPC integer and
+`error.data.reason` the name below. -32700 (parse error) and -32600 (invalid request) carry the reason
+`invalid_params`.
 
-| Code | Meaning |
-|---|---|
-| `wrong_state` | Requires unmet; `data.missing` lists tags |
-| `invalid_params` | Schema or range validation failed |
-| `unknown_method` | Not in `sys.describe` |
-| `timeout` | Call exceeded `timeout_ms`; `data.still_running` |
-| `busy` | Position or instrument locked; `data.request_id` |
-| `claimed` | Another owner holds the station |
-| `confirmation_required` | Critical register written without `confirm` |
-| `read_sensitive` | Read-sensitive register in `read_many` / `watch` without opt-in |
-| `access_denied` | Register or field isn't readable / writable |
-| `out_of_range` | Value doesn't fit |
-| `not_found` | Register, path, id, session or capture unknown |
-| `dut_disconnected` | Link lost during the call |
-| `instrument_error` | Instrument reported an error |
-| `hardware_error` | Library raised; sets `fault` during an activity; `data.cause` where known |
-| `aborted` | Activity aborted |
-| `internal` | Bug; includes a trace id |
+| Reason | JSON-RPC code | Meaning |
+|---|---|---|
+| `wrong_state` | -32001 | Requires unmet; `data.missing` lists tags |
+| `invalid_params` | -32602 | Schema or range validation failed |
+| `unknown_method` | -32601 | Not in `sys.describe` |
+| `timeout` | -32002 | Call exceeded `timeout_ms`; `data.still_running` |
+| `busy` | -32003 | Position or instrument locked; `data.request_id` |
+| `claimed` | -32004 | Another owner holds the station |
+| `confirmation_required` | -32005 | Critical register written without `confirm` |
+| `read_sensitive` | -32006 | Read-sensitive register in `read_many` / `watch` without opt-in |
+| `access_denied` | -32007 | Register or field isn't readable / writable |
+| `out_of_range` | -32008 | Value doesn't fit |
+| `not_found` | -32009 | Register, path, id, session or capture unknown |
+| `dut_disconnected` | -32010 | Link lost during the call |
+| `instrument_error` | -32011 | Instrument reported an error |
+| `hardware_error` | -32012 | Library raised; sets `fault` during an activity; `data.cause` where known |
+| `aborted` | -32013 | Activity aborted |
+| `internal` | -32603 | Bug; includes a trace id |
 
 `verify_failed` is gone: see `WriteRes.verified`.
 

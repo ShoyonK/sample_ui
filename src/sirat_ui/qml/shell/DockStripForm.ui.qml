@@ -59,7 +59,7 @@ Rectangle {
             }
         }
 
-        Rectangle { width: 1; Layout.fillHeight: true; Layout.topMargin: 8; Layout.bottomMargin: 8; color: Theme.border }
+        Rectangle { width: 1; Layout.fillHeight: true; Layout.topMargin: Theme.s2; Layout.bottomMargin: Theme.s2; color: Theme.border }
 
         Item {
             Layout.fillWidth: true
@@ -83,7 +83,7 @@ Rectangle {
             }
         }
 
-        Rectangle { width: 1; Layout.fillHeight: true; Layout.topMargin: 8; Layout.bottomMargin: 8; color: Theme.border }
+        Rectangle { width: 1; Layout.fillHeight: true; Layout.topMargin: Theme.s2; Layout.bottomMargin: Theme.s2; color: Theme.border }
 
         Item {
             Layout.fillWidth: true

@@ -15,6 +15,8 @@ from sirat_ui.shared.interactions import InteractionService
 
 
 class MonitoringGuard:
+    """Stops the watch list and the data logger when they go out of view (see the module docstring)."""
+
     def __init__(self, watch: WatchService, logger: DataLoggerService, log: LogService,
                  interactions: InteractionService, watch_on_screen: Callable[[], bool],
                  logger_on_screen: Callable[[], bool]) -> None:

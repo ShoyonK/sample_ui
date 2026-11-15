@@ -16,7 +16,7 @@ SAMPLE_CFG = Path(__file__).resolve().parents[2] / "docs" / "samples" / "PHY_dem
 
 def drop_on_next_reads(h, n):
     """The DUT drops on the n-th register read from now."""
-    h.fake.drop_after_reads = h.fake._reads + n
+    h.fake.drop_after_reads = h.fake.fake_registers.reads + n
 
 
 def log_texts(h):
@@ -51,7 +51,7 @@ def test_dut_drop_mid_dump_saves_nothing(harness):
     alert = harness.ix.alerts[-1]
     assert alert.title == "Dump stopped" and "Nothing was saved" in alert.message
     assert not harness.ix.prompts                     # never asked to name a partial dump
-    assert not harness.shell.dumpProgress.progressOpen and not harness.services.dumps.running
+    assert not harness.shell.dumpProgress.isOpen and not harness.services.dumps.running
 
 
 def test_dut_drop_mid_read_all_says_it_stopped(harness):
@@ -70,7 +70,7 @@ def test_dut_drop_mid_radio_diff(harness):
     harness.shell.dumpPicker.startPicked()
     harness.scheduler.run_pending()
     assert harness.ix.alerts[-1].title == "Comparison stopped"
-    assert harness.shell.comparison.resultKind == "" and not harness.shell.dumpProgress.progressOpen
+    assert harness.shell.comparison.resultKind == "" and not harness.shell.dumpProgress.isOpen
 
 
 def test_dut_drop_mid_custom_function(harness):
@@ -117,7 +117,7 @@ def test_switching_dut_stops_the_watch_list_and_the_logger(harness):
     assert not harness.services.watch.live and not harness.services.logger.recording
     assert harness.ix.toasts[-1] == ("info", "Watch list paused and data logger stopped: you switched to DUT 2. "
                                              "Your data is kept.")
-    assert not harness.fake._watches                            # unsubscribed from DUT 1
+    assert not harness.fake.fake_registers.watches                            # unsubscribed from DUT 1
 
 
 def test_switching_dut_stops_a_dump_instead_of_mixing_two_duts(harness):

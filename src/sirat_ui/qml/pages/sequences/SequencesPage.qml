@@ -20,8 +20,7 @@ SequencesPageForm {
 
     titleLabel.text: vm.selectedName || "No sequence"
     statusChip.text: vm.statusText
-    statusChip.tone: vm.running ? "info" : vm.statusText === "Failed" ? "danger"
-                   : vm.statusText === "Finished" ? "ok" : "mute"
+    statusChip.tone: vm.statusTone
     codeButton.enabled: hasSequence
     codeButton.onClicked: vm.generateCode()
     runButton.text: vm.running ? "Abort" : "Run"

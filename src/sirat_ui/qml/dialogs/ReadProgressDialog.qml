@@ -3,26 +3,24 @@ import QtQuick.Layouts 1.15
 import "../theme"
 import "../components"
 
-// Req 12 progress dialog: "Reading PERIPHERAL.REGISTER...", X of Y, cancelable.
+// Progress for register reads that take a while (req 4 Read all, req 12/21 dumps): modal, cancelable,
+// "Reading PERIPHERAL.REGISTER...", X of Y. `vm` is a ReadProgressViewModel; `name` prefixes the objectNames.
 ModalDialog {
     id: dialog
-    objectName: "dumpProgressDialog"
-    readonly property var vm: app.dumpProgress
+    property var vm
+    property string name
+    objectName: name + "Dialog"
 
-    shown: vm.progressOpen
+    shown: vm.isOpen
     dialogWidth: 460
 
     contentItem: ColumnLayout {
-        spacing: 12
+        spacing: Theme.s3
         DialogHeader {
-            title: dialog.vm.progressTitle
-            message: dialog.vm.progressLabel
+            title: dialog.vm.title
+            message: dialog.vm.label
             iconName: "download"
             tone: "info"
-            Layout.fillWidth: true
-            Layout.topMargin: 18
-            Layout.leftMargin: 20
-            Layout.rightMargin: 20
         }
         Rectangle {
             Layout.fillWidth: true
@@ -32,7 +30,7 @@ ModalDialog {
             radius: 3
             color: Theme.select
             Rectangle {
-                objectName: "dumpProgress"
+                objectName: dialog.name + "Progress"
                 width: parent.width * dialog.vm.progress
                 height: parent.height
                 radius: 3
@@ -40,13 +38,9 @@ ModalDialog {
                 Behavior on width { NumberAnimation { duration: 80 } }
             }
         }
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.leftMargin: 20
-            Layout.rightMargin: 20
-            Layout.bottomMargin: 18
+        DialogButtons {
             Text {
-                objectName: "dumpProgressCount"
+                objectName: dialog.name + "Count"
                 text: dialog.vm.countText
                 font.family: Theme.fontMono
                 font.pixelSize: Theme.fontSm
@@ -54,7 +48,7 @@ ModalDialog {
                 Layout.fillWidth: true
             }
             AppButton {
-                objectName: "dumpCancelButton"
+                objectName: dialog.name + "CancelButton"
                 text: dialog.vm.cancelling ? "Cancelling…" : "Cancel"
                 enabled: !dialog.vm.cancelling
                 onClicked: dialog.vm.cancel()

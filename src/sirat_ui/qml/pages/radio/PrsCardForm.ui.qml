@@ -20,6 +20,8 @@ Card {
     property alias addButton: addButton
     property alias routeList: routeList
     property alias routesEmpty: routesEmpty
+    // Column widths shared by the routes header and PrsRouteRow; Signal takes the rest.
+    readonly property var routeColumns: ({ pin: 60, channel: 90, remove: 86 })
 
     ColumnLayout {
         anchors.fill: parent
@@ -43,7 +45,7 @@ Card {
             GridLayout {
                 columns: 3
                 columnSpacing: 10
-                rowSpacing: 4
+                rowSpacing: Theme.s1
                 Layout.fillWidth: true
                 Text { text: "Signal"; font.pixelSize: Theme.fontXs; color: Theme.textMuted }
                 Text { text: "Pin"; font.pixelSize: Theme.fontXs; color: Theme.textMuted }
@@ -62,12 +64,12 @@ Card {
                 Layout.fillWidth: true
             }
             RowLayout {
-                spacing: 8
+                spacing: Theme.s2
                 AppButton { id: applyButton; objectName: "prsApplyButton"; text: "Apply route"; iconName: "play"; variant: "primary" }
                 AppButton { id: addButton; objectName: "prsAddToActionsButton"; text: "Add to Actions"; iconName: "bolt" }
             }
 
-            Text { text: "Active routes"; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold; color: Theme.textPrimary; Layout.topMargin: 4 }
+            Text { text: "Active routes"; font.pixelSize: Theme.fontSm; font.weight: Font.DemiBold; color: Theme.textPrimary; Layout.topMargin: Theme.s1 }
             Rectangle {
                 Layout.fillWidth: true
                 implicitHeight: 28
@@ -79,9 +81,9 @@ Card {
                     anchors.rightMargin: Theme.s3
                     spacing: Theme.s3
                     Text { text: "Signal"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.fillWidth: true }
-                    Text { text: "Pin"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: 60 }
-                    Text { text: "PRS channel"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: 90 }
-                    Item { Layout.preferredWidth: 86 }
+                    Text { text: "Pin"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: root.routeColumns.pin }
+                    Text { text: "PRS channel"; font.pixelSize: Theme.fontXs; font.weight: Font.DemiBold; color: Theme.textMuted; Layout.preferredWidth: root.routeColumns.channel }
+                    Item { Layout.preferredWidth: root.routeColumns.remove }
                 }
             }
             ListView {
@@ -90,7 +92,7 @@ Card {
                 interactive: false
                 Layout.fillWidth: true
                 implicitHeight: Math.max(contentHeight, 44)
-                delegate: PrsRouteRow {}
+                delegate: PrsRouteRow { columns: root.routeColumns }
                 Text {
                     id: routesEmpty
                     anchors.centerIn: parent

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Type
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -49,7 +49,7 @@ class SessionHeader(BaseModel):
     modified: str = ""
 
 
-def _records(model: type, items: Any, report: Report, where: str) -> List[Dict[str, Any]]:
+def _records(model: Type[BaseModel], items: Any, report: Report, where: str) -> List[Dict[str, Any]]:
     out = []
     for i, item in enumerate(expect_list(items, report, where)):
         record = validate_entry(model, item, report, f"{where}.{i}")
@@ -72,13 +72,16 @@ def clean_session(raw: Any, report: Report) -> Optional[Dict[str, Any]]:
             report.add(".".join(p for p in (key, problem.where) if p), problem.message)
         return result
 
+    def favorites(raw: Any, sub: Report) -> List[str]:
+        return clean_favorites(raw or [], sub)["favorites"]
+
     return {
         **header.model_dump(mode="json"),
         "dumps": _records(DumpRecord, data.get("dumps"), report, "dumps"),
         "field_notes": part("field_notes", clean_notes),
         "formulas": _records(SessionFormula, data.get("formulas"), report, "formulas"),
         "actions": part("actions", clean_actions),
-        "favorites": part("favorites", lambda raw_, r: clean_favorites(raw_ or [], r)["favorites"]),
+        "favorites": part("favorites", favorites),
         "history": _records(HistoryRecord, data.get("history"), report, "history"),
     }
 

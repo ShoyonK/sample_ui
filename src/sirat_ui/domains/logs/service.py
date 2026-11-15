@@ -15,6 +15,8 @@ MAX_LINES = 2000
 
 
 class LogService:
+    """The in-app log: the newest MAX_LINES lines, each also sent to Python logging (the session log file)."""
+
     def __init__(self, clock: Callable[[], float] = time.time) -> None:
         self.lines: List[LogLine] = []
         self.added = Event()    # (LogLine)
@@ -50,6 +52,7 @@ class LogService:
         self.cleared.emit()
 
     def on_gateway_event(self, event: object) -> None:
+        """Adds the station's log lines, and the late outcome of calls that timed out."""
         if isinstance(event, LogLine):
             self.add(event.level, event.text, event.source)
         elif isinstance(event, CallLate):  # the outcome of a call that timed out earlier

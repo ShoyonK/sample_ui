@@ -9,8 +9,8 @@ ComboBox {
     font.pixelSize: Theme.fontXs
 
     contentItem: Text {
-        leftPadding: 8
-        rightPadding: 24
+        leftPadding: Theme.s2
+        rightPadding: Theme.s6
         text: control.displayText
         font: control.font
         color: Theme.textPrimary
