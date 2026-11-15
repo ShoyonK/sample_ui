@@ -1,7 +1,10 @@
-# SiRAT Station API: design, revision 2 (draft)
+# SiBench Station API: design, revision 2 (draft)
 
-Revises the Oct 27, 2026 design document. Inputs: that document, `docs/API_REVIEW.md`, and the two frontend
-proposals (`API_CHANGE_phy_and_prs.md`, `API_CHANGE_dut_connect_rpc_address.md`), which are folded in here.
+> **The current contract is [STATION_API.md](STATION_API.md)** (protocol 2), with its generated [reference](STATION_API_REFERENCE.md). This file is revision 2 of the design and the reasoning behind it; where they differ, STATION_API.md wins (its section 13 lists how).
+
+Revises the Oct 27, 2026 design document. Inputs: that document, the frontend's review of it, and two frontend
+proposals (a per-connection RPC address on `dut.connect`; the WiFi PHY config, `load_phy` result and PRS signal
+list), all folded in here.
 
 The requirements were read for what the user needs to get done, not as a list of library calls to copy.
 Where this design differs from how the original GUI worked, the reason is given.
@@ -13,10 +16,10 @@ how read-sensitive registers are handled (section 12).
 
 ## Frontend status
 
-The SiRAT frontend and its fake backend implement this revision for every feature that exists today:
+The SiBench frontend and its fake backend implement this revision for every feature that exists today:
 `RpcAddress` on `dut.connect`, `dut.reconnect`, `dut.probe`, `WriteRes.verified`, `include_read_sensitive`,
 `activity.abort`, instrument facts in `sys.status`, timeouts with `still_running` and `call.late`, and the
-wire ops for `automation.seq.run` (`src/sirat_ui/core/wire_ops.py`). The Instruments page uses `rf.paths`,
+wire ops for `automation.seq.run` (`src/sibench_ui/core/wire_ops.py`). The Instruments page uses `rf.paths`,
 `rf.connect`, `rf.disconnect`, `instruments.connect` and every `instruments.siggen/chamber/eca` method, with
 chamber waits and ECA captures as instrument activities (`instrument_id`, `ActivityFinished.result`). Two
 frontend choices to confirm: ECA pages carry int16 little-endian samples in mV, and a capture holds at most
@@ -25,7 +28,8 @@ method, `advanced.custom_function` (with the console's `session_id`, so the two 
 `advanced.dut_control.describe/invoke`. Frontend choices to confirm: the GUI rejects a memory write that
 crosses a 4-byte word; `ApiParam` leaves out the injected `dut` parameter; a console or function error
 whose session has ended (`not_found` with `data.session_id`) makes the GUI open a new session and retry
-once. Every method in this document now has a frontend user except the deferred `tests.*`.
+once. Every method in this document now has a frontend user. `tests.*` is a frontend proposal for the Tests
+page, not agreed yet (11.4).
 
 ## 1. What stays the same
 
@@ -64,7 +68,7 @@ once. Every method in this document now has a frontend user except the deferred 
 | Signal generator | `set(freq, level, role)`, `trigger(role)` | `get`, `set(SiggenConfig)`, `waveforms`, `trigger(mode)`, `rf(on)` | Load current config, pick a waveform, reload waveforms |
 | Chamber | `set_temp(wait_stable)` | `read`, `set_temp`, `wait_stable` (activity) | Live temperature; waiting is optional and can be aborted |
 | ECA | `capture(CaptureSpec)` | Plus `eca.sources` and `eca.result` (paged); `CaptureSpec` defined | The captured data has to come back |
-| Tests | — | Not in v1 (deferred) | The Tests page is set aside for now (11.4) |
+| Tests | — | Proposed: `tests.list`, `tests.run` (activity) | Req 33 Tests page; open questions in 11.4 |
 | Abort/status | `automation.seq.abort/status` | `activity.abort/status` | Every activity type aborts the same way |
 | Activities | One per position, `pos` required | `pos` or `instrument_id` | Chamber waits and captures have no DUT position |
 | Instrument tag | `instrument:<id>` and `instrument:rf_switch` mixed | `instrument:<kind>` | One form |
@@ -78,24 +82,42 @@ once. Every method in this document now has a frontend user except the deferred 
 
 ### Request, reply, event
 
+Messages are **JSON-RPC 2.0** (docs/JSONRPC_MIGRATION.md has the plan and the reasons).
+
 ```
-request  { "id": 17, "method": "registers.read", "params": {...}, "timeout_ms": 5000 }
-reply    { "id": 17, "ok": true,  "result": {...} }
-         { "id": 17, "ok": false, "error": { "code": "wrong_state", "message": "...", "data": {...} } }
-event    { "event": "registers.watch", "seq": 912, "data": {...} }
+request  { "jsonrpc": "2.0", "id": 17, "method": "registers.read",
+           "params": { "pos": 1, "name": "CMU.CLKEN0", "_meta": { "timeout_ms": 5000 } } }
+reply    { "jsonrpc": "2.0", "id": 17, "result": 3 }
+         { "jsonrpc": "2.0", "id": 17,
+           "error": { "code": -32001, "message": "...", "data": { "reason": "wrong_state", ... } } }
+event    { "jsonrpc": "2.0", "method": "registers.watch", "params": { "seq": 912, "data": {...} } }
 ```
 
-- Replies may arrive out of order; `id` matches them to requests.
+- `params` is always an object of named parameters. `_meta` is reserved for call options; today it holds
+  `timeout_ms`, which defaults to the RPC timeout setting (5 s, range 1–300 s).
+- A reply has `result` or `error`. Replies may arrive out of order; `id` matches them to requests.
+- `error.code` is an integer (section 8 has the table); `error.data.reason` is the string code, and the rest
+  of `data` is the code's detail (`missing`, `still_running`...).
+- Events are notifications: no `id`, the event name as `method`, `params.seq` and `params.data`.
 - `seq` is per connection and goes up by one for every event *sent*. A gap means the connection lost
   events, so the client refetches `sys.status`. Watch events the server drops (keeping only the newest per
   subscription) never consume a `seq`.
-- `timeout_ms` defaults to the RPC timeout setting (5 s, range 1–300 s).
+- Batches aren't supported (`-32600`). A request without an `id` runs and gets no reply; clients don't send
+  them.
+- Events go only for the topics the connection subscribed to (`sys.subscribe`); `call.late` always goes to the
+  connection whose call timed out. A new connection starts with no topics.
+- When a connection closes, the watch subscriptions and console sessions it opened end. Activities keep
+  running and still send `activity.finished` to whoever is subscribed.
+- Results and events encode the models field by field (dataclass → object, tuple → array, enum → value).
+  `PhySpec` is tagged by `kind`; an `ApiError` inside a result is `{code, message, data}`; calls that start an
+  activity return `{activity_id}`; `registers.tree` returns `{tree_id, peripherals}`.
 
 ### Timeouts
 
 When a call runs past `timeout_ms`:
 
-1. The service replies `timeout` with `data: { still_running: true }`.
+1. The service replies `timeout` with `data: { still_running: true, request_id }`, where `request_id` is
+   the call's JSON-RPC `id`.
 2. The hardware call keeps running, and its position or instrument stays locked. Other calls for that
    position get `busy` with `data: { request_id }`.
 3. When the call ends, the service sends `call.late { request_id, ok, result | error }`.
@@ -365,7 +387,7 @@ class CustomFunctionOp(Model):   type: Literal["custom_function"]; function_name
 class SignalGeneratorOp(Model):  type: Literal["signal_generator"]; instrument_id: str; config: SiggenConfig
 class RfSwitchOp(Model):         type: Literal["rf_switch"]; path: str
 class GfskPacketOp(Model):       type: Literal["gfsk_packet"]; code: str
-...                              # the others follow src/sirat_ui/stores/schemas/operations.py
+...                              # the others follow src/sibench_ui/stores/schemas/operations.py
 ```
 
 - The client builds `ops[]` from the user's actions and sequences. It expands a sequence into its actions'
@@ -427,12 +449,27 @@ class InvokeRes(Model): result_text: str; result_json: JsonValue | None; result_
   `data.cause: rpc_timeout | rpc_transport | rail_assert | other` and a traceback. The GUI words the hint
   for each cause.
 
-### tests (deferred, not in v1)
+### tests (proposed by the frontend, not agreed)
 
-The Tests page (req 33) is set aside for now (11.4). When it comes back, the sketch was `tests.list()` and
-`tests.run(pos, ids[]) -> ActivityRef` with per-test results in `activity.finished`, and the first question
-is where the list of tests comes from.
+| Method | Result | Requires |
+|---|---|---|
+| `tests.list()` | `list[StationTest]` | — |
+| `tests.run(pos, test_ids: list[str])` | `ActivityRef` | `dut, idle, no_fault` |
 
+```python
+class StationTest(Model):        id: str; name: str
+class StationTestResult(Model):  id: str; passed: bool; started: float; duration_s: float
+                                 notes: str = ""                  # e.g. the failure message
+                                 output: list[str]                # what the test printed
+```
+
+- A test is one call to its `execute()`; the steps inside are hidden, so a test reports pass or fail, notes and
+  its printed output.
+- `tests.run` runs the tests in the order given, as one activity. Each test sends `activity.progress` as it
+  starts (`message` = its name, `group` = its id) and again with `result` as it ends.
+- `activity.finished.ok` is false when the run ended early (`aborted`, `dut_disconnected`); `results[]` holds
+  every test that finished.
+- `invalid_params` for an empty list or an unknown id.
 ---
 
 ## 7. Events
@@ -440,7 +477,7 @@ is where the list of tests comes from.
 | Event | Data | When |
 |---|---|---|
 | `status.changed` | `StationStatus` | Any fact changes |
-| `activity.progress` | `activity_id, pos?, instrument_id?, step, total, message, group?` | |
+| `activity.progress` | `activity_id, pos?, instrument_id?, step, total, message, group?, result?` | `result`: a finished test (proposed `tests.run`) |
 | `activity.finished` | `activity_id, pos?, instrument_id?, ok, results[], result?, error?` | Exactly once |
 | `registers.watch` | `sub_id, pos, ts, values[{name, value}]` | Once per interval; only the newest is kept if the client is slow |
 | `dut.disconnected` | `pos, cause, detected_by` | After the 2 s debounce |
@@ -450,26 +487,28 @@ is where the list of tests comes from.
 
 ## 8. Errors
 
-One shared set of codes. Domains add detail in `data`.
+One shared set of codes. Domains add detail in `data`. On the wire, `error.code` is the JSON-RPC integer and
+`error.data.reason` the name below. -32700 (parse error) and -32600 (invalid request) carry the reason
+`invalid_params`.
 
-| Code | Meaning |
-|---|---|
-| `wrong_state` | Requires unmet; `data.missing` lists tags |
-| `invalid_params` | Schema or range validation failed |
-| `unknown_method` | Not in `sys.describe` |
-| `timeout` | Call exceeded `timeout_ms`; `data.still_running` |
-| `busy` | Position or instrument locked; `data.request_id` |
-| `claimed` | Another owner holds the station |
-| `confirmation_required` | Critical register written without `confirm` |
-| `read_sensitive` | Read-sensitive register in `read_many` / `watch` without opt-in |
-| `access_denied` | Register or field isn't readable / writable |
-| `out_of_range` | Value doesn't fit |
-| `not_found` | Register, path, id, session or capture unknown |
-| `dut_disconnected` | Link lost during the call |
-| `instrument_error` | Instrument reported an error |
-| `hardware_error` | Library raised; sets `fault` during an activity; `data.cause` where known |
-| `aborted` | Activity aborted |
-| `internal` | Bug; includes a trace id |
+| Reason | JSON-RPC code | Meaning |
+|---|---|---|
+| `wrong_state` | -32001 | Requires unmet; `data.missing` lists tags |
+| `invalid_params` | -32602 | Schema or range validation failed |
+| `unknown_method` | -32601 | Not in `sys.describe` |
+| `timeout` | -32002 | Call exceeded `timeout_ms`; `data.still_running` |
+| `busy` | -32003 | Position or instrument locked; `data.request_id` |
+| `claimed` | -32004 | Another owner holds the station |
+| `confirmation_required` | -32005 | Critical register written without `confirm` |
+| `read_sensitive` | -32006 | Read-sensitive register in `read_many` / `watch` without opt-in |
+| `access_denied` | -32007 | Register or field isn't readable / writable |
+| `out_of_range` | -32008 | Value doesn't fit |
+| `not_found` | -32009 | Register, path, id, session or capture unknown |
+| `dut_disconnected` | -32010 | Link lost during the call |
+| `instrument_error` | -32011 | Instrument reported an error |
+| `hardware_error` | -32012 | Library raised; sets `fault` during an activity; `data.cause` where known |
+| `aborted` | -32013 | Activity aborted |
+| `internal` | -32603 | Bug; includes a trace id |
 
 `verify_failed` is gone: see `WriteRes.verified`.
 
@@ -498,12 +537,12 @@ Library exceptions are mapped to these codes at the domain-service boundary. `ha
 | Custom functions | `advanced.custom_function` | The functions file, editor |
 | Python console | `advanced.console.*` | History, colors |
 | DUT control explorer | `advanced.dut_control.*` | Parameter parsing from text |
-| Test execution | Deferred (not in v1) | — |
+| Test execution | `tests.*` | Selection, run order, export |
 | Sessions, settings import/export, logs | — | All |
 
 ## 10. Open questions carried over
 
-1. **Debug mode attach.** Is there a `dut.attach(pos)` so SiRAT uses the `dut` a paused test already
+1. **Debug mode attach.** Is there a `dut.attach(pos)` so SiBench uses the `dut` a paused test already
    connected? Or does the test hand it to the service?
 2. **pandas and NI drivers in one process.** The service startup check decides.
 3. **One service or several per station.** Affects `sys.hello` and `claim`.
@@ -517,16 +556,18 @@ The requirements were written from a demo a validation engineer built, so they'r
 to get done, not as a spec to copy.
 
 1. **Actions belong to the GUI.** Decided. `automation.actions.list` is removed. Actions and sequences are
-   each user's saved macros, kept in their own files and edited in SiRAT; the service only *runs* the ops
-   it's given. If something other than SiRAT (a test, or the hub later) ever needs to run actions by name,
+   each user's saved macros, kept in their own files and edited in SiBench; the service only *runs* the ops
+   it's given. If something other than SiBench (a test, or the hub later) ever needs to run actions by name,
    a station-side library can be added then, as its own domain.
 2. **`radio.*` is not in v1.** Decided. The requirements have no RX/TX setup screen: "RX or TX" only
    appears as the mode inside the WiFi PHY form (req 23, sent with `dut.load_phy`), and RSSI only appears
    in a custom-function example (req 15). The `rx_configured` / `tx_configured` facts and the
    `radio_rx` / `radio_tx` tags go with it. Add them back when a screen needs them.
 3. **Read-sensitive registers.** Not decided; deferred to a later discussion. See section 12.
-4. **The Tests page is out of v1.** Decided. `tests.*` is removed for now; req 33 is set aside, and the
-   frontend's Tests nav entry stays a "planned" placeholder.
+4. **The Tests page.** Set aside on 2026-10-28; the frontend page was built on 2026-11-05 against the
+   proposed `tests.list` / `tests.run` (section 6), which are not agreed. Open: where the tests come from (the
+   station, or files on the PC), what a "test sequence" is, where Notes come from, and whether a failure stops
+   the run.
 
 ## 12. Open items (come back to these)
 

@@ -1,0 +1,339 @@
+"""Station API results and events (the frontend side of docs/API_DESIGN.md)."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+from sibench_ui.gateway.errors import ApiError
+from sibench_ui.models.facts import InstrumentFacts, PositionFacts
+from sibench_ui.models.radio import WifiPhyConfig
+from sibench_ui.models.registers import ChipInfo
+
+
+@dataclass
+class StationStatus:
+    """sys.status: the release, every position's facts, the instruments, and who holds the station (if anyone)."""
+    release_id: str
+    positions: List[PositionFacts] = field(default_factory=list)
+    instruments: List[InstrumentFacts] = field(default_factory=list)
+    claim: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class RpcAddress:
+    """Where a DUT's RPC server listens; None in calls means "the workspace config's address"."""
+    host: str
+    port: int
+
+
+@dataclass
+class ConnectResult:
+    """dut.connect: the chip, and where the DUT was reached."""
+    chip: ChipInfo
+    rpc: Optional[RpcAddress] = None          # where the DUT was actually reached
+
+
+@dataclass(frozen=True)
+class ProbeResult:
+    """dut.probe: can that address be reached? Never keeps or drops a connection."""
+    ok: bool
+    latency_ms: float = 0.0
+    detail: str = ""
+
+
+@dataclass
+class DutInfo:
+    """API doc dut.info: hw{}, rta{}, chip, revision. app{} holds firmware metadata when the DUT has it."""
+    chip: str
+    revision: str
+    hw: Dict[str, Any] = field(default_factory=dict)
+    rta: Dict[str, Any] = field(default_factory=dict)
+    app: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class WriteResult:
+    """registers.write / write_field (API WriteRes). value_written is the whole register value written."""
+    value_written: int
+    value_readback: Optional[int]   # None when the register can't be read back (write-only)
+    verified: bool = True           # False: the read-back differs. The write happened; the GUI warns (req 7)
+
+
+@dataclass
+class ReadManyItem:
+    """One register of registers.read_many: a value or an error."""
+    name: str
+    value: Optional[int] = None
+    error: Optional[ApiError] = None
+
+
+# ---- events (pushed after sys.subscribe) ----
+
+@dataclass
+class StatusChanged:
+    """The status event: a new sys.status snapshot."""
+    status: StationStatus
+
+
+@dataclass
+class DutDisconnected:
+    """dut.disconnected: which position, why, and what noticed it."""
+    position: int
+    cause: str
+    detected_by: str
+
+
+# ---- PHY loading and PRS routing (req 23, req 24; docs/API_DESIGN.md "dut", "rf") ----------------
+
+@dataclass(frozen=True)
+class LpwPhy:
+    """A BLE or 802.15.4 PHY by name; the service calls reset_and_download_lpw_phy."""
+    name: str
+
+
+@dataclass(frozen=True)
+class WifiPhy:
+    """A WiFi PHY built from the WiFi PHY form; the service calls load_wifi_phy."""
+    config: WifiPhyConfig
+
+
+PhySpec = Union[LpwPhy, WifiPhy]
+
+
+@dataclass(frozen=True)
+class LoadPhyResult:
+    """dut.load_phy: the PHY, the function the service called, the overrides."""
+    name: str
+    function: str = ""                                                     # what the service called
+    overrides: Tuple[Tuple[str, str], ...] = ()                            # TestInputs overrides applied
+
+
+@dataclass(frozen=True)
+class PrsRoute:
+    """A PRS route: a signal to a pin over a channel."""
+    signal: str
+    pin: str
+    channel: int
+
+
+@dataclass(frozen=True)
+class PrsSignalCatalog:
+    """The PRS signals the chip family's module defines (sorted), and where they came from."""
+    family: str
+    module: str
+    signals: Tuple[str, ...]
+
+
+# ---- instruments (req 25-30; docs/API_DESIGN.md "instruments") -------------------------------------------
+
+@dataclass
+class SiggenConfig:
+    """What a signal generator is loaded with. The wire carries Hz; the GUI shows MHz."""
+    sg_type: str = "PacketSrw"
+    input_config_name: str = ""
+    frequency_hz: float = 2440e6
+    power_dbm: float = 0.0
+    overrides: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ChamberReading:
+    """instruments.chamber.read."""
+    actual_c: float
+    target_c: float
+    stable: bool
+
+
+@dataclass(frozen=True)
+class EcaSources:
+    """The ECA's channels and trigger sources."""
+    channels: Tuple[str, ...]
+    triggers: Tuple[str, ...]          # trigger sources; "immediate" is always allowed too
+
+
+EDGES = ("rising", "falling", "either")
+
+
+@dataclass(frozen=True)
+class CaptureSpec:
+    """What an ECA capture records and how it triggers."""
+    channels: Tuple[str, ...]
+    trigger: str                       # a trigger source, or "immediate"
+    edge: str = "rising"
+    sample_rate_hz: float = 1e6
+    duration_s: float = 0.01
+    pretrigger_pct: int = 10
+
+
+@dataclass(frozen=True)
+class CaptureMeta:
+    """A finished capture's spec, start time and sample count."""
+    spec: CaptureSpec
+    started_at: float
+    sample_count: int
+    chip: str = ""
+    pos: int = 0
+
+
+@dataclass(frozen=True)
+class CapturePage:
+    """One page of a capture: channel -> base64 little-endian int16 samples for [offset, offset+count)."""
+    meta: CaptureMeta
+    offset: int
+    count: int
+    channels: Dict[str, str]
+    more: bool
+
+
+# ---- memory and advanced (req 15, 19, 20, 22; docs/API_DESIGN.md "memory", "advanced") ------------------------
+
+@dataclass(frozen=True)
+class MemoryBlock:
+    """memory.read: `address` is the aligned start actually read; data is base64."""
+    address: int
+    data: str
+
+
+@dataclass(frozen=True)
+class MemoryWriteRes:
+    """memory.write: what was written and read back."""
+    address: int
+    value_written: int
+    value_readback: int
+
+
+@dataclass(frozen=True)
+class Traceback:
+    """A Python error from station-side code."""
+    type: str
+    message: str
+    text: str
+
+
+@dataclass(frozen=True)
+class ExecResult:
+    """Console and custom functions. result_text is None when the code had no value."""
+    stdout: str = ""
+    stderr: str = ""
+    result_text: Optional[str] = None
+    error: Optional[Traceback] = None
+
+
+@dataclass(frozen=True)
+class NameInfo:
+    """A console namespace entry, for help."""
+    name: str
+    type: str
+    doc: str = ""
+
+
+@dataclass(frozen=True)
+class ApiParam:
+    """A DUT control method parameter; default_repr is None when it has no default."""
+    name: str
+    annotation: str
+    default_repr: Optional[str]
+    required: bool
+
+
+@dataclass(frozen=True)
+class ApiMethod:
+    """A DUT control method with its signature and first doc paragraph."""
+    name: str
+    path: str
+    signature: str
+    doc: str
+    params: Tuple[ApiParam, ...] = ()
+
+
+@dataclass(frozen=True)
+class ApiModule:
+    """A DUT control module (lpw.radio) and its methods."""
+    name: str
+    path: str
+    methods: Tuple[ApiMethod, ...] = ()
+
+
+@dataclass(frozen=True)
+class ApiPackage:
+    """A DUT control package (LPW) and its modules."""
+    name: str
+    modules: Tuple[ApiModule, ...] = ()
+
+
+@dataclass(frozen=True)
+class ApiTree:
+    """advanced.dut_control.describe's result."""
+    packages: Tuple[ApiPackage, ...] = ()
+
+
+@dataclass(frozen=True)
+class InvokeRes:
+    """advanced.dut_control.invoke: the result as text, JSON (when it is JSON) and type."""
+    result_text: str
+    result_json: Any
+    result_type: str
+
+
+@dataclass
+class WatchValues:
+    """One registers.watch tick: register full name -> value."""
+    sub_id: str
+    position: int
+    ts: float
+    values: Dict[str, int]
+
+
+@dataclass
+class ActivityProgress:
+    activity_id: str
+    position: int            # 0 for an instrument's activity
+    step: int
+    total: int
+    message: str
+    group: str = ""          # the action the current op came from (automation.seq.run); the test id (tests.run)
+    instrument_id: str = ""
+    result: Optional[Dict[str, Any]] = None  # tests.run: set once the step's test has finished (StationTestResult)
+
+
+@dataclass
+class StationTest:
+    """One test the station can run (tests.list)."""
+    id: str
+    name: str
+
+
+@dataclass
+class ActivityFinished:
+    """activity.finished: ok, the per-op results, the error that ended it, and a kind-specific result."""
+    activity_id: str
+    position: int
+    ok: bool
+    results: List[Dict[str, Any]] = field(default_factory=list)
+    error: Optional[ApiError] = None
+    instrument_id: str = ""
+    result: Any = None       # e.g. {capture_id} for instruments.eca.capture
+
+
+@dataclass
+class LogLine:
+    """A log line, from the station (log events) or the GUI itself. position is None for station-wide lines."""
+    ts: float
+    level: str
+    source: str
+    text: str
+    position: Optional[int] = None
+
+
+@dataclass
+class CallLate:
+    """A call that timed out finished after all: did it work? (data.still_running was true on the timeout)."""
+    request_id: Union[int, str]   # the JSON-RPC id of the call that timed out (JSON-RPC allows either)
+    ok: bool
+    result: Any = None
+    error: Optional[ApiError] = None
+
+
+GatewayEvent = Union[StatusChanged, DutDisconnected, WatchValues, ActivityProgress, ActivityFinished, LogLine,
+                     CallLate]

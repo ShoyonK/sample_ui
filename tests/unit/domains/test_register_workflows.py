@@ -2,9 +2,9 @@
 
 import pytest
 
-from sirat_ui.gateway.errors import ErrorCode
-from sirat_ui.models.dialogs import ConfirmAnswer
-from sirat_ui.models.registers import AccessType
+from sibench_ui.gateway.errors import ErrorCode
+from sibench_ui.models.dialogs import ConfirmAnswer
+from sibench_ui.models.registers import AccessType
 
 
 @pytest.mark.req("5.auto-read")
@@ -66,7 +66,7 @@ def test_cancelling_a_critical_write_changes_nothing(harness):
     harness.ix.answer_next(False)
     harness.shell.detail.toggleBit(3)
     assert harness.shell.detail.valueText == "0x00000F07"
-    assert harness.fake.memory.values["CMU.CLKEN0"] == 0xF07
+    assert harness.fake.board(1).memory.values["CMU.CLKEN0"] == 0xF07
 
 
 @pytest.mark.req("7.dont-show-again")

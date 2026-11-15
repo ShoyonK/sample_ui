@@ -4,7 +4,7 @@ import pytest
 from PyQt5.QtCore import QtMsgType
 
 from support import Harness
-from sirat_ui.app.application import Application
+from sibench_ui.app.application import Application
 
 
 class RunningApp:

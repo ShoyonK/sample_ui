@@ -12,10 +12,10 @@ sys.path[:0] = [str(HERE), "src"]
 import callgraph  # noqa: E402
 import flowstyle  # noqa: E402
 import sigs  # noqa: E402
-from sirat_ui.core.requires import METHOD_REQUIRES  # noqa: E402
+from sibench_ui.core.requires import METHOD_REQUIRES  # noqa: E402
 
-D = "sirat_ui.domains"
-G = "sirat_ui.gateway"
+D = "sibench_ui.domains"
+G = "sibench_ui.gateway"
 
 FIXES = {   # signatures the extractor can't read (**kwargs, *args)
     ("PreferencesState", "+update()"): "+update(**changes)",
@@ -114,7 +114,7 @@ def subsystem(title: str, intro: str, services: list, viewmodels: list, extra_se
 sections = []
 
 # --------------------------------------------------------------------------------------------- overview
-sections.append("""# SiRAT frontend architecture
+sections.append("""# SiBench frontend architecture
 
 Generated from the code by `scripts/architecture/build.py`; rerun it after changing classes or station calls. Class boxes list public methods with their signatures. An arrow
 `A --> B : name` means A's constructor takes a B called `name`; each diagram's full constructors are listed
@@ -160,9 +160,9 @@ flowchart TB
     svc["<b>Services</b> · domains/*<br/>one per area: RegisterService, ActionService, ChamberService, …"]
     gw["<b>Gateway</b> · gateway/<br/>area interfaces (RegistersPort, InstrumentsPort, …) · ActivityTracker"]
     fake["<b>FakeStationGateway</b><br/>in memory, today"]
-    api["<b>ApiStationGateway</b><br/>client SDK, later"]
+    api["<b>ApiStationGateway</b><br/>JSON-RPC 2.0 over TCP · gateway/api"]
     state["<b>State</b> · state/<br/>StationState · SelectionState<br/>PreferencesState · StatusLine"]
-    base["<b>Shared helpers</b><br/>models/ dataclasses · core/ pure functions<br/>stores/ ~/.sirat JSON files"]
+    base["<b>Shared helpers</b><br/>models/ dataclasses · core/ pure functions<br/>stores/ ~/.sibench JSON files"]
 
     qml -->|"properties, slots"| vm
     vm -->|"method calls"| svc
@@ -200,7 +200,7 @@ flowchart TB
         r3["Only app/ and gateway/ name StationGateway"]
         r4["One Qt property style: qprop or @pyqtProperty"]
         r5[".ui.qml forms: no handlers; every control has an objectName"]
-        r6["No Python file over 600 lines"]
+        r6["No Python file over 900 lines (aim for 600)"]
         r1 ~~~ r2 ~~~ r3 ~~~ r4 ~~~ r5 ~~~ r6
     end
     stack ~~~ rules
@@ -215,11 +215,11 @@ sections.append("""## 3. How the app is assembled
 
 ```mermaid
 flowchart TB
-    launch["launch.py · build_app(backend, scenario)"] --> gw["FakeStationGateway(scheduler)"]
+    launch["launch.py · build_app(backend, scenario)"] --> gw["FakeStationGateway(scheduler)<br/>or ApiStationGateway(host, port, scheduler, post)"]
     launch --> container["ServiceContainer(gateway, home, scheduler)"]
     subgraph init["ServiceContainer.__init__"]
         direction TB
-        stores["UserStores.in_home(home)<br/>~/.sirat JSON files"]
+        stores["UserStores.in_home(home)<br/>~/.sibench JSON files"]
         st["PreferencesState → StationState<br/>SelectionState · StatusLine"]
         services["_build_services() → Services<br/>LogService, ErrorPresenter, ActivityTracker,<br/>RegisterCatalog, RegisterService, …"]
         subgraph vms["_build_viewmodels()"]
@@ -406,15 +406,38 @@ FakeBench(scheduler: Scheduler, emit: Callable, log: Callable, emit_status: Call
 ```
 
 </details>
+
+### The wire: ApiStationGateway and the fake over TCP
+
+The wire is two packages beside the app, shared with every other tool and the station service, which import
+nothing of the GUI (a test checks it) and are meant to move to the station's repository:
+
+- `station_protocol`: framing, the JSON-RPC 2.0 envelope, error codes, validation (pydantic, strict JSON mode),
+  and one module per method group (`system.py` is `sys`, `dut.py`, `registers.py`...) with its methods
+  (parameters with ranges, result, `wrap`, `requires`), types and events. `catalog.py` collects them;
+  `scripts/api/build.py` writes the reference and JSON Schema from it.
+- `station_client`: `Connection` (the socket, a reader thread, requests in flight) and `Link` (reconnecting with
+  backoff, holding calls made while connecting, the sys.hello heartbeat, subscribing again, spotting lost
+  events).
+
+`ApiStationGateway` (`gateway/api/`) is the second `StationGateway`, on a `Link`: each method sends the protocol
+method it's bound to (`gateway/wire/bindings.py`, checked against both sides when it loads) and decodes the reply
+into the app's `models/` dataclasses (`gateway/wire/codec.py`), which a test keeps field for field the same as
+the protocol's; events become GatewayEvents (`gateway/wire/events.py`). What's the GUI's own is there too: a
+dropped link becomes DutDisconnected per position and a fresh status, and call.late is decoded with the method
+that timed out. Messages are posted to the GUI thread (`app/qt_post.py`). `FakeStationServer`
+(`gateway/fake/server.py`) puts the fake behind a socket, checking params with the protocol's types and running
+on one `ThreadScheduler` thread. `sibench --backend fake-tcp` runs the whole app over the wire; `--backend api
+--host --port` connects to a station service. The contract is docs/STATION_API.md.
 """)
 
 sections.append(class_diagram(
     "8. Shared state",
     "Four small stores, each with its own change event, so a status message doesn't refresh pages that only "
     "care about the DUT. `Event` is the plain-Python signal the services and stores use (Qt-free).",
-    ["sirat_ui.state.station:StationState", "sirat_ui.state.selection:SelectionState",
-     "sirat_ui.state.preferences:PreferencesState", "sirat_ui.state.status:StatusLine",
-     "sirat_ui.core.observable:Event"],
+    ["sibench_ui.state.station:StationState", "sibench_ui.state.selection:SelectionState",
+     "sibench_ui.state.preferences:PreferencesState", "sibench_ui.state.status:StatusLine",
+     "sibench_ui.core.observable:Event"],
     extra=["    StationState ..> Event : changed, disconnected, position_changed",
            "    SelectionState ..> Event : changed",
            "    PreferencesState ..> Event : changed", "    StatusLine ..> Event : changed"]))
@@ -423,7 +446,7 @@ sections.append(class_diagram(
     "9. Shell: pages, navigation, Ctrl+K",
     "`domains/shell/pages.py` holds the page table (key, title, icon, QML file). `with_children()` turns "
     "every registered ViewModel into a constant `app.<name>` property. `app/commands.py` builds the Ctrl+K list.",
-    ["sirat_ui.app.container:ServiceContainer", f"{D}.shell.viewmodels:ShellViewModel",
+    ["sibench_ui.app.container:ServiceContainer", f"{D}.shell.viewmodels:ShellViewModel",
      f"{D}.shell.viewmodels:StateViewModel", f"{D}.shell.command_palette:CommandPaletteViewModel",
      f"{D}.shell.dock:DockViewModel", f"{D}.shell.windows:WindowsViewModel"],
     extra=["    class pages_py {", "        <<module domains/shell/pages.py>>", "        +PAGES List~Dict~",
@@ -465,8 +488,8 @@ sections.append(class_diagram(
     "`code_lines(op, functions)` (code generation) and `to_wire(op, functions)` (automation.seq.run). "
     "Pages that offer Add to Actions depend on `ActionRecorder`.",
     [f"{D}.automation.actions:ActionService", f"{D}.automation.sequences:SequenceService",
-     f"{D}.automation.recorder:ActionRecorder", "sirat_ui.gateway.activities:ActivityTracker",
-     "sirat_ui.core.ops:OpKind", f"{D}.automation.actions_viewmodel:ActionsViewModel",
+     f"{D}.automation.recorder:ActionRecorder", "sibench_ui.gateway.activities:ActivityTracker",
+     "sibench_ui.core.ops:OpKind", f"{D}.automation.actions_viewmodel:ActionsViewModel",
      f"{D}.automation.sequences_viewmodel:SequencesViewModel",
      f"{D}.automation.action_editor:ActionEditorViewModel"],
     extra=["    class ops_py {", "        <<module core/ops.py>>", "        +KINDS Dict~str,OpKind~",
@@ -526,7 +549,7 @@ sections.append(subsystem(
     "`ErrorPresenter` is how services report station failures: one log line and one toast.",
     [f"{D}.connection.service:ConnectionService", f"{D}.settings.hardware:HardwareConfigService",
      f"{D}.sessions.service:SessionService", f"{D}.settings.transfer:SettingsTransfer",
-     "sirat_ui.shared.error_presenter:ErrorPresenter", f"{D}.logs.service:LogService"],
+     "sibench_ui.shared.error_presenter:ErrorPresenter", f"{D}.logs.service:LogService"],
     [f"{D}.connection.viewmodels:ConnectionViewModel", f"{D}.connection.viewmodels:DisconnectRecoveryViewModel",
      f"{D}.connection.system_info_viewmodel:SystemInfoViewModel", f"{D}.settings.viewmodels:SettingsViewModel",
      f"{D}.settings.viewmodels:HardwareConfigViewModel", f"{D}.sessions.viewmodel:SessionsViewModel",
@@ -539,7 +562,7 @@ PAGE = {
     "Registers": ["PeripheralTreeViewModel", "RegisterDetailViewModel", "RegisterShortcutsViewModel", "HistoryViewModel"],
     "Watch": ["WatchListViewModel", "DataLoggerViewModel"],
     "Actions and sequences": ["ActionsViewModel", "SequencesViewModel"],
-    "Dumps": ["DumpsViewModel"],
+    "Diffs": ["DumpsViewModel"],
     "Radio": ["LpwPhyViewModel", "WifiPhyViewModel", "PrsViewModel"],
     "Instruments": ["InstrumentViewModel", "SignalGeneratorViewModel", "RfSwitchViewModel", "ChamberViewModel",
                     "EcaViewModel"],

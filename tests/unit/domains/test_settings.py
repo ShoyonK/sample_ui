@@ -5,9 +5,9 @@ import json
 
 import pytest
 
-from sirat_ui.domains.connection.system_info import copy_text
-from sirat_ui.gateway.errors import ErrorCode
-from sirat_ui.models.station import RpcAddress
+from sibench_ui.domains.connection.system_info import copy_text
+from sibench_ui.gateway.errors import ErrorCode
+from sibench_ui.models.station import RpcAddress
 
 
 # ---- export / import / clear (req 2) ---------------------------------------------------------
@@ -18,7 +18,7 @@ def test_export_then_import_restores_settings_live(harness, tmp_path):
     harness.ix.answer_save(str(bundle))
     harness.shell.settings.exportSettings()
     data = json.loads(bundle.read_text())
-    assert data["format"] == "sirat-user-settings"
+    assert data["format"] == "sibench-user-settings"
     assert data["files"]["favorites"] == {"favorites": ["MODEM.CTRL", "CMU.CLKEN0", "SYNTH.FREQ", "BUFC.LPMODE"]}
 
     harness.services.favorites.remove("MODEM.CTRL")
@@ -49,7 +49,7 @@ def test_import_rejects_files_that_are_not_exports(harness, tmp_path):
     harness.ix.answer_open(str(bad))
     harness.ix.answer_next(True)
     harness.shell.settings.importSettings()
-    assert harness.ix.toasts[-1] == ("error", "bad.json isn't a SiRAT settings export")
+    assert harness.ix.toasts[-1] == ("error", "bad.json isn't a SiBench settings export")
 
 
 @pytest.mark.req("2.clear")
@@ -62,14 +62,14 @@ def test_clear_all_resets_every_settings_file_after_confirming(harness):
     assert list(harness.services.actions.actions) == []
     assert harness.shell.watch.model.count == 0
     assert harness.shell.state.darkMode is False
-    assert json.loads((harness.home / ".sirat_favorites.json").read_text()) == {"favorites": []}
+    assert json.loads((harness.home / ".sibench/favorites.json").read_text()) == {"favorites": []}
 
 
 # ---- About ----------------------------------------------------------------------------------
 
 def test_about_shows_versions_and_the_station(harness):
     rows = {r["key"]: r["value"] for r in harness.shell.settings.aboutRows}
-    assert rows["SiRAT"] == "0.1.0" and rows["Station service"] == "fake-2026.10" and rows["Protocol"] == "1"
+    assert rows["SiBench"] == "0.1.0" and rows["Station service"] == "fake-2026.10" and rows["Protocol"] == "2"
     assert rows["Python"].startswith("3.10")
 
 
@@ -100,7 +100,7 @@ def test_hardware_save_writes_the_original_file_and_applies_timeout(harness):
     hw.setField("timeout", "12")
     hw.setField("position", "2")
     hw.save()
-    saved = json.loads((harness.home / ".sirat" / "hardware_config.json").read_text())
+    saved = json.loads((harness.home / ".sibench" / "hardware_config.json").read_text())
     assert saved == {"rpc_host": "192.168.1.100", "rpc_port": 10001, "rpc_timeout": 12, "dut_position": 2,
                      "rpc_override": True}
     assert harness.fake.rpc_timeout_s == 12 and harness.shell.state.position == 2
@@ -159,7 +159,7 @@ def test_system_info_copy_all_uses_the_req_31_format(harness):
     calls = []
     harness.fake.dut_info(1).then(calls.append)
     text = copy_text(calls[0], now=dt.datetime(2026, 10, 27, 14, 23, 45))
-    assert text.startswith("=== SiRAT System Information ===\nGenerated: 2026-10-27 14:23:45\n--- Chip Information ---\n")
+    assert text.startswith("=== SiBench System Information ===\nGenerated: 2026-10-27 14:23:45\n--- Chip Information ---\n")
     assert "Flash Size: 1024 KB" in text and "Timeout: 5.0 seconds" in text
     harness.shell.systemInfo.copyAll()
     assert harness.ix.toasts[-1] == ("info", "System information copied")
@@ -204,7 +204,7 @@ def test_an_unreachable_override_reports_a_timeout(harness):
 @pytest.mark.req("3.address")
 def test_connect_sheet_starts_from_settings_and_overrides_one_connection(disconnected):
     h = disconnected
-    h.services.hardware.save(__import__("sirat_ui.domains.settings.hardware", fromlist=["HardwareConfig"])
+    h.services.hardware.save(__import__("sibench_ui.domains.settings.hardware", fromlist=["HardwareConfig"])
                              .HardwareConfig("192.168.1.77", 10002, 5, 1, rpc_override=True))
     sheet = h.shell.connection
     sheet.openSheet()

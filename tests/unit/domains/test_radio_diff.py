@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from sirat_ui.core.radio_config import parse_config
+from sibench_ui.core.radio_config import parse_config
 
 SAMPLE = Path(__file__).resolve().parents[3] / "docs" / "samples" / "PHY_demo.cfg"
 

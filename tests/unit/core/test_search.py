@@ -1,7 +1,7 @@
 import pytest
 
-from sirat_ui.core.search import search
-from sirat_ui.gateway.fake.chip import build_chip
+from sibench_ui.core.search import search
+from sibench_ui.gateway.fake.chip import build_chip
 
 CHIP = build_chip()
 

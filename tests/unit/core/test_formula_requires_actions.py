@@ -1,10 +1,10 @@
 import pytest
 
-from sirat_ui.core import codegen, formula
-from sirat_ui.core.actions import migrate_actions, summarize_ops
-from sirat_ui.core.ops import op_kind
-from sirat_ui.core.requires import check_requires
-from sirat_ui.models.facts import InstrumentFacts, PositionFacts
+from sibench_ui.core import codegen, formula
+from sibench_ui.core.actions import migrate_actions, summarize_ops
+from sibench_ui.core.ops import op_kind
+from sibench_ui.core.requires import check_requires
+from sibench_ui.models.facts import InstrumentFacts, PositionFacts
 
 
 # ---- formulas (req 11) ---------------------------------------------------------------------
@@ -25,6 +25,12 @@ def test_formulas_evaluate(expr, x, expected):
                                   "sqrt(x)", "pow(2, 10000)"])
 def test_unsafe_or_invalid_formulas_are_rejected_with_a_message(expr):
     assert formula.validate(expr)
+
+
+@pytest.mark.parametrize("expr", ["+".join(["x"] * 1000), "-" * 1000 + "x", "-" * 20000 + "x"])
+def test_a_formula_nested_too_deep_is_rejected_not_crashed(expr):
+    with pytest.raises(formula.FormulaError, match="too long"):
+        formula.evaluate(expr, 1.0)
 
 
 @pytest.mark.req("11.format")

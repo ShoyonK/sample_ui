@@ -3,9 +3,9 @@
 import re
 from pathlib import Path
 
-from sirat_ui.core.ops import KINDS, WireError, code_lines, describe_op, to_wire
+from sibench_ui.core.ops import KINDS, WireError, code_lines, describe_op, to_wire
 
-PACKAGE = Path(__file__).resolve().parents[3] / "src" / "sirat_ui"
+PACKAGE = Path(__file__).resolve().parents[3] / "src" / "sibench_ui"
 SAVED_KINDS = set(KINDS) - {"register_read"}      # register_read only exists in History
 
 

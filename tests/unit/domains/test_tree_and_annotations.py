@@ -67,7 +67,7 @@ def test_read_all_stops_when_the_dut_drops(harness):
 
 
 def test_read_all_does_not_record_history_or_spam_messages(harness):
-    harness.fake.fail_next("registers.read", __import__("sirat_ui.gateway.errors", fromlist=["ErrorCode"]).ErrorCode.TIMEOUT)
+    harness.fake.fail_next("registers.read", __import__("sibench_ui.gateway.errors", fromlist=["ErrorCode"]).ErrorCode.TIMEOUT)
     harness.shell.tree.readAll(names(harness).index("BUFC"))
     assert harness.services.history.entries == []
     assert len(harness.ix.toasts) == 1 and "8 registers read, 1 failed" in harness.ix.toasts[0][1]

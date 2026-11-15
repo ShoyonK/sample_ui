@@ -1,4 +1,4 @@
-from sirat_ui.core.thinning import thin
+from sibench_ui.core.thinning import thin
 
 
 def test_short_series_pass_through():

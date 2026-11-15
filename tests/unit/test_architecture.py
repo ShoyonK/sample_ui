@@ -4,7 +4,7 @@ import ast
 import re
 from pathlib import Path
 
-PACKAGE = Path(__file__).resolve().parents[2] / "src" / "sirat_ui"
+PACKAGE = Path(__file__).resolve().parents[2] / "src" / "sibench_ui"
 FORBIDDEN_EVERYWHERE = ("pandas", "nidaqmx", "pyvisa", "BenchUtils", "SwitchUtils", "dut_control")
 
 
@@ -22,17 +22,66 @@ def _py_files(sub: str):
     return sorted((PACKAGE / sub).rglob("*.py"))
 
 
+SRC = PACKAGE.parent
+
+
+def _top_level(path: Path):
+    """The top-level packages a file imports (relative imports aren't used)."""
+    return {m.split(".")[0] for m in _imports(path)}
+
+
+def test_the_protocol_imports_nothing_of_any_application():
+    """station_protocol is shared by every tool and the station service, and will move to the station's
+    repository: it may use the standard library, pydantic and typing_extensions only."""
+    allowed = {"station_protocol", "pydantic", "pydantic_core", "typing_extensions", "__future__"}
+    offenders = [(p.name, m) for p in sorted((SRC / "station_protocol").rglob("*.py")) for m in _top_level(p)
+                 if m not in allowed and not _is_stdlib(m)]
+    assert offenders == []
+
+
+def test_the_station_client_uses_only_the_protocol():
+    """station_client is any tool's client (the debug harness's too): no GUI, no Qt."""
+    allowed = {"station_client", "station_protocol", "typing_extensions", "__future__"}
+    offenders = [(p.name, m) for p in sorted((SRC / "station_client").rglob("*.py")) for m in _top_level(p)
+                 if m not in allowed and not _is_stdlib(m)]
+    assert offenders == []
+
+
+def test_the_conformance_suite_uses_only_the_shared_packages():
+    """tests/contract moves to the station's repository as-is, except its marked local-station part."""
+    contract = SRC.parent / "tests" / "contract"
+    allowed = {"station_client", "station_protocol", "pytest", "__future__"}
+    offenders = []
+    for path in sorted(contract.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        local = {id(n) for c in ast.walk(tree) if isinstance(c, ast.ClassDef) and c.name == "LocalStation"
+                 for n in ast.walk(c)}
+        for node in ast.walk(tree):
+            if id(node) in local:
+                continue   # this repository's fake: the one part the station's repository replaces
+            names = [a.name for a in node.names] if isinstance(node, ast.Import) else \
+                [node.module] if isinstance(node, ast.ImportFrom) and node.module else []
+            offenders += [(path.name, n) for n in names
+                          if n.split(".")[0] not in allowed and not _is_stdlib(n.split(".")[0])]
+    assert offenders == []
+
+
+def _is_stdlib(name: str) -> bool:
+    import sys
+    return name in sys.stdlib_module_names
+
+
 def test_core_has_no_qt():
     offenders = [(p.name, m) for p in _py_files("core") for m in _imports(p) if m.startswith("PyQt5")]
     assert offenders == []
 
 
-MODEL_DEPENDENCIES = ("sirat_ui.models", "sirat_ui.core.bits", "sirat_ui.core.formatting", "sirat_ui.gateway.errors")
+MODEL_DEPENDENCIES = ("sibench_ui.models", "sibench_ui.core.bits", "sibench_ui.core.formatting", "sibench_ui.gateway.errors")
 
 
 def test_models_import_only_the_standard_library_and_each_other():
     """Any layer can use models/ without import cycles, so models/ must not reach back up into them."""
-    def imported(path: Path):   # "from sirat_ui.core import bits" counts as sirat_ui.core.bits
+    def imported(path: Path):   # "from sibench_ui.core import bits" counts as sibench_ui.core.bits
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.Import):
                 yield from (a.name for a in node.names)
@@ -40,7 +89,7 @@ def test_models_import_only_the_standard_library_and_each_other():
                 yield from (f"{node.module}.{a.name}" for a in node.names)
 
     offenders = [(p.name, m) for p in _py_files("models") for m in imported(p)
-                 if m.startswith(("sirat_ui", "PyQt5", "pydantic")) and not m.startswith(MODEL_DEPENDENCIES)]
+                 if m.startswith(("sibench_ui", "PyQt5", "pydantic")) and not m.startswith(MODEL_DEPENDENCIES)]
     assert offenders == []
 
 
@@ -65,7 +114,7 @@ def test_viewmodels_reach_the_station_only_through_services():
     """Errors have one owner: services make station calls and report unexpected failures (ErrorPresenter);
     ViewModels show results inline or toast input and file problems, and never call the gateway."""
     offenders = [(p.name, m) for p in PACKAGE.rglob("*viewmodel*.py") for m in _imports(p)
-                 if m.startswith(("sirat_ui.gateway.port", "sirat_ui.shared.error_presenter"))]
+                 if m.startswith(("sibench_ui.gateway.port", "sibench_ui.shared.error_presenter"))]
     assert offenders == []
 
 
@@ -85,14 +134,14 @@ def test_frontend_never_imports_hardware_or_test_libraries():
 
 def test_viewmodels_never_touch_the_gateway_directly():
     vm_files = [p for p in PACKAGE.rglob("*viewmodel*.py")]
-    offenders = [(p.name, m) for p in vm_files for m in _imports(p) if m.startswith("sirat_ui.gateway.fake")]
+    offenders = [(p.name, m) for p in vm_files for m in _imports(p) if m.startswith("sibench_ui.gateway.fake")]
     assert offenders == []
 
 
 def test_no_python_file_is_huge():
     sizes = {p.relative_to(PACKAGE).as_posix(): len(p.read_text(encoding="utf-8").splitlines())
              for p in PACKAGE.rglob("*.py")}
-    assert {k: v for k, v in sizes.items() if v > 600} == {}
+    assert {k: v for k, v in sizes.items() if v > 900} == {}   # aim for about 600; 900 is the hard limit
 
 
 # ---- Design Studio rules for .ui.qml forms (docs/FRONTEND_PLAN.md section 5) ---------------

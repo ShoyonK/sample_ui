@@ -1,6 +1,6 @@
 """Behavior the revised Station API contract brings (docs/API_DESIGN.md, revision 2)."""
 
-from sirat_ui.gateway.errors import ErrorCode
+from sibench_ui.gateway.errors import ErrorCode
 
 
 def test_a_write_that_times_out_says_it_is_still_running_then_logs_the_outcome(harness):
@@ -11,7 +11,7 @@ def test_a_write_that_times_out_says_it_is_still_running_then_logs_the_outcome(h
     harness.scheduler.advance(1500)
     lines = [line.text for line in harness.services.log.lines]
     assert any("finished after all" in text for text in lines)
-    assert harness.fake.memory.values["BUFC.LPMODE"] == 3
+    assert harness.fake.board(1).memory.values["BUFC.LPMODE"] == 3
 
 
 def test_a_custom_function_runs_with_its_code_from_the_users_file(harness):

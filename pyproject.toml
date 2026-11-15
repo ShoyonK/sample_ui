@@ -1,7 +1,7 @@
 [project]
-name = "sirat-ui"
+name = "sibench-ui"
 version = "0.1.0"
-description = "SiRAT frontend: PyQt5 + QML, MVVM, runs against a fake Station API until the service exists"
+description = "SiBench frontend: PyQt5 + QML, MVVM, runs against a fake Station API until the service exists"
 requires-python = "==3.10.5"
 dependencies = [
     "pydantic>=2.9,<3",
@@ -19,14 +19,14 @@ dev = [
 ]
 
 [project.scripts]
-sirat = "sirat_ui.__main__:main"
+sibench = "sibench_ui.__main__:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/sirat_ui"]
+packages = ["src/sibench_ui", "src/station_protocol", "src/station_client"]
 
 [tool.uv]
 package = true
@@ -37,11 +37,13 @@ pythonpath = ["tests"]
 qt_api = "pyqt5"
 markers = [
     "req(id): links a test to a user requirement in sirat_requirements.txt",
+    "chaos: the seeded chaos runner (docs/CHAOS_TESTING.md); left out unless you pass -m chaos",
 ]
+addopts = "-m 'not chaos'"
 
 # Strong typing at the boundaries, checked with pyrefly: uv run pyrefly check
 # (tests/unit/test_typing.py runs it too, so a type error fails the test suite)
 [tool.pyrefly]
-project-includes = ["src/sirat_ui"]
+project-includes = ["src/sibench_ui", "src/station_protocol", "src/station_client"]
 search-path = ["src"]
 python-version = "3.10"

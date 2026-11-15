@@ -10,6 +10,8 @@ PAGES = ["registers", "watch", "actions", "sequences", "dumps", "radio", "settin
 
 
 def _visible_items(item: QQuickItem):
+    # Recursive on purpose: it walks the window's item tree, which is a few dozen levels deep, and skipping a
+    # hidden item skips its whole subtree for free.
     if not item.isVisible() or item.opacity() == 0:
         return
     yield item

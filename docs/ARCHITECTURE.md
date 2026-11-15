@@ -1,4 +1,4 @@
-# SiRAT frontend architecture
+# SiBench frontend architecture
 
 Generated from the code by `scripts/architecture/build.py`; rerun it after changing classes or station calls. Class boxes list public methods with their signatures. An arrow
 `A --> B : name` means A's constructor takes a B called `name`; each diagram's full constructors are listed
@@ -44,9 +44,9 @@ flowchart TB
     svc["<b>Services</b> · domains/*<br/>one per area: RegisterService, ActionService, ChamberService, …"]
     gw["<b>Gateway</b> · gateway/<br/>area interfaces (RegistersPort, InstrumentsPort, …) · ActivityTracker"]
     fake["<b>FakeStationGateway</b><br/>in memory, today"]
-    api["<b>ApiStationGateway</b><br/>client SDK, later"]
+    api["<b>ApiStationGateway</b><br/>JSON-RPC 2.0 over TCP · gateway/api"]
     state["<b>State</b> · state/<br/>StationState · SelectionState<br/>PreferencesState · StatusLine"]
-    base["<b>Shared helpers</b><br/>models/ dataclasses · core/ pure functions<br/>stores/ ~/.sirat JSON files"]
+    base["<b>Shared helpers</b><br/>models/ dataclasses · core/ pure functions<br/>stores/ ~/.sibench JSON files"]
 
     qml -->|"properties, slots"| vm
     vm -->|"method calls"| svc
@@ -84,7 +84,7 @@ flowchart TB
         r3["Only app/ and gateway/ name StationGateway"]
         r4["One Qt property style: qprop or @pyqtProperty"]
         r5[".ui.qml forms: no handlers; every control has an objectName"]
-        r6["No Python file over 600 lines"]
+        r6["No Python file over 900 lines (aim for 600)"]
         r1 ~~~ r2 ~~~ r3 ~~~ r4 ~~~ r5 ~~~ r6
     end
     stack ~~~ rules
@@ -99,11 +99,11 @@ flowchart TB
 ```mermaid
 %%{init: {"flowchart": {"curve": "stepAfter"}}}%%
 flowchart TB
-    launch["launch.py · build_app(backend, scenario)"] --> gw["FakeStationGateway(scheduler)"]
+    launch["launch.py · build_app(backend, scenario)"] --> gw["FakeStationGateway(scheduler)<br/>or ApiStationGateway(host, port, scheduler, post)"]
     launch --> container["ServiceContainer(gateway, home, scheduler)"]
     subgraph init["ServiceContainer.__init__"]
         direction TB
-        stores["UserStores.in_home(home)<br/>~/.sirat JSON files"]
+        stores["UserStores.in_home(home)<br/>~/.sibench JSON files"]
         st["PreferencesState → StationState<br/>SelectionState · StatusLine"]
         services["_build_services() → Services<br/>LogService, ErrorPresenter, ActivityTracker,<br/>RegisterCatalog, RegisterService, …"]
         subgraph vms["_build_viewmodels()"]
@@ -208,10 +208,10 @@ The calls about one DUT position.
 flowchart LR
     classDef box text-align:left,fill:#f8f8ff,stroke:#6a6ab0,color:#1c1c1c
     classDef stub fill:#ffffff,stroke:#6a6ab0,stroke-dasharray:4 3,color:#1c1c1c
-    SystemPort["<b>SystemPort</b><hr/>+hello() Call<br/>+status() Call<br/>+subscribe(topics: List[str]) Call<br/>+recover(position: int) Call"]:::box
-    DutPort["<b>DutPort</b><hr/>+connect_dut(position: int, config_type: str, config_file: str, rpc: RpcAddress?=None) Call<br/>+reconnect_dut(position: int) Call[None]<br/>+disconnect_dut(position: int) Call<br/>+probe(position: int, rpc: RpcAddress?, timeout_s: float) Call[ProbeResult]<br/>+load_phy(position: int, phy: PhySpec) Call[LoadPhyResult]<br/>+dut_info(position: int) Call<br/>+set_rpc_timeout(seconds: float) Call"]:::box
+    SystemPort["<b>SystemPort</b><hr/>+hello(client: str=CLIENT, protocol: int=PROTOCOL) Call[Dict of str,Any]<br/>+status() Call[StationStatus]<br/>+subscribe(topics: List[str]) Call[None]<br/>+recover(position: int) Call[None]"]:::box
+    DutPort["<b>DutPort</b><hr/>+connect_dut(position: int, config_type: str, config_file: str, rpc: RpcAddress?=None) Call[ConnectResult]<br/>+reconnect_dut(position: int) Call[None]<br/>+disconnect_dut(position: int) Call[None]<br/>+probe(position: int, rpc: RpcAddress?, timeout_s: float) Call[ProbeResult]<br/>+load_phy(position: int, phy: PhySpec) Call[LoadPhyResult]<br/>+dut_info(position: int) Call[DutInfo]<br/>+set_rpc_timeout(seconds: float) Call[None]"]:::box
     RfPort["<b>RfPort</b><hr/>+rf_paths() Call[List of str]<br/>+rf_connect(position: int, path: str) Call[None]<br/>+rf_disconnect(position: int) Call[None]<br/>+prs_route(position: int, route: PrsRoute) Call[None]<br/>+prs_signals(position: int) Call[PrsSignalCatalog]"]:::box
-    RegistersPort["<b>RegistersPort</b><hr/>+register_tree(position: int) Call<br/>+read_register(position: int, name: str) Call<br/>+read_many(position: int, names: List[str], include_read_sensitive: bool=False) Call<br/>+write_register(position: int, name: str, value: int, confirm: bool=False, verify: bool=True) Call<br/>+write_field(position: int, name: str, field: str, value: int, confirm: bool=False, verify: bool=True) Call<br/>+watch(position: int, names: List[str], interval_s: float, include_read_sensitive: bool=False) Call<br/>+unwatch(sub_id: str) Call"]:::box
+    RegistersPort["<b>RegistersPort</b><hr/>+register_tree(position: int) Call[List of PeripheralDef]<br/>+read_register(position: int, name: str) Call[int]<br/>+read_many(position: int, names: List[str], include_read_sensitive: bool=False) Call[List of ReadManyItem]<br/>+write_register(position: int, name: str, value: int, confirm: bool=False, verify: bool=True) Call[WriteResult]<br/>+write_field(position: int, name: str, field: str, value: int, confirm: bool=False, verify: bool=True) Call[WriteResult]<br/>+watch(position: int, names: List[str], interval_s: float, include_read_sensitive: bool=False) Call[str]<br/>+unwatch(sub_id: str) Call[None]"]:::box
     MemoryPort["<b>MemoryPort</b><hr/>+memory_read(position: int, address: int, size: int) Call[MemoryBlock]<br/>+memory_write(position: int, address: int, value: int, size: int) Call[MemoryWriteRes]"]:::box
     AdvancedPort["<b>AdvancedPort</b><hr/>+console_open(position: int) Call[str]<br/>+console_exec(session_id: str, code: str, mode: str='auto') Call[ExecResult]<br/>+console_names(session_id: str) Call[List of NameInfo]<br/>+console_close(session_id: str) Call[None]<br/>+custom_function(position: int, name: str, code: str, session_id: str?=None) Call[ExecResult]<br/>+dut_control_describe(position: int) Call[ApiTree]<br/>+dut_control_invoke(position: int, path: str, args: List[Any], kwargs: Dict[str,Any]) Call[InvokeRes]"]:::box
 ```
@@ -225,9 +225,9 @@ Sequence runs, chamber waits and ECA captures are activities: the start call ret
 flowchart LR
     classDef box text-align:left,fill:#f8f8ff,stroke:#6a6ab0,color:#1c1c1c
     classDef stub fill:#ffffff,stroke:#6a6ab0,stroke-dasharray:4 3,color:#1c1c1c
-    ActivityPort["<b>ActivityPort</b><hr/>+abort_activity(activity_id: str) Call"]:::box
-    AutomationPort["<b>AutomationPort</b><hr/>+run_sequence(position: int, ops: List[Dict of str,Any], stop_on_error: bool=True) Call"]:::box
-    InstrumentsPort["<b>InstrumentsPort</b><hr/>+list_instruments() Call[List of InstrumentFacts]<br/>+connect_instrument(instrument_id: str) Call[None]<br/>+siggen_get(instrument_id: str) Call[SiggenConfig]<br/>+siggen_set(instrument_id: str, config: SiggenConfig) Call[None]<br/>+siggen_waveforms(instrument_id: str, reload: bool=False) Call[List of str]<br/>+siggen_trigger(instrument_id: str, mode: str) Call[None]<br/>+siggen_rf(instrument_id: str, on: bool) Call[None]<br/>+chamber_read(instrument_id: str) Call[ChamberReading]<br/>+chamber_set_temp(instrument_id: str, celsius: float) Call[None]<br/>+chamber_wait_stable(instrument_id: str, tolerance_c: float=0.5, hold_s: float=60, timeout_s: float=3600) Call[str]<br/>+eca_sources(instrument_id: str) Call[EcaSources]<br/>+eca_capture(instrument_id: str, spec: CaptureSpec) Call[str]<br/>+eca_result(capture_id: str, offset: int=0, count: int=65536) Call[CapturePage]"]:::box
+    ActivityPort["<b>ActivityPort</b><hr/>+abort_activity(activity_id: str) Call[None]"]:::box
+    AutomationPort["<b>AutomationPort</b><hr/>+run_sequence(position: int, ops: List[Dict of str,Any], stop_on_error: bool=True) Call[str]"]:::box
+    InstrumentsPort["<b>InstrumentsPort</b><hr/>+list_instruments() Call[List of InstrumentFacts]<br/>+connect_instrument(instrument_id: str, address: str?=None) Call[None]<br/>+siggen_get(instrument_id: str) Call[SiggenConfig]<br/>+siggen_set(instrument_id: str, config: SiggenConfig) Call[None]<br/>+siggen_waveforms(instrument_id: str, reload: bool=False) Call[List of str]<br/>+siggen_trigger(instrument_id: str, mode: str) Call[None]<br/>+siggen_rf(instrument_id: str, on: bool) Call[None]<br/>+chamber_read(instrument_id: str) Call[ChamberReading]<br/>+chamber_set_temp(instrument_id: str, celsius: float) Call[None]<br/>+chamber_wait_stable(instrument_id: str, tolerance_c: float=0.5, hold_s: float=60, timeout_s: float=3600) Call[str]<br/>+eca_sources(instrument_id: str) Call[EcaSources]<br/>+eca_capture(instrument_id: str, spec: CaptureSpec) Call[str]<br/>+eca_result(capture_id: str, offset: int=0, count: int=65536) Call[CapturePage]"]:::box
     Call["<b>Call</b><hr/>+succeeded(result: U=None) Call[U]<br/>+failed(error: ApiError) Call[Any]<br/>+pending bool<br/>+ok bool<br/>+result T?<br/>+error ApiError?<br/>+then(on_ok: Callable?=None, on_err: Callable?=None) Call[T]<br/>+resolve(result: T=None)<br/>+reject(error: ApiError)<br/>+map(fn: Callable) Call[U]"]:::box
     ActivityTracker["<b>ActivityTracker</b><hr/>+follow(activity_id: str, on_progress: Progress, on_done: Done)"]:::box
     AutomationPort -->|"extends"| ActivityPort
@@ -280,6 +280,29 @@ FakeBench(scheduler: Scheduler, emit: Callable, log: Callable, emit_status: Call
 
 </details>
 
+### The wire: ApiStationGateway and the fake over TCP
+
+The wire is two packages beside the app, shared with every other tool and the station service, which import
+nothing of the GUI (a test checks it) and are meant to move to the station's repository:
+
+- `station_protocol`: framing, the JSON-RPC 2.0 envelope, error codes, validation (pydantic, strict JSON mode),
+  and one module per method group (`system.py` is `sys`, `dut.py`, `registers.py`...) with its methods
+  (parameters with ranges, result, `wrap`, `requires`), types and events. `catalog.py` collects them;
+  `scripts/api/build.py` writes the reference and JSON Schema from it.
+- `station_client`: `Connection` (the socket, a reader thread, requests in flight) and `Link` (reconnecting with
+  backoff, holding calls made while connecting, the sys.hello heartbeat, subscribing again, spotting lost
+  events).
+
+`ApiStationGateway` (`gateway/api/`) is the second `StationGateway`, on a `Link`: each method sends the protocol
+method it's bound to (`gateway/wire/bindings.py`, checked against both sides when it loads) and decodes the reply
+into the app's `models/` dataclasses (`gateway/wire/codec.py`), which a test keeps field for field the same as
+the protocol's; events become GatewayEvents (`gateway/wire/events.py`). What's the GUI's own is there too: a
+dropped link becomes DutDisconnected per position and a fresh status, and call.late is decoded with the method
+that timed out. Messages are posted to the GUI thread (`app/qt_post.py`). `FakeStationServer`
+(`gateway/fake/server.py`) puts the fake behind a socket, checking params with the protocol's types and running
+on one `ThreadScheduler` thread. `sibench --backend fake-tcp` runs the whole app over the wire; `--backend api
+--host --port` connects to a station service. The contract is docs/STATION_API.md.
+
 ## 8. Shared state
 
 Four small stores, each with its own change event, so a status message doesn't refresh pages that only care about the DUT. `Event` is the plain-Python signal the services and stores use (Qt-free).
@@ -320,7 +343,7 @@ flowchart LR
     classDef box text-align:left,fill:#f8f8ff,stroke:#6a6ab0,color:#1c1c1c
     classDef stub fill:#ffffff,stroke:#6a6ab0,stroke-dasharray:4 3,color:#1c1c1c
     ServiceContainer["<b>ServiceContainer</b><hr/>+stop()<br/>+reload_user_data()<br/>+report_settings_problems()<br/>+start(autoconnect: bool=False, position: int=1)"]:::box
-    ShellViewModel["<b>ShellViewModel</b><hr/>+pageSource(key: str) str<br/>+navigate(key: str)<br/>+child(name: str) QObject<br/>+2 bindable properties"]:::box
+    ShellViewModel["<b>ShellViewModel</b><hr/>+pageSource(key: str) str<br/>+toolSource(key: str) str<br/>+toolFills(key: str) bool<br/>+toolTitle(key: str) str<br/>+navigate(key: str)<br/>+child(name: str) QObject<br/>+2 bindable properties"]:::box
     StateViewModel["<b>StateViewModel</b><hr/>+setPosition(position: int)<br/>+toggleDarkMode()<br/>+12 bindable properties"]:::box
     CommandPaletteViewModel["<b>CommandPaletteViewModel</b><hr/>+open()<br/>+close()<br/>+setQuery(text: str)<br/>+move(delta: int)<br/>+trigger(kind: str, key: str)<br/>+activateCurrent()<br/>+activate(row: int)<br/>+7 bindable properties"]:::box
     DockViewModel["<b>DockViewModel</b><hr/>+setPage(key: str)<br/>+toggle()<br/>+show()<br/>+6 bindable properties"]:::box
@@ -361,12 +384,12 @@ Constructor arrows between services.
 flowchart TB
     classDef box text-align:left,fill:#f8f8ff,stroke:#6a6ab0,color:#1c1c1c
     classDef stub fill:#ffffff,stroke:#6a6ab0,stroke-dasharray:4 3,color:#1c1c1c
-    RegisterCatalog["<b>RegisterCatalog</b><hr/>+load(position: int) Call<br/>+clear()<br/>+peripheral(name: str) PeripheralDef?<br/>+register(full_name: str) RegisterDef?<br/>+resolve(full_name: str) Tuple[RegisterDef?,FieldDef?]<br/>+search(text: str) SearchResult"]:::box
-    RegisterService["<b>RegisterService</b><hr/>+cached(full_name: str) int?<br/>+previous_value(full_name: str) int?<br/>+clear_cache()<br/>+read(reg: RegisterDef, manual: bool=True, quiet: bool=False) Call<br/>+write(reg: RegisterDef, value: int) Call<br/>+write_field(reg: RegisterDef, field: FieldDef, value: int) Call<br/>+toggle_bit(reg: RegisterDef, bit: int) Call"]:::box
-    ReadAllService["<b>ReadAllService</b><hr/>+running bool<br/>+start(periph: PeripheralDef) bool<br/>+cancel()"]:::box
+    RegisterCatalog["<b>RegisterCatalog</b><hr/>+load(position: int) Call[List of PeripheralDef]<br/>+clear()<br/>+peripheral(name: str) PeripheralDef?<br/>+register(full_name: str) RegisterDef?<br/>+resolve(full_name: str) Tuple[RegisterDef?,FieldDef?]<br/>+search(text: str) SearchResult"]:::box
+    RegisterService["<b>RegisterService</b><hr/>+cached(full_name: str) int?<br/>+previous_value(full_name: str) int?<br/>+clear_cache()<br/>+read(reg: RegisterDef, manual: bool=True, quiet: bool=False) Call[int]<br/>+write(reg: RegisterDef, value: int) Call<br/>+write_field(reg: RegisterDef, field: FieldDef, value: int) Call<br/>+toggle_bit(reg: RegisterDef, bit: int) Call"]:::box
+    ReadAllService["<b>ReadAllService</b><hr/>+running bool<br/>+start(periph: PeripheralDef) bool<br/>+cancel()<br/>+stop(reason: str)"]:::box
     AnnotationService["<b>AnnotationService</b><hr/>+reload()<br/>+replace(notes: Dict[str,str], formulas: Dict[str,Tuple of str,str])<br/>+note(full_name: str) str<br/>+set_note(full_name: str, text: str)<br/>+formula(full_name: str) Tuple[str,str]?<br/>+set_formula(full_name: str, expr: str, unit: str='')<br/>+calculate(full_name: str, raw: int) float?<br/>+format_calculated(full_name: str, raw: int?) str"]:::box
     FavoritesService["<b>FavoritesService</b><hr/>+reload()<br/>+replace(names: List[str])<br/>+is_favorite(full_name: str) bool<br/>+toggle(full_name: str) bool<br/>+remove(full_name: str)"]:::box
-    HistoryLog["<b>HistoryLog</b><hr/>+clock Callable<br/>+entries List[HistoryEntry]<br/>+record(operation: str, register: str, value: int, field_name: str?=None, register_value: int?=None) HistoryEntry<br/>+clear()<br/>+to_records() List[Dict of str,Any]<br/>+restore(records: List[Dict of str,Any])<br/>+by_ids(ids) List[HistoryEntry]<br/>+as_text() str"]:::box
+    HistoryLog["<b>HistoryLog</b><hr/>+record(operation: str, register: str, value: int, field_name: str?=None, register_value: int?=None) HistoryEntry<br/>+clear()<br/>+to_records() List[Dict of str,Any]<br/>+restore(records: List[Dict of str,Any])<br/>+by_ids(ids: Iterable[Any]) List[HistoryEntry]<br/>+as_text() str"]:::box
     RegisterService -->|"history"| HistoryLog
     ReadAllService -->|"registers"| RegisterService
 ```
@@ -379,6 +402,7 @@ RegisterService(gateway: RegistersPort, state: StationState, prefs: PreferencesS
 ReadAllService(registers: RegisterService, log: LogService)
 AnnotationService(notes_store: JsonStore, formulas_store: JsonStore)
 FavoritesService(store: JsonStore)
+HistoryLog(clock: Callable=time.time)
 ```
 
 </details>
@@ -396,7 +420,7 @@ flowchart TB
     FavoritesViewModel["<b>FavoritesViewModel</b><hr/>+activate(row: int)<br/>+remove(row: int)<br/>+2 bindable properties"]:::box
     RegisterDetailViewModel["<b>RegisterDetailViewModel</b><hr/>+read()<br/>+write(text: str)<br/>+toggleBit(bit: int)<br/>+setFormatIndex(index: int)<br/>+setFieldValue(row: int, text: str)<br/>+setNote(row: int, text: str)<br/>+21 bindable properties"]:::box
     RegisterShortcutsViewModel["<b>RegisterShortcutsViewModel</b><hr/>+toggleFavorite()<br/>+addToWatch(field: str)<br/>+addToLogger(field: str)<br/>+editFormula(field: str)<br/>+readPeripheral()<br/>+saveToActions()"]:::box
-    ReadAllViewModel["<b>ReadAllViewModel</b><hr/>+cancel()<br/>+5 bindable properties"]:::box
+    ReadAllViewModel["<b>ReadAllViewModel</b>"]:::box
     HistoryViewModel["<b>HistoryViewModel</b><hr/>+toggleReads()<br/>+toggleWrites()<br/>+select(row: int, mode: str)<br/>+runSelected()<br/>+createAction()<br/>+saveSelected()<br/>+generateCode()<br/>+copyAll()<br/>+clear()<br/>+4 bindable properties"]:::box
     FormulaEditorViewModel["<b>FormulaEditorViewModel</b><hr/>+open_for(field_full_name: str)<br/>+setExpr(text: str)<br/>+setUnit(text: str)<br/>+useExample(index: int)<br/>+test()<br/>+save()<br/>+remove()<br/>+cancel()<br/>+8 bindable properties"]:::box
     RegisterCatalog["<b>RegisterCatalog</b>"]:::stub
@@ -433,7 +457,7 @@ flowchart TB
 
 ```text
 PeripheralTreeViewModel(state: StationState, selection: SelectionState, prefs: PreferencesState, catalog: RegisterCatalog, registers: RegisterService, read_all: ReadAllService)
-FavoritesViewModel(state: StationState, selection: SelectionState, catalog: RegisterCatalog, favorites: FavoritesService)
+FavoritesViewModel(selection: SelectionState, catalog: RegisterCatalog, favorites: FavoritesService)
 RegisterDetailViewModel(state: StationState, selection: SelectionState, prefs: PreferencesState, registers: RegisterService, favorites: FavoritesService, annotations: AnnotationService, interactions: InteractionService, runs_finished: Event)
 RegisterShortcutsViewModel(selection: SelectionState, registers: RegisterService, favorites: FavoritesService, watch: WatchService, logger: DataLoggerService, actions: ActionRecorder, formula_editor: FormulaEditorViewModel, read_all: ReadAllService, interactions: InteractionService)
 ReadAllViewModel(service: ReadAllService, interactions: InteractionService)
@@ -452,9 +476,9 @@ Both use a `WatchSubscription` (registers.watch / registers.unwatch); values arr
 flowchart LR
     classDef box text-align:left,fill:#f8f8ff,stroke:#6a6ab0,color:#1c1c1c
     classDef stub fill:#ffffff,stroke:#6a6ab0,stroke-dasharray:4 3,color:#1c1c1c
-    WatchService["<b>WatchService</b><hr/>+reload()<br/>+live bool<br/>+add(full_name: str) bool<br/>+remove(full_name: str)<br/>+clear()<br/>+set_interval(interval_s: float)<br/>+start(interval_s: float?=None) Call<br/>+stop()<br/>+refresh_once() Call<br/>+write(full_name: str, value: int) Call"]:::box
-    DataLoggerService["<b>DataLoggerService</b><hr/>+reload()<br/>+recording bool<br/>+mode str<br/>+elapsed_s float<br/>+track(full_name: str) bool<br/>+untrack(full_name: str)<br/>+set_rate(rate_s: float)<br/>+start(rate_s: float?=None) Call<br/>+stop()<br/>+clear()<br/>+export_csv(path: Path) Path"]:::box
-    WatchSubscription["<b>WatchSubscription</b><hr/>+active bool<br/>+start(registers: List[str], interval_s: float, context: str) Call<br/>+stop()<br/>+forget()"]:::box
+    WatchService["<b>WatchService</b><hr/>+reload()<br/>+items List[WatchItem]<br/>+saved_names List[str]<br/>+live bool<br/>+add(full_name: str) bool<br/>+remove(full_name: str)<br/>+clear()<br/>+set_interval(interval_s: float)<br/>+start(interval_s: float?=None) Call[str]<br/>+stop()<br/>+refresh_once() Call<br/>+write(full_name: str, value: int) Call"]:::box
+    DataLoggerService["<b>DataLoggerService</b><hr/>+reload()<br/>+series List[Series]<br/>+saved_names List[str]<br/>+recording bool<br/>+mode str<br/>+elapsed_s float<br/>+track(full_name: str) bool<br/>+untrack(full_name: str)<br/>+set_rate(rate_s: float)<br/>+start(rate_s: float?=None) Call<br/>+stop()<br/>+clear()<br/>+export_csv(path: Path) Path"]:::box
+    WatchSubscription["<b>WatchSubscription</b><hr/>+active bool<br/>+start(registers: List[str], interval_s: float, context: str) Call[str]<br/>+stop()<br/>+forget()"]:::box
     WatchListViewModel["<b>WatchListViewModel</b><hr/>+setLarge(large: bool)<br/>+setIntervalText(text: str)<br/>+toggleLive()<br/>+refreshOnce()<br/>+select(row: int, mode: str)<br/>+writeValue(row: int)<br/>+remove(row: int)<br/>+removeSelected()<br/>+clearAll()<br/>+addAllToLogger()<br/>+addSelectedToLogger()<br/>+addRowToLogger(row: int)<br/>+5 bindable properties"]:::box
     DataLoggerViewModel["<b>DataLoggerViewModel</b><hr/>+toggleRecording()<br/>+setRateText(text: str)<br/>+remove(row: int)<br/>+clear()<br/>+zoomTo(start: float, end: float)<br/>+resetZoom()<br/>+exportCsv()<br/>+9 bindable properties"]:::box
     WatchListViewModel -->|"watch"| WatchService
@@ -485,13 +509,13 @@ Every operation kind is one `OpKind` in `core/ops.py` (`KINDS`), used by `descri
 flowchart TB
     classDef box text-align:left,fill:#f8f8ff,stroke:#6a6ab0,color:#1c1c1c
     classDef stub fill:#ffffff,stroke:#6a6ab0,stroke-dasharray:4 3,color:#1c1c1c
-    ActionService["<b>ActionService</b><hr/>+reload()<br/>+replace(raw: Dict[str,Any])<br/>+get(name: str) Action?<br/>+unique_name(name: str) str<br/>+add(name: str, ops: List[Dict of str,Any], enabled: bool=True) Action<br/>+update(name: str, ops: List[Dict of str,Any])<br/>+deselect_all()<br/>+remove(name: str)<br/>+remove_all()<br/>+set_enabled(name: str, enabled: bool)<br/>+move(name: str, delta: int)<br/>+wire_ops(name: str) List[Dict of str,Any]<br/>+ops_for(names: List[str]) List[Dict of str,Any]<br/>+run(names: List[str]) Call<br/>+run_enabled() Call<br/>+generate_code(names: List[str]) str"]:::box
+    ActionService["<b>ActionService</b><hr/>+reload()<br/>+replace(raw: Dict[str,Any])<br/>+get(name: str) Action?<br/>+unique_name(name: str) str<br/>+add(name: str, ops: List[Dict of str,Any], enabled: bool=True) Action<br/>+update(name: str, ops: List[Dict of str,Any])<br/>+set_all_enabled(enabled: bool)<br/>+remove(name: str)<br/>+remove_many(names: List[str])<br/>+remove_all()<br/>+set_enabled(name: str, enabled: bool)<br/>+move(name: str, delta: int)<br/>+wire_ops(name: str) List[Dict of str,Any]<br/>+ops_for(names: List[str]) List[Dict of str,Any]<br/>+run(names: List[str]) Call<br/>+run_enabled() Call<br/>+generate_code(names: List[str]) str"]:::box
     SequenceService["<b>SequenceService</b><hr/>+reload()<br/>+description(name: str) str<br/>+create(name: str, action_names: List[str]) str<br/>+rename(old: str, new: str) str<br/>+add_steps(name: str, action_names: List[str])<br/>+to_action(name: str) str<br/>+delete(name: str)<br/>+move_step(name: str, index: int, delta: int)<br/>+remove_step(name: str, index: int)<br/>+plan(name: str, wire: bool=False) Tuple[List of Step,List of Dict of str,Any]<br/>+preview(name: str) List[Step]<br/>+run(name: str) Call<br/>+abort()<br/>+generate_code(name: str) str"]:::box
     ActionRecorder["<b>ActionRecorder</b><hr/>+add(name: str, ops: List[Dict of str,Any], enabled: bool=True) Action"]:::box
     ActivityTracker["<b>ActivityTracker</b><hr/>+follow(activity_id: str, on_progress: Progress, on_done: Done)"]:::box
     OpKind["<b>OpKind</b><hr/>+name str<br/>+describe Callable<br/>+code Callable<br/>+wire_fields Tuple[str,...]?<br/>+to_wire Callable?<br/>+carries_code bool<br/>+editable bool<br/>+wire(op: Op, functions: Functions) Op"]:::box
-    ActionsViewModel["<b>ActionsViewModel</b><hr/>+select(row: int)<br/>+select_name(name: str)<br/>+toggleEnabled(row: int)<br/>+deselectAll()<br/>+runCurrent()<br/>+runSelected()<br/>+viewCurrent()<br/>+editCurrent()<br/>+moveCurrent(delta: int)<br/>+removeCurrent()<br/>+removeAll()<br/>+addCheckedToSequence()<br/>+generateCode()<br/>+4 bindable properties"]:::box
-    SequencesViewModel["<b>SequencesViewModel</b><hr/>+select(row: int)<br/>+select_name(name: str)<br/>+selectStep(row: int)<br/>+run()<br/>+abort()<br/>+newSequence()<br/>+renameSequence()<br/>+deleteSequence()<br/>+addToActions()<br/>+addAction()<br/>+removeSelectedStep()<br/>+moveSelectedStep(delta: int)<br/>+generateCode()<br/>+10 bindable properties"]:::box
+    ActionsViewModel["<b>ActionsViewModel</b><hr/>+select(row: int)<br/>+selectRow(row: int, mode: str)<br/>+select_name(name: str)<br/>+toggleEnabled(row: int)<br/>+deselectAll()<br/>+setAllChecked(checked: bool)<br/>+runCurrent()<br/>+runSelected()<br/>+viewCurrent()<br/>+editCurrent()<br/>+moveCurrent(delta: int)<br/>+removeSelected()<br/>+removeAll()<br/>+addCheckedToSequence()<br/>+generateCode()<br/>+7 bindable properties"]:::box
+    SequencesViewModel["<b>SequencesViewModel</b><hr/>+select(row: int)<br/>+select_name(name: str)<br/>+selectStep(row: int)<br/>+run()<br/>+abort()<br/>+newSequence()<br/>+renameSequence()<br/>+deleteSequence()<br/>+addToActions()<br/>+addAction()<br/>+removeSelectedStep()<br/>+moveSelectedStep(delta: int)<br/>+generateCode()<br/>+11 bindable properties"]:::box
     ActionEditorViewModel["<b>ActionEditorViewModel</b><hr/>+open_view(name: str)<br/>+closeView()<br/>+open_edit(name: str)<br/>+setEditValue(row: int, text: str)<br/>+saveEdit()<br/>+cancelEdit()<br/>+6 bindable properties"]:::box
     ops_py["<b>ops_py</b><br/><i>«module core/ops.py»</i><hr/>+KINDS Dict[str,OpKind]<br/>+op_kind(op: Op) str<br/>+describe_op(op: Op) str<br/>+code_lines(op: Op, functions: Functions) List[str]<br/>+to_wire(op: Op, functions: Functions) Op<br/>+carries_code(kind: str) bool<br/>+editable(kind: str) bool"]:::box
     wire_ops_py["<b>wire_ops_py</b><br/><i>«module core/wire_ops.py»</i><hr/>+action_ops(action: Action, actions: Callable, custom_functions: Mapping) List[Dict]"]:::box
@@ -533,10 +557,10 @@ ActionEditorViewModel(actions: ActionService, catalog: RegisterCatalog, prefs: P
 flowchart TB
     classDef box text-align:left,fill:#f8f8ff,stroke:#6a6ab0,color:#1c1c1c
     classDef stub fill:#ffffff,stroke:#6a6ab0,stroke-dasharray:4 3,color:#1c1c1c
-    DumpService["<b>DumpService</b><hr/>+running bool<br/>+files() List[DumpFile]<br/>+save(dump: RegisterDump) Path<br/>+delete(path: Path)<br/>+compare_files(first: Path, second: Path) Comparison<br/>+take(peripherals: List[str], on_done: Callable) bool<br/>+diff_live(path: Path, on_done: Callable) bool<br/>+radio_diff(config: RadioConfig, peripherals: List[str], on_done: Callable) bool<br/>+cancel()<br/>+new_dump(job: DumpJob, name: str, description: str='') RegisterDump<br/>+to_records() List[Dict of str,Any]<br/>+restore(records: List[Dict of str,Any])"]:::box
-    DumpsViewModel["<b>DumpsViewModel</b><hr/>+refresh()<br/>+select(row: int)<br/>+deleteSelected()<br/>+openPicker()<br/>+diffLive()<br/>+compareWith()<br/>+compareFiles()<br/>+openRadioDiff()<br/>+4 bindable properties"]:::box
-    PeripheralPickerViewModel["<b>PeripheralPickerViewModel</b><hr/>+open(mode: str, wording: tuple, checked: Dict[str,bool], label: Callable, on_start: Callable)<br/>+checked() Dict[str,bool]<br/>+closePicker()<br/>+togglePeripheral(row: int)<br/>+selectAll()<br/>+selectNone()<br/>+startPicked()<br/>+7 bindable properties"]:::box
-    DumpProgressViewModel["<b>DumpProgressViewModel</b><hr/>+begin(title: str)<br/>+cancel()<br/>+6 bindable properties"]:::box
+    DumpService["<b>DumpService</b><hr/>+running bool<br/>+files() List[DumpFile]<br/>+save(dump: RegisterDump) Path<br/>+delete(path: Path)<br/>+compare_files(first: Path, second: Path) Comparison<br/>+take(peripherals: List[str], on_done: Callable) bool<br/>+diff_live(path: Path, on_done: Callable) bool<br/>+radio_diff(config: RadioConfig, peripherals: List[str], on_done: Callable) bool<br/>+cancel()<br/>+stop(reason: str)<br/>+new_dump(job: DumpJob, name: str, description: str='') RegisterDump<br/>+to_records() List[Dict of str,Any]<br/>+restore(records: List[Dict of str,Any])"]:::box
+    DumpsViewModel["<b>DumpsViewModel</b><hr/>+refresh()<br/>+select(row: int)<br/>+deleteSelected()<br/>+openPicker()<br/>+dumpPeripheral(peripheral: str)<br/>+diffLive()<br/>+compareWith()<br/>+compareFiles()<br/>+openRadioDiff()<br/>+4 bindable properties"]:::box
+    PeripheralPickerViewModel["<b>PeripheralPickerViewModel</b><hr/>+open(mode: str, wording: Tuple[str,str,str], checked: Dict[str,bool], label: Callable, on_start: Callable)<br/>+checked() Dict[str,bool]<br/>+closePicker()<br/>+togglePeripheral(row: int)<br/>+selectAll()<br/>+selectNone()<br/>+startPicked()<br/>+7 bindable properties"]:::box
+    DumpProgressViewModel["<b>DumpProgressViewModel</b><hr/>+begin(title: str)"]:::box
     ComparisonViewModel["<b>ComparisonViewModel</b><hr/>+show(result: Comparison)<br/>+show_radio(result: RadioComparison)<br/>+sortBy(column: str)<br/>+clearResult()<br/>+saveReport()<br/>+14 bindable properties"]:::box
     DumpsViewModel -->|"service"| DumpService
     DumpsViewModel -->|"picker"| PeripheralPickerViewModel
@@ -601,10 +625,10 @@ flowchart LR
     classDef box text-align:left,fill:#f8f8ff,stroke:#6a6ab0,color:#1c1c1c
     classDef stub fill:#ffffff,stroke:#6a6ab0,stroke-dasharray:4 3,color:#1c1c1c
     InstrumentBench["<b>InstrumentBench</b><hr/>+instrument(kind: str) InstrumentFacts?<br/>+instrument_id(kind: str) str<br/>+describe(kind: str) str<br/>+connect(kind: str) Call[None]<br/>+follow(activity_id: str, on_progress: Progress, on_done: Done)<br/>+abort(activity_id: str) Call[Any]"]:::box
-    SignalGeneratorService["<b>SignalGeneratorService</b><hr/>+instrument_id str<br/>+can(method: str) bool<br/>+reload()<br/>+remember(settings: SiggenSettings)<br/>+load_waveforms(reload: bool=False) Call[List of str]<br/>+apply(settings: SiggenSettings) Call[None]<br/>+load_from_instrument() Call[SiggenConfig]<br/>+trigger(mode: str) Call[None]<br/>+set_rf(on: bool) Call[None]<br/>+add_action(settings: SiggenSettings) Action"]:::box
+    SignalGeneratorService["<b>SignalGeneratorService</b><hr/>+reload()<br/>+remember(settings: SiggenSettings)<br/>+load_waveforms(reload: bool=False) Call[List of str]<br/>+apply(settings: SiggenSettings) Call[None]<br/>+load_from_instrument() Call[SiggenConfig]<br/>+trigger(mode: str) Call[None]<br/>+set_rf(on: bool) Call[None]<br/>+add_action(settings: SiggenSettings) Action"]:::box
     RfSwitchService["<b>RfSwitchService</b><hr/>+current_path(position: int) str<br/>+load_paths() Call[List of str]<br/>+connect(position: int, path: str) Call[None]<br/>+disconnect(position: int) Call[None]<br/>+add_action(path: str, position: int) Action"]:::box
-    ChamberService["<b>ChamberService</b><hr/>+instrument_id str<br/>+can(method: str) bool<br/>+start_polling(interval_s: float?=None)<br/>+stop_polling()<br/>+polling bool<br/>+read() Call[ChamberReading]<br/>+set_temperature(celsius: float) Call[None]<br/>+wait_stable(tolerance_c: float, hold_s: float) Call[str]<br/>+abort_wait()"]:::box
-    EcaService["<b>EcaService</b><hr/>+instrument_id str<br/>+can(method: str) bool<br/>+busy bool<br/>+load_sources() Call[EcaSources]<br/>+start(spec: CaptureSpec) Call[str]<br/>+abort()<br/>+save_csv(path: Path)"]:::box
+    ChamberService["<b>ChamberService</b><hr/>+start_polling(interval_s: float?=None)<br/>+stop_polling()<br/>+polling bool<br/>+read() Call[ChamberReading]<br/>+set_temperature(celsius: float) Call[None]<br/>+wait_stable(tolerance_c: float, hold_s: float) Call[str]<br/>+abort_wait()"]:::box
+    EcaService["<b>EcaService</b><hr/>+busy bool<br/>+load_sources() Call[EcaSources]<br/>+start(spec: CaptureSpec) Call[str]<br/>+abort()<br/>+save_csv(path: Path)"]:::box
     PacketService["<b>PacketService</b><hr/>+reload()<br/>+remember_ble(packet: BlePacket)<br/>+siggen_id str<br/>+add_gfsk_action(packet: GfskPacket) Action"]:::box
     SignalGeneratorService -->|"bench"| InstrumentBench
     RfSwitchService -->|"bench"| InstrumentBench
@@ -637,7 +661,7 @@ flowchart TB
     InstrumentViewModel["<b>InstrumentViewModel</b><hr/>+connectInstrument()"]:::box
     SignalGeneratorViewModel["<b>SignalGeneratorViewModel</b><hr/>+setField(name: str, value: str)<br/>+setWaveform(index: int)<br/>+apply()<br/>+loadFromInstrument()<br/>+reloadWaveforms()<br/>+trigger(mode: str)<br/>+setRf(on: bool)<br/>+addToActions()<br/>+showCode()<br/>+14 bindable properties"]:::box
     RfSwitchViewModel["<b>RfSwitchViewModel</b><hr/>+setPath(index: int)<br/>+setPosition(index: int)<br/>+connectPath()<br/>+disconnectPath()<br/>+addToActions()<br/>+9 bindable properties"]:::box
-    ChamberViewModel["<b>ChamberViewModel</b><hr/>+setField(name: str, value: str)<br/>+setActive(active: bool)<br/>+setTemperature()<br/>+waitForStable()<br/>+abortWait()<br/>+13 bindable properties"]:::box
+    ChamberViewModel["<b>ChamberViewModel</b><hr/>+setField(name: str, value: str)<br/>+setActive(active: bool)<br/>+setTemperature()<br/>+waitForStable()<br/>+abortWait()<br/>+14 bindable properties"]:::box
     EcaViewModel["<b>EcaViewModel</b><hr/>+setField(name: str, value: str)<br/>+toggleChannel(row: int)<br/>+setTrigger(index: int)<br/>+setEdge(index: int)<br/>+spec() CaptureSpec<br/>+capture()<br/>+abort()<br/>+zoom(start: float, end: float)<br/>+resetZoom()<br/>+saveCsv()<br/>+22 bindable properties"]:::box
     BlePacketViewModel["<b>BlePacketViewModel</b><hr/>+setField(name: str, value: str)<br/>+generateCode()<br/>+8 bindable properties"]:::box
     GfskPacketViewModel["<b>GfskPacketViewModel</b><hr/>+setField(name: str, value: str)<br/>+setPayload(index: int)<br/>+generateCode()<br/>+addToActions()<br/>+12 bindable properties"]:::box
@@ -772,7 +796,7 @@ Constructor arrows between services.
 flowchart TB
     classDef box text-align:left,fill:#f8f8ff,stroke:#6a6ab0,color:#1c1c1c
     classDef stub fill:#ffffff,stroke:#6a6ab0,stroke-dasharray:4 3,color:#1c1c1c
-    ConnectionService["<b>ConnectionService</b><hr/>+start() Call<br/>+refresh_status() Call<br/>+connect(position: int, config_type: str='EFR32', config_file: str='', rpc: RpcAddress?=None) Call<br/>+reconnect(position: int) Call<br/>+dut_info() Call<br/>+recover(position: int) Call<br/>+disconnect(position: int) Call<br/>+load_phy(position: int, phy: PhySpec) Call[LoadPhyResult]"]:::box
+    ConnectionService["<b>ConnectionService</b><hr/>+start() Call<br/>+refresh_status() Call<br/>+connect(position: int, config_type: str='EFR32', config_file: str='', rpc: RpcAddress?=None) Call<br/>+reconnect(position: int) Call<br/>+dut_info() Call<br/>+recover(position: int) Call<br/>+disconnect(position: int) Call<br/>+show_position(position: int)<br/>+load_phy(position: int, phy: PhySpec) Call[LoadPhyResult]"]:::box
     HardwareConfigService["<b>HardwareConfigService</b><hr/>+reload()<br/>+save(config: HardwareConfig) Call<br/>+test_connection(config: HardwareConfig) Call"]:::box
     SessionService["<b>SessionService</b><hr/>+snapshot(name: str, created: str?=None) Dict[str,Any]<br/>+apply(data: Dict[str,Any])<br/>+path_for(name: str) Path<br/>+exists(name: str) bool<br/>+list() List[SessionInfo]<br/>+save(name: str) SessionInfo<br/>+load(name: str) SessionInfo<br/>+delete(name: str)<br/>+preview(name: str) Dict[str,Any]<br/>+start_autosave(interval_ms: int=AUTOSAVE_MS)<br/>+stop_autosave()<br/>+autosave()<br/>+restore_autosave() int"]:::box
     SettingsTransfer["<b>SettingsTransfer</b><hr/>+export(path: Path) List[str]<br/>+import_(path: Path) Tuple[List of str,List of Problem]<br/>+clear_all()"]:::box
@@ -782,7 +806,6 @@ flowchart TB
     ConnectionService -->|"log"| LogService
     HardwareConfigService -->|"log"| LogService
     SessionService -->|"log"| LogService
-    ErrorPresenter -->|"log"| LogService
 ```
 
 <details><summary>Constructors</summary>
@@ -792,7 +815,7 @@ ConnectionService(gateway: ConnectionGateway, state: StationState, catalog: Regi
 HardwareConfigService(store: JsonStore, gateway: DutPort, state: StationState, log: LogService)
 SessionService(directory: Path, autosave_path: Path, annotations: AnnotationService, favorites: FavoritesService, actions: ActionService, history: HistoryLog, dumps: DumpService, log: LogService, scheduler: Scheduler, clock: Callable=…)
 SettingsTransfer(stores: UserStores, reload_all: Callable)
-ErrorPresenter(interactions: InteractionService, log: LogService)
+ErrorPresenter(interactions: InteractionService, log: Log)
 LogService(clock: Callable=time.time)
 ```
 
@@ -813,7 +836,7 @@ flowchart TB
     SettingsViewModel["<b>SettingsViewModel</b><hr/>+setDarkMode(on: bool)<br/>+setAutoRead(on: bool)<br/>+setConfirmCritical(on: bool)<br/>+setShowSecure(on: bool)<br/>+clearRegisterCache()<br/>+exportSettings()<br/>+importSettings()<br/>+clearAllSettings()<br/>+5 bindable properties"]:::box
     HardwareConfigViewModel["<b>HardwareConfigViewModel</b><hr/>+setField(name: str, value: str)<br/>+setOverride(on: bool)<br/>+save()<br/>+testConnection()<br/>+10 bindable properties"]:::box
     SessionsViewModel["<b>SessionsViewModel</b><hr/>+saveSession()<br/>+openBrowser()<br/>+closeBrowser()<br/>+select(row: int)<br/>+loadSelected()<br/>+deleteSelected()<br/>+5 bindable properties"]:::box
-    LogViewModel["<b>LogViewModel</b><hr/>+toggleLevel(index: int)<br/>+setSearchText(text: str)<br/>+nextMatch()<br/>+previousMatch()<br/>+saveLog()<br/>+clear()<br/>+setPoppedOut(on: bool)<br/>+6 bindable properties"]:::box
+    LogViewModel["<b>LogViewModel</b><hr/>+toggleLevel(index: int)<br/>+setSearchText(text: str)<br/>+nextMatch()<br/>+previousMatch()<br/>+saveLog()<br/>+clear()<br/>+setPoppedOut(on: bool)<br/>+7 bindable properties"]:::box
     ConnectionService["<b>ConnectionService</b>"]:::stub
     LogService["<b>LogService</b>"]:::stub
     HardwareConfigService["<b>HardwareConfigService</b>"]:::stub
@@ -852,7 +875,7 @@ LogViewModel(log: LogService, interactions: InteractionService)
 
 What the real station service must answer for each screen to work. Solid arrows are calls a user action
 triggers, traced from each ViewModel slot through the services to the gateway (`callgraph`, not hand-drawn).
-47 endpoints in total; the ones marked
+40 endpoints in total; the ones marked
 ⚠ unused are in the API design but no screen calls them yet (instruments.list).
 
 ### Overview: pages to API areas
@@ -865,34 +888,29 @@ flowchart LR
     Registers["Registers"]
     Watch["Watch"]
     Actions_and_sequences["Actions and sequences"]
-    Dumps["Dumps"]
+    Diffs["Diffs"]
     Radio["Radio"]
     Instruments["Instruments"]
     Advanced["Advanced"]
     Connection_and_settings["Connection and settings"]
     ns_sys[["sys.* (4)"]]
     ns_dut[["dut.* (7)"]]
-    ns_registers[["registers.* (7)"]]
+    ns_registers[["registers.* (0)"]]
     ns_rf[["rf.* (5)"]]
     ns_automation[["automation.* (1)"]]
     ns_activity[["activity.* (1)"]]
     ns_instruments[["instruments.* (13)"]]
     ns_memory[["memory.* (2)"]]
     ns_advanced[["advanced.* (7)"]]
-    Registers -->|4| ns_registers
-    Watch -->|3| ns_registers
     Actions_and_sequences -->|1| ns_automation
     Actions_and_sequences -->|1| ns_activity
-    Dumps -->|1| ns_registers
     Radio -->|1| ns_dut
     Radio -->|1| ns_rf
     Instruments -->|11| ns_instruments
     Instruments -->|2| ns_rf
-    Instruments -->|1| ns_activity
     Advanced -->|7| ns_advanced
     Advanced -->|2| ns_memory
     Connection_and_settings -->|6| ns_dut
-    Connection_and_settings -->|1| ns_registers
     Connection_and_settings -->|2| ns_sys
     bgsvc["services on their own<br/>startup, live watch, connects"]
     bgsvc -.-> ns_sys
@@ -900,46 +918,6 @@ flowchart LR
     bgsvc -.-> ns_rf
     bgsvc -.-> ns_instruments
     bgsvc -.-> ns_dut
-```
-
-### Registers
-
-```mermaid
-%%{init: {"flowchart": {"curve": "stepBefore"}}}%%
-flowchart LR
-    PeripheralTreeViewModel["PeripheralTreeViewModel"]
-    RegisterDetailViewModel["RegisterDetailViewModel"]
-    RegisterShortcutsViewModel["RegisterShortcutsViewModel"]
-    HistoryViewModel["HistoryViewModel"]
-    registers_read(["registers.read"])
-    registers_read_many(["registers.read_many"])
-    registers_write(["registers.write"])
-    registers_write_field(["registers.write_field"])
-    PeripheralTreeViewModel --> registers_read
-    RegisterDetailViewModel --> registers_read
-    RegisterDetailViewModel --> registers_write
-    RegisterDetailViewModel --> registers_write_field
-    RegisterShortcutsViewModel --> registers_read
-    RegisterShortcutsViewModel --> registers_read_many
-    HistoryViewModel --> registers_read
-    HistoryViewModel --> registers_write
-    HistoryViewModel --> registers_write_field
-```
-
-### Watch
-
-```mermaid
-%%{init: {"flowchart": {"curve": "stepBefore"}}}%%
-flowchart LR
-    WatchListViewModel["WatchListViewModel"]
-    DataLoggerViewModel["DataLoggerViewModel"]
-    registers_read_many(["registers.read_many"])
-    registers_write(["registers.write"])
-    registers_write_field(["registers.write_field"])
-    WatchListViewModel --> registers_read_many
-    WatchListViewModel --> registers_write
-    WatchListViewModel --> registers_write_field
-    DataLoggerViewModel --> registers_read_many
 ```
 
 ### Actions and sequences
@@ -954,16 +932,6 @@ flowchart LR
     ActionsViewModel --> automation_seq_run
     SequencesViewModel --> activity_abort
     SequencesViewModel --> automation_seq_run
-```
-
-### Dumps
-
-```mermaid
-%%{init: {"flowchart": {"curve": "stepBefore"}}}%%
-flowchart LR
-    DumpsViewModel["DumpsViewModel"]
-    registers_read(["registers.read"])
-    DumpsViewModel --> registers_read
 ```
 
 ### Radio
@@ -991,7 +959,6 @@ flowchart LR
     RfSwitchViewModel["RfSwitchViewModel"]
     ChamberViewModel["ChamberViewModel"]
     EcaViewModel["EcaViewModel"]
-    activity_abort(["activity.abort"])
     instruments_chamber_read(["instruments.chamber.read"])
     instruments_chamber_set_temp(["instruments.chamber.set_temp"])
     instruments_chamber_wait_stable(["instruments.chamber.wait_stable"])
@@ -1013,11 +980,9 @@ flowchart LR
     SignalGeneratorViewModel --> instruments_siggen_waveforms
     RfSwitchViewModel --> rf_connect
     RfSwitchViewModel --> rf_disconnect
-    ChamberViewModel --> activity_abort
     ChamberViewModel --> instruments_chamber_read
     ChamberViewModel --> instruments_chamber_set_temp
     ChamberViewModel --> instruments_chamber_wait_stable
-    EcaViewModel --> activity_abort
     EcaViewModel --> instruments_eca_capture
     EcaViewModel --> instruments_eca_result
 ```
@@ -1068,16 +1033,13 @@ flowchart LR
     dut_probe(["dut.probe"])
     dut_reconnect(["dut.reconnect"])
     dut_set_rpc_timeout(["dut.set_rpc_timeout"])
-    registers_tree(["registers.tree"])
     sys_recover(["sys.recover"])
     sys_status(["sys.status"])
     ConnectionViewModel --> dut_connect
     ConnectionViewModel --> dut_disconnect
-    ConnectionViewModel --> registers_tree
     ConnectionViewModel --> sys_status
     DisconnectRecoveryViewModel --> dut_connect
     DisconnectRecoveryViewModel --> dut_reconnect
-    DisconnectRecoveryViewModel --> registers_tree
     DisconnectRecoveryViewModel --> sys_status
     FaultRecoveryViewModel --> sys_recover
     SystemInfoViewModel --> dut_info
@@ -1131,7 +1093,7 @@ flowchart LR
 
 | Endpoint | Gateway method | Requires | Called by |
 |---|---|---|---|
-| `activity.abort` | `abort_activity` | — | ChamberViewModel, EcaViewModel, SequencesViewModel |
+| `activity.abort` | `abort_activity` | — | SequencesViewModel |
 | `advanced.console.close` | `console_close` | — | ConsoleViewModel |
 | `advanced.console.exec` | `console_exec` | dut | ConsoleViewModel |
 | `advanced.console.names` | `console_names` | — | ConsoleViewModel |
@@ -1162,13 +1124,6 @@ flowchart LR
 | `instruments.siggen.waveforms` | `siggen_waveforms` | instrument:signal_generator | SignalGeneratorViewModel |
 | `memory.read` | `memory_read` | dut | MemoryViewModel |
 | `memory.write` | `memory_write` | dut, idle | MemoryViewModel |
-| `registers.read` | `read_register` | dut | DumpsViewModel, HistoryViewModel, PeripheralTreeViewModel, RegisterDetailViewModel, RegisterShortcutsViewModel |
-| `registers.read_many` | `read_many` | dut | DataLoggerViewModel, RegisterShortcutsViewModel, WatchListViewModel |
-| `registers.tree` | `register_tree` | dut | ConnectionViewModel, DisconnectRecoveryViewModel |
-| `registers.unwatch` | `unwatch` | — | WatchService, DataLoggerService (Pause / Stop) |
-| `registers.watch` | `watch` | dut | WatchService, DataLoggerService (Live / Record) |
-| `registers.write` | `write_register` | dut, idle | HistoryViewModel, RegisterDetailViewModel, WatchListViewModel |
-| `registers.write_field` | `write_field` | dut, idle | HistoryViewModel, RegisterDetailViewModel, WatchListViewModel |
 | `rf.connect` | `rf_connect` | instrument:rf_switch | RfSwitchViewModel |
 | `rf.disconnect` | `rf_disconnect` | instrument:rf_switch | RfSwitchViewModel |
 | `rf.paths` | `rf_paths` | instrument:rf_switch | RfSwitchService (RF switch connects) |

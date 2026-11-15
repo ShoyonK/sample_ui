@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from sirat_ui.gateway.errors import ErrorCode
+from sibench_ui.gateway.errors import ErrorCode
 
 
 # ---- signal generator (req 25) ------------------------------------------------------------------------
@@ -19,7 +19,7 @@ def test_apply_sends_hz_to_the_signal_generator_and_saves_the_settings(harness):
     call = harness.fake.calls_to("instruments.siggen.set")[-1]
     assert call.params["id"] == "siggen1" and call.params["config"].frequency_hz == 2402e6
     assert sg.statusText == "Configuration applied"
-    saved = json.loads((harness.home / ".sirat" / "signal_generator.json").read_text())
+    saved = json.loads((harness.home / ".sibench" / "signal_generator.json").read_text())
     assert saved == {"sg_type": "PacketSrw", "input_config_name": "BLE_1M", "frequency_mhz": 2402.0,
                      "power_dbm": -10.0, "overrides": {}}
     assert harness.restart().shell.siggen.frequency == "2402"
@@ -182,7 +182,7 @@ def test_ble_packet_code_and_persistence(harness):
     ble.generateCode()
     title, code = harness.ix.codes[-1]
     assert title == "BLE packet code" and "access_address=0x12345678" in code and "whitening_init=12" in code
-    assert json.loads((harness.home / ".sirat" / "ble_packet.json").read_text())["access_address"] == "0x12345678"
+    assert json.loads((harness.home / ".sibench" / "ble_packet.json").read_text())["access_address"] == "0x12345678"
     assert harness.restart().shell.blePacket.accessAddress == "0x12345678"
 
 
@@ -275,7 +275,7 @@ def test_save_csv_with_metadata(harness, tmp_path):
     harness.ix.answer_save(str(out))
     eca.saveCsv()
     lines = out.read_text().splitlines()
-    assert lines[0] == "# SiRAT ECA capture" and "time_s,PA_EN,RX_EN" in lines
+    assert lines[0] == "# SiBench ECA capture" and "time_s,PA_EN,RX_EN" in lines
     assert len([ln for ln in lines if not ln.startswith("#")]) == 5001
 
 

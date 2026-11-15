@@ -1,4 +1,4 @@
-"""Builds dist/SiRAT.exe, a single file that runs on its own: uv run python build_exe.py"""
+"""Builds dist/SiBench.exe, a single file that runs on its own: uv run python build_exe.py"""
 
 from pathlib import Path
 
@@ -8,9 +8,9 @@ ROOT = Path(__file__).resolve().parent
 
 
 def main() -> None:
-    PyInstaller.__main__.run([str(ROOT / "packaging" / "sirat.spec"), "--noconfirm", "--clean",
+    PyInstaller.__main__.run([str(ROOT / "packaging" / "sibench.spec"), "--noconfirm", "--clean",
                               "--distpath", str(ROOT / "dist"), "--workpath", str(ROOT / "build")])
-    exe = ROOT / "dist" / "SiRAT.exe"
+    exe = ROOT / "dist" / "SiBench.exe"
     print(f"Built {exe} ({exe.stat().st_size / 1e6:.0f} MB)")
 
 

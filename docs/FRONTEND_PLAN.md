@@ -1,4 +1,4 @@
-# SiRAT Frontend Plan
+# SiBench Frontend Plan
 
 **Status:** Draft for review. No code written yet.
 **Date:** 2026-10-27
@@ -94,65 +94,92 @@ flowchart TB
 ```
 Sample_UI/
 ├── pyproject.toml                 # python = "==3.10.5", PyQt5 pinned
-├── designstudio/
-│   ├── SiRAT.qmlproject           # opens src/sirat_ui/qml in Qt Design Studio
-│   └── mockups/                   # forms with ListModel sample data, for DS previews
-├── src/sirat_ui/
-│   ├── __main__.py                # python -m sirat_ui --backend fake
-│   ├── app/
-│   │   ├── application.py         # Application (bootstrap / composition root)
+├── designstudio/SiBench.qmlproject  # opens src/sibench_ui/qml in Qt Design Studio
+├── src/station_protocol/          # the Station API as code, shared by every tool and the service; imports no app
+│   ├── framing.py, jsonrpc.py     # 4-byte length prefix (16 MiB); JSON-RPC 2.0 envelope and error codes
+│   ├── errors.py, validate.py     # ApiError, ErrorCode; pydantic strict-JSON validation
+│   ├── method.py                  # Method, Param, Event; check_params, read_result, wrap_result
+│   ├── common.py                  # facts, ChipInfo, RpcAddress, parameter ranges
+│   ├── system.py, dut.py, registers.py, rf.py, memory.py, instruments.py,
+│   │   automation.py, activity.py, tests.py, advanced.py, log.py     # one module per group (system.py is sys)
+│   └── catalog.py                 # every method and event; TOPICS
+├── src/station_client/            # a client any tool can use; depends only on station_protocol
+│   ├── connection.py              # Connection: socket, reader thread, requests in flight
+│   ├── link.py                    # Link: reconnect with backoff, held calls, heartbeat, resubscribe, seq gaps
+│   └── timers.py, threads.py      # what it needs from its owner; ThreadScheduler for scripts and the fake
+├── src/sibench_ui/
+│   ├── __main__.py                # python -m sibench_ui --backend fake | fake-tcp | api
+│   ├── app/                       # bootstrap; the only code that sees every layer
+│   │   ├── application.py         # Application: Qt app, QML engine, window
 │   │   ├── container.py           # ServiceContainer: builds services, then VMs one area at a time
+│   │   ├── launch.py              # backends, command line, launch_viewer() (req §1)
 │   │   ├── commands.py            # the Ctrl+K command list
-│   │   ├── launch.py              # launch_viewer(), launch_viewer_async() (req §1)
-│   │   └── qml_setup.py           # fonts, import paths, context property
+│   │   ├── qt_scheduler.py        # Scheduler on Qt timers
+│   │   ├── qt_post.py             # QtPoster: hands reader-thread work to the GUI thread
+│   │   └── paths.py, logging_setup.py, crash_guard.py
 │   ├── models/                    # shared dataclasses; imports only stdlib and each other (enforced)
 │   │   ├── registers.py           # RegisterDef, FieldDef, AccessType, ChipInfo, SearchResult
-│   │   ├── facts.py               # PositionFacts, InstrumentFacts
+│   │   ├── facts.py               # PositionFacts, InstrumentFacts, Fault
 │   │   ├── station.py             # Station API results and events
-│   │   ├── actions.py, radio.py, instruments.py, dumps.py, memory.py, dialogs.py, settings.py
+│   │   └── actions.py, radio.py, instruments.py, dumps.py, memory.py, dialogs.py, settings.py
 │   ├── state/                     # each store has its own change event
 │   │   ├── station.py             # StationState: facts, position, chips, instruments, requires checks
 │   │   ├── selection.py           # SelectionState: the open register or peripheral
 │   │   ├── preferences.py         # PreferencesState
 │   │   └── status.py              # StatusLine: the status bar message
 │   ├── core/                      # pure Python, no Qt imports (enforced by a test)
-│   │   ├── bits.py                # extract/insert field, bit toggle
-│   │   ├── formatting.py          # parse/format hex/dec/bin
+│   │   ├── bits.py, formatting.py # field extract/insert, bit toggle; parse/format hex/dec/bin
 │   │   ├── search.py              # peripheral/register/field matching (req §6)
-│   │   ├── requires.py            # RequiresChecker: mirrors server check_requires
+│   │   ├── requires.py            # RequiresChecker: mirrors the station's requires check
 │   │   ├── formula.py             # safe formula evaluator ('x' only)
 │   │   ├── ops.py                 # one OpKind per operation kind: description, code, wire, flags
-│   │   ├── actions.py             # action summaries + legacy format migration
-│   │   ├── naming.py              # load_phy, load_phy_2 ... for saved names
-│   │   └── codegen.py             # Python code generation templates (req §16)
-│   ├── gateway/
+│   │   ├── wire_ops.py            # actions and sequences -> wire ops
+│   │   ├── actions.py, naming.py  # action summaries + legacy format; load_phy, load_phy_2 ...
+│   │   ├── codegen.py             # Python code generation templates (req §16)
+│   │   └── console.py, dumps.py, dut_control.py, eca.py, highlight.py, instruments.py,
+│   │       memory.py, observable.py, prs.py, radio_config.py, thinning.py, wifi.py
+│   ├── gateway/                   # everything that talks to the station
 │   │   ├── port.py                # one interface per API area (RegistersPort ...); StationGateway = all
+│   │   ├── call.py                # Call: the async result every station call returns
+│   │   ├── errors.py              # ApiError, ErrorCode
 │   │   ├── activities.py          # ActivityTracker: routes activity events to whoever started them
-│   │   ├── errors.py              # ApiError, ErrorCode (mirrors API doc)
-│   │   ├── fake/
-│   │   │   ├── fake_station.py    # FakeStationGateway; composes FakeBench and FakeAdvanced
-│   │   │   ├── scenarios.py       # named fault/latency scenarios
-│   │   │   └── fixtures/chip_small.json
-│   │   └── api/                   # ApiStationGateway (when backend exists)
-│   ├── services/                  # one per area; see class diagram
-│   ├── stores/                    # JSON persistence in ~/.sirat (req §1 auto-load list)
-│   ├── viewmodels/
-│   │   ├── shell/  connection/  registers/  watch/  logger/
-│   │   ├── actions/  sequences/  dumps/  radio/  instruments/
-│   │   └── advanced/  tests/  logs/  settings/
+│   │   ├── scheduler.py           # Scheduler interface + ManualScheduler (tests)
+│   │   ├── wire/                  # the app's side of station_protocol
+│   │   │   ├── bindings.py        # which protocol method each StationGateway method calls
+│   │   │   ├── codec.py           # station JSON -> the app's models/ dataclasses, and back
+│   │   │   └── events.py, shapes.py  # GatewayEvents <-> notifications; the register tree
+│   │   ├── api/client.py          # ApiStationGateway on a station_client Link; one line per method
+│   │   └── fake/                  # in-memory station, reference behaviour for the backend
+│   │       ├── fake_station.py    # FakeStationGateway; composes the parts below
+│   │       ├── server.py          # FakeStationServer: the fake over TCP (--backend fake-tcp)
+│   │       ├── scenarios.py       # named fault/latency scenarios
+│   │       └── chip.py, registers.py, register_memory.py, memory.py, instruments.py,
+│   │           sequencer.py, advanced.py, python_runner.py, dut_api.py, station_tests.py
+│   ├── shared/                    # ViewModel base + qprop, list model, InteractionService,
+│   │                              # DialogsViewModel, ErrorPresenter, selection, highlighter
+│   ├── stores/                    # JSON persistence in ~/.sibench (req §1 auto-load list) + demo data
+│   ├── domains/                   # one folder per feature: its services and ViewModels
+│   │   ├── shell/  connection/  registers/  annotations/  history/  monitoring/ (watch, logger)
+│   │   ├── automation/ (actions, sequences)  dumps/  radio/  instruments/  advanced/
+│   │   └── station_tests/  sessions/  settings/  logs/
 │   └── qml/
 │       ├── Main.qml
 │       ├── theme/       Theme.qml, qmldir          (pragma Singleton)
 │       ├── components/  AppButton, Card, Chip ...  (design system)
-│       ├── shell/       AppShell, NavRail, TopBar, BottomDock, StatusBar
+│       ├── shell/       AppShell, NavRail, TopBar, BottomDock, StatusBar, PopoutWindow
 │       ├── pages/       registers/ watch/ actions/ ... (each: Page.qml + PageForm.ui.qml)
-│       └── dialogs/     ConfirmWriteDialog, VerifyFailedDialog, DisconnectSheet ...
+│       ├── dialogs/     ConfirmDialog, ConnectSheet, DisconnectDialog, ReadProgressDialog ...
+│       └── assets/
+├── scripts/
+│   ├── api/build.py               # generates STATION_API_REFERENCE.md + station_api.schema.json
+│   └── architecture/build.py      # generates ARCHITECTURE.md
 └── tests/
-    ├── unit/            core + services + viewmodels
-    ├── integration/     container wired with the fake backend + real stores in tmp dir
-    ├── qml/             every QML file loads; .ui.qml lint
-    ├── e2e/             user journeys through page objects
-    ├── pages/           page objects (RegistersPage, ConnectSheet ...)
+    ├── unit/            app, core, domains, gateway, stores; architecture rules; API docs fresh
+    ├── integration/     container wired with the fake backend + real stores in tmp dir; chaos
+    ├── e2e/             user journeys through page objects (pages.py), also over TCP
+    ├── unit/station_protocol/, unit/station_client/   the shared packages on their own
+    ├── contract/        Station API conformance on station_client only; SIBENCH_STATION=host:port runs it anywhere
+    ├── chaos_runner.py
     └── conftest.py      fixtures: fake_station, app, clock, interactions
 ```
 
@@ -164,7 +191,7 @@ Sample_UI/
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ SiRAT  [EFR32XG29 revA0]  DUT [1 ▾]  ● Connected      ⌘K Search   [Connect]  │ TopBar
+│ SiBench  [EFR32XG29 revA0]  DUT [1 ▾]  ● Connected      ⌘K Search   [Connect]  │ TopBar
 ├────┬─────────────────────────────────────────────────────────────────────────┤
 │ ▣  │                                                                         │
 │ ◎  │                         Active page (Loader, lazy)                      │
@@ -190,10 +217,11 @@ The 35 features group into 11 pages. Each page loads the first time it's opened 
 | **Logger** | Tracked fields, sample rate, start/stop, live plots | 17 |
 | **Actions** | Large actions view, edit sheet, generate code | 13, 16 |
 | **Sequences** | Sequence list + editor (reorder, add/remove), run/abort with progress | 14 |
-| **Dumps** | Take dump, compare dumps, diff vs live, Radio Calculator diff | 12, 21 |
+| **Diffs** | Take dump, compare dumps, diff vs live, Radio Calculator diff | 12, 21 |
 | **Radio** | Load LPW/WiFi PHY, PRS routing | 23, 24 |
+| **DUT control** | DUT control API explorer: browse, call and record dut.dut_control methods | 22 |
 | **Instruments** | Signal generator, BLE packet config, GFSK generator, RF switch, temp chamber, ECA | 25–30 |
-| **Advanced** | Python console, custom functions, DUT control API explorer, memory viewer | 15, 19, 20, 22 |
+| **Advanced** | Python console, custom functions, memory viewer | 15, 19, 20 |
 | **Tests** | Test executor, debug harness | 33 |
 | **Settings** | Preferences, hardware config, import/export/clear user settings, system info, about | 31, 32, 34 |
 
@@ -662,7 +690,7 @@ classDiagram
     SettingsBundle --> JsonStore
 ```
 
-Stores keep the file names from req §1: `~/.sirat_favorites.json`, `~/.sirat/field_notes.json`, and so on. Existing users keep their data. `ActionsStore` runs the legacy-format migration from req §13 on load.
+Stores keep the file names from req §1: `~/.sibench/favorites.json`, `~/.sibench/field_notes.json`, and so on. Existing users keep their data. `ActionsStore` runs the legacy-format migration from req §13 on load.
 
 ### 6.3 ViewModels (Registers slice shown in full, others in outline)
 
@@ -911,7 +939,7 @@ If the read-back differs, the gateway returns `verify_failed` with `written` and
   - `auto_resolve = False` + `release()`
   - `drop_dut(1, "power cycle")`
   - `calls` (assert what the UI sent)
-- **Named scenarios** for manual runs and E2E: `python -m sirat_ui --backend fake --scenario flaky_dut`. Scenarios include `happy`, `disconnected_at_start`, `flaky_dut`, `slow_rpc`, `critical_writes`, and `long_sequence`. A non-frontend person can then click through any situation without hardware.
+- **Named scenarios** for manual runs and E2E: `python -m sibench_ui --backend fake --scenario flaky_dut`. Scenarios include `happy`, `disconnected_at_start`, `flaky_dut`, `slow_rpc`, `critical_writes`, and `long_sequence`. A non-frontend person can then click through any situation without hardware.
 - **Later**: a `FakeStationServer` that speaks the real TCP/JSON framing, so the real client SDK can be E2E-tested before the real service exists. This is optional and can wait until the contracts package lands.
 
 ### 7.4 What tests read like
@@ -971,7 +999,7 @@ def test_user_recovers_after_dut_power_cycle(running_app):
 
 - `pytest -m "not bench"` runs everything headless (`QT_QPA_PLATFORM=offscreen`).
 - Coverage targets: core ≥ 95%, services/ViewModels ≥ 85%. No target for QML; it's covered by the load checks and E2E.
-- Import rules (from the API doc, applied to the GUI): `sirat_ui` never imports NI drivers, pandas, BenchUtils, or dut_control, and `core/` never imports Qt.
+- Import rules (from the API doc, applied to the GUI): `sibench_ui` never imports NI drivers, pandas, BenchUtils, or dut_control, and `core/` never imports Qt.
 - A requirements-coverage report lists the `req(...)` markers against the requirement IDs.
 
 ---
@@ -981,7 +1009,7 @@ def test_user_recovers_after_dut_power_cycle(running_app):
 | Phase | Deliverable | Done when |
 |---|---|---|
 | **0. Spikes** (1–2 days) | Confirm: your Qt Design Studio version opens Qt 5 / QtQuick 2.15 `.ui.qml`; Qt 5.15 `TableView` + `HorizontalHeaderView` behave in PyQt5 5.15; plot choice for logger (PyQtChart QML vs custom `QQuickPaintedItem`); `launch_viewer_async` threading on Windows | Short written findings; plan adjusted |
-| **1. Skeleton** | `Application`, `ServiceContainer`, `AppState`, `Theme`, core components, Component Gallery, app shell (TopBar, NavRail, BottomDock, StatusBar), `FakeStationGateway` + fixture, test harness with one test of each layer | `python -m sirat_ui --backend fake` opens the styled shell; CI green |
+| **1. Skeleton** | `Application`, `ServiceContainer`, `AppState`, `Theme`, core components, Component Gallery, app shell (TopBar, NavRail, BottomDock, StatusBar), `FakeStationGateway` + fixture, test harness with one test of each layer | `python -m sibench_ui --backend fake` opens the styled shell; CI green |
 | **2. First vertical slice** (matches the API doc's slice) | Connect sheet, status-driven enabling, peripheral tree + search, register detail (read/write/bits/fields), confirm + verify dialogs, disconnect recovery, history panel, log panel | E2E journeys 1–6 and 12 pass against the fake |
 | **3. Personal data** | Favorites, notes, formulas, preferences, import/export/clear settings | Journeys 7–8 |
 | **4. Monitoring** | Watch list, data logger (shared subscription) | Journey 9 |

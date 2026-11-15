@@ -5,11 +5,11 @@ import json
 
 import pytest
 
-from sirat_ui.core import codegen
-from sirat_ui.domains.logs.viewmodel import format_line
-from sirat_ui.models.actions import Action
-from sirat_ui.models.station import LogLine
-from sirat_ui.shared.dialogs import DialogsViewModel
+from sibench_ui.core import codegen
+from sibench_ui.domains.logs.viewmodel import format_line
+from sibench_ui.models.actions import Action
+from sibench_ui.models.station import LogLine
+from sibench_ui.shared.dialogs import DialogsViewModel
 
 
 def make_history(h):
@@ -88,7 +88,7 @@ def test_generated_script_follows_the_req_16_template():
         {"type": "custom_function", "function_name": "init_ble"},
     ])]
     code = codegen.generate(actions, {"init_ble": "print('Started')"}, now=dt.datetime(2026, 10, 27, 14, 23, 45))
-    assert "Generated code from SiRAT Actions\nGenerated: 2026-10-27 14:23:45" in code
+    assert "Generated code from SiBench Actions\nGenerated: 2026-10-27 14:23:45" in code
     assert "from tests.common_test_imports import *" in code
     assert "def main(dut):\n    \"\"\"Execute actions.\"\"\"\n    # Action: rx" in code
     assert "SwitchUtils._connect_switch_path_for_role_name('RX_PATH', dut_position=2)" in code
@@ -193,7 +193,7 @@ def test_log_search_highlights_and_steps_through_matches(harness):
 
 @pytest.mark.req("35.save")
 def test_save_log_writes_every_line(harness, tmp_path):
-    target = tmp_path / "sirat.log"
+    target = tmp_path / "sibench.log"
     harness.ix.answer_save(str(target))
     harness.shell.log.saveLog()
     lines = target.read_text(encoding="utf-8").splitlines()
@@ -217,4 +217,4 @@ def test_watch_density_is_remembered_across_restarts(harness):
     assert watch.large is False
     watch.setLarge(True)
     assert watch.large and harness.prefs.value.watch_density == "large"
-    assert harness.restart().shell.watch.large  # saved in ~/.sirat/preferences.json
+    assert harness.restart().shell.watch.large  # saved in ~/.sibench/preferences.json

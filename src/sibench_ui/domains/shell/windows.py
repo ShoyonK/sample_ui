@@ -1,0 +1,106 @@
+"""Pop-out windows: any page from the nav rail, one of a page's parts (the watch list, the data logger, a tool
+such as the DUT control explorer), or one logger graph in its own window. QML creates one Window per row of
+`model`; closing a window brings its content back to the main window.
+
+Window keys: "page:<key>", "watchList", "logger", "tool:<key>" (domains/shell/tools.py), "graph:<field name>".
+"""
+
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
+
+from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
+
+from sibench_ui.domains.shell.pages import PAGES
+from sibench_ui.domains.shell.tools import TOOLS, tool
+from sibench_ui.shared.qt import pyqtProperty
+from sibench_ui.shared.viewmodel import BaseViewModel, DictListModel
+
+PAGE, WATCH_LIST, LOGGER, GRAPH, TOOL = "page", "watchList", "logger", "graph", "tool"
+_SINGLE_TITLES = {t.kind: t.title for t in TOOLS if t.kind != TOOL}
+_SIZES = {PAGE: (1400, 820), WATCH_LIST: (1100, 820), LOGGER: (560, 820), GRAPH: (760, 420)}
+
+
+def window_key(kind: str, arg: str = "") -> str:
+    """The key a pop-out window is known by: "page:registers", "watchList", "graph:AGC.RSSI.RSSI" ..."""
+    return f"{kind}:{arg}" if kind in (PAGE, GRAPH, TOOL) else kind
+
+
+class WindowsViewModel(BaseViewModel):
+    """The open pop-out windows; QML makes one Window per row of `model`."""
+
+    changed = pyqtSignal()
+    raiseRequested = pyqtSignal(str)  # key: bring that window to the front
+
+    def __init__(self, parent: Optional[QObject] = None) -> None:
+        super().__init__(parent)
+        self._model = DictListModel(["key", "kind", "arg", "title", "width", "height"], self)
+        self._open: Dict[str, Dict[str, Any]] = {}
+
+    @pyqtProperty(QObject, constant=True)
+    def model(self) -> QObject:
+        return self._model
+
+    @pyqtProperty("QStringList", notify=changed)
+    def openKeys(self) -> List[str]:  # noqa: N802
+        return list(self._open)
+
+    def _title(self, kind: str, arg: str) -> Optional[str]:
+        if kind == PAGE:
+            return next((p["title"] for p in PAGES if p["key"] == arg), None)
+        if kind == GRAPH:
+            return f"Graph · {arg}" if arg else None
+        if kind == TOOL:
+            found = tool(arg)
+            return found.title if found else None
+        return _SINGLE_TITLES.get(kind)
+
+    @pyqtSlot(str, str)
+    def open(self, kind: str, arg: str = "") -> None:
+        """Opens the window, or brings it to the front if it's already open."""
+        key = window_key(kind, arg)
+        if key in self._open:
+            self.raiseRequested.emit(key)
+            return
+        title = self._title(kind, arg)
+        if title is None:
+            return
+        found = tool(arg) if kind == TOOL else None
+        page = next((p for p in PAGES if p["key"] == arg), {}) if kind == PAGE else {}
+        if found:
+            width, height = found.width, found.height
+        else:
+            width, height = page.get("window") or _SIZES.get(kind, (900, 700))
+        self._open[key] = {"key": key, "kind": kind, "arg": arg, "title": title, "width": width, "height": height}
+        self._publish()
+
+    @pyqtSlot(str)
+    def close(self, key: str) -> None:
+        """Closing a window docks its content back into the main window."""
+        if self._open.pop(key, None) is not None:
+            self._publish()
+
+    @pyqtSlot(str)
+    def show(self, key: str) -> None:
+        if key in self._open:
+            self.raiseRequested.emit(key)
+
+    @pyqtSlot(str, str, result="bool")
+    def isOpen(self, kind: str, arg: str = "") -> bool:  # noqa: N802
+        return window_key(kind, arg) in self._open
+
+    @pyqtSlot(str, str, result="QString")
+    def keyFor(self, kind: str, arg: str = "") -> str:  # noqa: N802
+        return window_key(kind, arg)
+
+    @pyqtSlot()
+    def closeAll(self) -> None:  # noqa: N802
+        self._open.clear()
+        self._publish()
+
+    def _publish(self) -> None:
+        self.changed.emit()   # first, so a closing window hides (and hands back its dialogs) before it's destroyed
+        self._model.set_items(list(self._open.values()))
+
+    def open_keys(self) -> List[str]:
+        return list(self._open)

@@ -5,12 +5,12 @@ import json
 
 import pytest
 
-from sirat_ui.core.dumps import compare, read_csv, to_csv, write_csv
-from sirat_ui.models.dumps import RegisterDump
+from sibench_ui.core.dumps import compare, read_csv, to_csv, write_csv
+from sibench_ui.models.dumps import RegisterDump
 
 
 def dumps_dir(h):
-    return h.home / ".sirat" / "dumps"
+    return h.home / ".sibench" / "dumps"
 
 
 def take(h, peripherals, name="before", description=""):
@@ -200,7 +200,7 @@ def test_sessions_keep_the_dumps_taken_and_bring_back_missing_files(harness):
     take(harness, ["BUFC"], name="for session", description="before the fix")
     harness.ix.answer_next({"name": "with dump"})
     harness.shell.sessions.saveSession()
-    saved = json.loads((harness.home / ".sirat" / "sessions" / "with dump.json").read_text())
+    saved = json.loads((harness.home / ".sibench" / "sessions" / "with dump.json").read_text())
     assert [(d["name"], d["description"]) for d in saved["dumps"]] == [("for session", "before the fix")]
 
     for path in dumps_dir(harness).glob("*.csv"):
@@ -228,3 +228,11 @@ def test_compare_only_looks_at_peripherals_both_sides_have():
     assert [(r.register, r.before, r.after) for r in result.rows] == [("A.R2", 2, 9)]
     assert result.compared == 2 and result.only_in_one == 0
     assert result.rows[0].change == "bits 0x0000000B"
+
+
+
+def test_right_clicking_a_peripheral_opens_take_a_dump_with_just_it_checked(harness):
+    harness.shell.dumps.dumpPeripheral("MODEM")
+    picker = harness.shell.dumpPicker
+    checked = [r["name"] for r in picker.peripherals.items if r["checked"]]
+    assert picker.pickerMode == "dump" and checked == ["MODEM"]

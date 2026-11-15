@@ -3,7 +3,7 @@
 import pytest
 from PyQt5.QtCore import Qt
 from pages import Dialogs, RegistersPage, Ui
-from sirat_ui.domains.shell.pages import PAGES as PAGE_TABLE
+from sibench_ui.domains.shell.pages import PAGES as PAGE_TABLE
 
 PAGES = [p["key"] for p in PAGE_TABLE]   # a new page row is load-tested without touching this file
 
@@ -45,7 +45,7 @@ def test_type_a_value_and_write_it(running, qtbot):
     page.open_register("BUFC.LPMODE")
     page.write("0x3")
     assert page.value_text() == "0x00000003"
-    assert running.h.fake.memory.values["BUFC.LPMODE"] == 3
+    assert running.h.fake.board(1).memory.values["BUFC.LPMODE"] == 3
 
 
 @pytest.mark.req("7.critical-cancel")
@@ -56,7 +56,7 @@ def test_cancelled_bit_toggle_on_a_critical_register_sends_nothing(running, qtbo
     page.wait_for(dialogs.confirm_open)
     dialogs.cancel_confirm()
     page.wait_for(lambda: not dialogs.confirm_open())
-    assert running.h.fake.memory.values["CMU.CLKEN0"] == 0xF07
+    assert running.h.fake.board(1).memory.values["CMU.CLKEN0"] == 0xF07
     assert page.value_text() == "0x00000F07"
 
 
@@ -93,7 +93,7 @@ def test_double_click_a_field_value_and_press_enter(running, qtbot):
     QTest.mouseDClick(running.window, Qt.LeftButton, Qt.NoModifier, center)
     page.settle()
     page.type_text("fieldValueEditor_OPMODE", "1")
-    page.wait_for(lambda: running.h.fake.memory.values["MODEM.CTRL"] & 0x3 == 1)
+    page.wait_for(lambda: running.h.fake.board(1).memory.values["MODEM.CTRL"] & 0x3 == 1)
 
 
 @pytest.mark.req("8.favorites")
@@ -295,7 +295,7 @@ def test_generate_code_opens_the_code_dialog(running, qtbot):
     ui = Ui(running.app, qtbot)
     ui.click("actionsCodeButton")
     ui.wait_for(lambda: ui.visible("codeDialog"))
-    assert "Generated code from SiRAT Actions" in ui.find("codeText").property("text") or \
+    assert "Generated code from SiBench Actions" in ui.find("codeText").property("text") or \
         "Generated" in ui.find("codeText").property("text")
     ui.click("codeCloseButton")
     ui.wait_for(lambda: not ui.visible("codeDialog"))
@@ -304,6 +304,7 @@ def test_generate_code_opens_the_code_dialog(running, qtbot):
 @pytest.mark.req("35.search")
 def test_search_the_log_panel(running, qtbot):
     ui = Ui(running.app, qtbot)
+    assert not ui.enabled("logNextMatch")   # nothing searched yet
     ui.click("logSearchField")
     for ch in "CONNECTED":
         ui._key(0, ch)
@@ -577,10 +578,9 @@ def test_advanced_console_and_custom_function_share_variables(running, qtbot):
     ui.wait_for(lambda: "84" in _output(shell.customFunctions))
 
 
-def test_advanced_dut_control_executes_a_method(running, qtbot):
+def test_the_dut_control_page_executes_a_method(running, qtbot):
     ui = Ui(running.app, qtbot)
-    ui.navigate("advanced")
-    ui.click("segment_DUT control")
+    ui.click("nav_dut_control")
     ui.wait_for(lambda: ui.exists("api_LPW"))
     ui.click("api_LPW")
     ui.click("api_lpw.radio")
@@ -599,7 +599,7 @@ def test_advanced_memory_read_and_confirmed_write(running, qtbot):
     ui.wait_for(lambda: ui.enabled("memoryReadButton"))
     ui.click("memoryReadButton")
     ui.wait_for(lambda: running.h.shell.memory.rows.count == 16)
-    assert "SiRAT fake RAM" in running.h.shell.memory.rows.items[0]["ascii"]
+    assert "SiBench fake RAM" in running.h.shell.memory.rows.items[0]["ascii"]
     ui.click("segment_DWords")
     ui.type_text("memoryWriteValueField", "0x12345678", enter=False)
     ui.click("memoryWriteButton")
@@ -725,3 +725,205 @@ def test_clicking_another_page_stops_the_watch_and_the_logger(running, qtbot):
     ui.navigate("watch")
     ui.wait_for(lambda: ui.text("loggerRecordButton") == "Start")
     assert ui.find("segment_Live").property("inviting") is True
+
+
+@pytest.mark.req("33.run")
+def test_check_tests_run_them_and_read_a_failure(running, qtbot):
+    ui = Ui(running.app, qtbot)
+    ui.navigate("tests")
+    ui.wait_for(lambda: ui.exists("testCheck_sample_test_3"))
+    assert not ui.enabled("runTestsButton") and not ui.enabled("stopTestsButton")
+    ui.click("testCheck_sample_test_1")
+    ui.click("testCheck_sample_test_3")
+    ui.wait_for(lambda: ui.enabled("runTestsButton"))
+    assert ui.find("testCheck_sample_test_3").property("checked") is True
+    ui.click("runTestsButton")
+    running.h.scheduler.advance(150)
+    ui.settle()
+    assert ui.enabled("stopTestsButton") and ui.text("currentTestLabel") == "Current test: Sample test 1"
+    running.h.scheduler.run_pending()
+    ui.wait_for(lambda: ui.exists("testStatus_sample_test_3"))
+    assert ui.text("testStatus_sample_test_1") == "Pass" and ui.text("testStatus_sample_test_3") == "Fail"
+    ui.click("testResult_sample_test_3")
+    ui.wait_for(lambda: ui.find("testOutput").property("title") == "Output · Sample test 3")
+    assert ui.enabled("exportTestResultsButton") and not ui.enabled("stopTestsButton")
+
+def test_popping_out_advanced_after_using_custom_functions_keeps_the_editor_working(running, qtbot):
+    ui = Ui(running.app, qtbot)
+    ui.navigate("advanced")
+    running.h.shell.advanced.setTab(1)
+    ui.wait_for(lambda: ui.exists("functionList"))
+    running.h.shell.windows.open("page", "advanced")     # the editor moves to the new window
+    ui.wait_for(lambda: _popout("page:advanced") is not None
+                and _in_window(_popout("page:advanced"), "functionList") is not None)
+    running.h.shell.windows.close("page:advanced")       # and back again
+    ui.wait_for(lambda: _popout("page:advanced") is None and ui.exists("functionList"))
+    running.h.shell.state.toggleDarkMode()               # re-attaches the highlighter to the new editor
+    ui.settle(200)
+
+
+def _open_nav_menu(ui, page):
+    ui.right_click("nav_" + page)
+    ui.wait_for(lambda: ui.find("navMenu_" + page).property("opened"))
+    ui.settle(300)    # a click in the instant the menu opens can be dropped
+
+
+@pytest.mark.req("22.window")
+def test_right_click_dut_control_to_open_the_explorer_with_its_results(running, qtbot):
+    ui = Ui(running.app, qtbot)
+    ui.navigate("dut_control")
+    _open_nav_menu(ui, "dut_control")
+    ui.click("navMenuPopOut_dut_control")
+    ui.wait_for(lambda: _popout("page:dut_control") is not None)
+    window = _popout("page:dut_control")
+    assert (window.width(), window.height()) == (1200, 800)               # req 22's window size
+    ui.wait_for(lambda: _in_window(window, "apiExecuteButton") is not None and _in_window(window, "apiLines") is not None)
+    ui.wait_for(lambda: ui.visible("pagePlaceholder_dut_control"))       # the page shows where it went
+    dc = running.h.shell.dutControl
+    dc.setFilter("SetPower")
+    dc.activate(next(i for i, r in enumerate(dc.rows.items) if r["key"] == "lpw.radio.SetPower"))
+    dc.setParam("power_dbm", "10")
+    _click_in(_active_popout(ui, qtbot, "page:dut_control"), _in_window(window, "apiExecuteButton"), qtbot)
+    ui.wait_for(lambda: _in_window(window, "apiLines").property("count") > 0)   # its own console shows the result
+    _open_nav_menu(ui, "dut_control")
+    ui.click("navMenuDock_dut_control")
+    ui.wait_for(lambda: _popout("page:dut_control") is None and ui.exists("apiExecuteButton"))
+
+
+@pytest.mark.req("17.window")
+def test_right_click_watch_to_open_the_data_logger(running, qtbot):
+    ui = Ui(running.app, qtbot)
+    _open_nav_menu(ui, "watch")
+    ui.click("navMenuPart_logger")
+    ui.wait_for(lambda: _popout("logger") is not None and _in_window(_popout("logger"), "loggerStatus") is not None)
+    running.h.shell.windows.close("logger")
+    ui.wait_for(lambda: _popout("logger") is None)
+
+
+def test_an_instrument_card_opens_in_its_own_window_and_comes_back(running, qtbot):
+    ui = Ui(running.app, qtbot)
+    ui.navigate("instruments")
+    _open_nav_menu(ui, "instruments")
+    ui.click("navMenuPart_tool:rfSwitch")
+    ui.wait_for(lambda: _popout("tool:rfSwitch") is not None)
+    ui.wait_for(lambda: ui.visible("toolPlaceholder_rfSwitch"))
+    ui.click("placeholderDock")
+    ui.wait_for(lambda: _popout("tool:rfSwitch") is None and not ui.visible("toolPlaceholder_rfSwitch"))
+
+
+
+@pytest.mark.req("13.panel")
+def test_the_docked_actions_panel_checks_all_reorders_and_deletes(running, qtbot):
+    ui = Ui(running.app, qtbot)
+    vm = running.h.shell.actions
+    ui.wait_for(lambda: ui.visible("actionsAllCheck"))
+    assert ui.text("actionsCheckedLabel") == "3 of 4 checked"
+    ui.click("actionsAllCheck")                        # some checked: checks them all
+    ui.wait_for(lambda: vm.checkedCount == 4)
+    assert ui.find("actionsAllCheck").property("checkState") == 2
+    ui.click("actionsAllCheck")                        # all checked: unchecks them all
+    ui.wait_for(lambda: vm.checkedCount == 0)
+    assert ui.text("actionsCheckedLabel") == "0 of 4 checked"
+
+    assert not ui.enabled("dockActionUpButton")        # nothing selected yet
+    ui.click("actionRow_siggen_2440_0dbm")
+    ui.click("dockActionUpButton")
+    assert list(running.h.services.actions.actions)[1] == "siggen_2440_0dbm"
+    ui.click("dockActionDownButton")
+    assert list(running.h.services.actions.actions)[2] == "siggen_2440_0dbm"
+    ui.click("dockActionDeleteButton")
+    assert "siggen_2440_0dbm" not in running.h.services.actions.actions
+    ui.click("dockActionDeleteAllButton")
+    dialogs = Dialogs(running.app, qtbot)
+    ui.wait_for(dialogs.confirm_open)
+    dialogs.accept_confirm()
+    ui.wait_for(lambda: vm.total == 0)
+    assert ui.text("actionsCheckedLabel") == "No actions"
+
+
+
+@pytest.mark.req("13.delete")
+def test_ctrl_click_several_actions_and_delete_them(running, qtbot):
+    from PyQt5.QtCore import QPointF, Qt
+    from PyQt5.QtTest import QTest
+    ui = Ui(running.app, qtbot)
+    ui.wait_for(lambda: ui.visible("actionRow_lpmode_on"))
+
+    def ctrl_click(name):
+        row = ui.find(name)
+        point = row.mapToScene(QPointF(row.width() / 2, row.height() / 2)).toPoint()
+        QTest.mouseClick(ui.window, Qt.LeftButton, Qt.ControlModifier, point)
+        ui.settle()
+
+    ui.click("actionRow_lpmode_on")
+    ctrl_click("actionRow_reconnect_rpc")
+    assert running.h.shell.actions.selectedCount == 2
+    assert not ui.enabled("actionsRunButton") and not ui.enabled("dockActionUpButton")
+    ui.click("dockActionDeleteButton")
+    dialogs = Dialogs(running.app, qtbot)
+    ui.wait_for(dialogs.confirm_open)
+    dialogs.accept_confirm()
+    ui.wait_for(lambda: running.h.shell.actions.total == 2)
+    assert list(running.h.services.actions.actions) == ["ble_1m_rx_setup", "siggen_2440_0dbm"]
+
+
+@pytest.mark.req("12.take")
+def test_right_click_a_peripheral_to_take_a_dump_of_it(running, qtbot):
+    ui = Ui(running.app, qtbot)
+    ui.wait_for(lambda: ui.visible("treeRow_MODEM"))
+    ui.right_click("treeRow_MODEM")
+    ui.wait_for(lambda: ui.find("treeMenu_MODEM").property("opened"))
+    ui.settle(300)    # a click in the instant the menu opens can be dropped
+    ui.click("treeMenuDump_MODEM")
+    picker = running.h.shell.dumpPicker
+    ui.wait_for(lambda: ui.visible("dumpPeripheral_MODEM"))
+    assert [r["name"] for r in picker.peripherals.items if r["checked"]] == ["MODEM"]
+    picker.closePicker()
+
+
+@pytest.mark.chaos
+def test_chaos_with_the_real_window(running, qtbot, chaos_seed):
+    """The chaos runner's steps against the real QML window: any QML warning fails it (conftest)."""
+    from chaos_runner import play, radio_diff
+    ui = Ui(running.app, qtbot)
+    play(chaos_seed, steps=80, home=running.h.home, harness=running.h, after_step=lambda: ui.settle(10),
+         skip=(radio_diff,))      # it opens Windows' own file dialog, which waits for a person
+
+
+@pytest.mark.req("ui.popout")
+def test_a_dialog_open_in_a_pop_out_that_closes_can_open_again(running, qtbot):
+    """Found by the chaos runner: the dialog lost its window and couldn't open again."""
+    ui = Ui(running.app, qtbot)
+    running.h.shell.windows.open("page", "dumps")
+    ui.wait_for(lambda: _popout("page:dumps") is not None
+                and _in_window(_popout("page:dumps"), "takeDumpButton") is not None)
+    window = _active_popout(ui, qtbot, "page:dumps")
+    picker = ui.find("dumpPicker")
+    running.h.shell.dumps.dumpPeripheral("BUFC")
+    ui.wait_for(lambda: picker.property("opened") and picker.property("parent").window() is window)
+
+    running.h.shell.windows.close("page:dumps")           # its window goes while it's open
+    ui.wait_for(lambda: _popout("page:dumps") is None)
+    running.h.shell.dumpPicker.closePicker()
+    ui.wait_for(lambda: not picker.property("visible"))
+    running.h.shell.dumps.dumpPeripheral("MODEM")           # and it opens again, in the main window
+    ui.wait_for(lambda: picker.property("opened"))
+    assert picker.property("parent").window() is ui.window
+    running.h.shell.dumpPicker.closePicker()
+
+
+@pytest.mark.req("ui.popout")
+def test_a_dialog_open_in_a_pop_out_moves_to_the_main_window_when_the_pop_out_closes(running, qtbot):
+    """Found by the chaos runner: the dialog stayed in the hidden pop-out, modal but out of sight."""
+    from sibench_ui.models.dialogs import Alert
+    ui = Ui(running.app, qtbot)
+    running.h.shell.windows.open("page", "dumps")
+    ui.wait_for(lambda: _popout("page:dumps") is not None
+                and _in_window(_popout("page:dumps"), "takeDumpButton") is not None)
+    window = _active_popout(ui, qtbot, "page:dumps")
+    running.h.container.interactions.alert(Alert("Station busy", "Try again in a moment.", "warning"))
+    alert = ui.find("alertDialog")
+    ui.wait_for(lambda: alert.property("opened") and alert.property("parent").window() is window)
+    running.h.shell.windows.close("page:dumps")
+    ui.wait_for(lambda: alert.property("parent").window() is ui.window)
+    assert alert.property("visible")

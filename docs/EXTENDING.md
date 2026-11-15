@@ -1,6 +1,6 @@
-# Extending the SiRAT frontend
+# Extending the SiBench frontend
 
-How to add the common kinds of feature, and every file each one touches. Paths are under `src/sirat_ui/`
+How to add the common kinds of feature, and every file each one touches. Paths are under `src/sibench_ui/`
 unless they start with `tests/`, `docs/` or `scripts/`. See [ARCHITECTURE.md](ARCHITECTURE.md) for how the
 pieces fit together.
 
@@ -14,7 +14,7 @@ flowchart TD
     start -->|"Add to Actions on a page"| rec["4. Add to Actions"]
     start -->|"logic that calls the station"| svc["5. A service"]
     start -->|"a call the station must answer"| ep["6. A station endpoint"]
-    start -->|"something saved in ~/.sirat"| store["7. A settings file"]
+    start -->|"something saved in ~/.sibench"| store["7. A settings file"]
     start -->|"an entry in Ctrl+K"| cmd["8. A Ctrl+K command"]
     start -->|"a confirm, prompt or custom dialog"| dlg["9. A dialog"]
     page --> vm
@@ -33,7 +33,19 @@ The rules the tests enforce (`tests/unit/test_architecture.py`) apply to everyth
   for computed ones. No lambda properties.
 - `.ui.qml` forms contain layout only: no handlers, functions, `app.` or `vm.`; every interactive control has
   an `objectName`; every form has a wrapper `.qml` next to it; font sizes come from `Theme`.
-- No Python file over 600 lines. `models/` imports only the standard library and other models.
+- Aim for Python files of about 600 lines; 900 is the hard limit. `models/` imports only the standard library and other models.
+
+Button colors (`AppButton` `variant`) follow one rule, so color tells the user what a button does:
+
+| Variant | Looks | Use for |
+|---|---|---|
+| `run` | solid red | Starts something on the DUT or an instrument that keeps going until it ends or is stopped: Run, Run checked, Execute, Start capture, Start recording, Infinite trigger, Wait for stable |
+| `primary` | solid black | The one main action of a card or dialog: Apply, Save, Connect, Load PHY, Write, OK, Take a dump. At most one per card. Reads can be black this way, but never red: they don't change the DUT |
+| `danger` | red text | Destructive or stopping: Delete, Remove, Clear all, Clear data (the logger's samples), Stop, Disconnect |
+| `secondary` | white (default) | Everything else, including one-shot actions like Single trigger |
+| `ghost` | text only | Minor helpers that lose nothing: Collapse all, Reset zoom, Clear (a result view) |
+
+A button that turns into its own Stop while running switches `run` to `danger` (Sequences, the logger).
 
 ---
 
@@ -48,6 +60,7 @@ windows and the "every page loads" test all read the table.
 | `qml/pages/<key>/<Name>Page.qml` | Wrapper: binds the form to `app.<vm>` and calls slots | required |
 | `qml/pages/<key>/<Name>PageForm.ui.qml` | Form: layout only, `property alias` for every control the wrapper touches | required |
 | ViewModels for the page | See [2. A ViewModel](#2-a-viewmodel-and-its-qml) | required |
+| `domains/shell/tools.py` | A `Tool` row for each part that should open in its own window (title, QML file, window size; `fill=True` if it fills the window rather than keeping a card's height). Put `ToolSlot { toolKey: "<key>" }` in the form where the part goes: it shows the part, or a placeholder while it's popped out. The nav rail's right-click menu lists the parts | optional |
 | `qml/components/Icon.qml` | Only if no existing glyph fits (`glyphs` map) | optional |
 | `app/commands.py` | A Ctrl+K entry that opens the page ([8](#8-a-ctrlk-command)) | optional |
 | `tests/e2e/test_journeys.py` | A journey through the page; the load test picks the page up from `pages.py` already | recommended |
@@ -78,7 +91,7 @@ A new area builder method also needs adding to the tuple in `ServiceContainer._b
 
 ## 3. An operation kind
 
-Operations are the steps saved in an action (`~/.sirat_actions.json`) and sent with `automation.seq.run`.
+Operations are the steps saved in an action (`~/.sibench/actions.json`) and sent with `automation.seq.run`.
 Each kind is defined once in `core/ops.py`; `tests/unit/core/test_ops.py` fails until the schema and the
 color exist.
 
@@ -88,7 +101,8 @@ color exist.
 | `stores/schemas/operations.py` | A pydantic model with `type: Literal["my_kind"]`, added to `OPERATION_MODELS` (the file schema) | required |
 | `qml/theme/Theme.qml` | A color in both maps of `kindColor` (light and dark), or a tone in `kindTone` | required |
 | `gateway/fake/fake_station.py` | Handle the kind in `_execute_op` so sequences can run it against the fake | required |
-| `docs/API_DESIGN.md` | The wire op (`automation` section) so the real service implements it | required |
+| `station_protocol/automation.py` | The op's wire shape (a `TypedDict` with `type: Literal["my_kind"]`), added to `WireOp`, so the station validates it | required |
+| `docs/STATION_API.md` | The op in section 11, so the real service implements it; then `uv run python scripts/api/build.py` | required |
 | `tests/unit/domains/…` | A test that records and runs the kind | recommended |
 
 `describe` is what the Actions list shows, `code` returns the lines for Generate code (req 16), and the wire
@@ -119,26 +133,29 @@ on_done)`; don't subscribe to `gateway.events` yourself for activities.
 
 ## 6. A station endpoint
 
-An endpoint is an API method the real station service must answer (`docs/API_DESIGN.md`).
+An endpoint is an API method the real station service must answer (`docs/STATION_API.md`).
 
 | File | Change | |
 |---|---|---|
-| `docs/API_DESIGN.md` | The method, its parameters, result model and requires | required |
+| `docs/STATION_API.md` | What the method does, its errors and the facts and events it changes (section 8) | required |
+| `station_protocol/<group>.py` | Its `Method` in the group's `METHODS`: wire name, parameters with their wire types and ranges (in the order the gateway method takes them), result type, `wrap` and `requires`; a new result type is a dataclass there. A new group is a new module, added to `catalog.GROUPS` | required |
 | `gateway/port.py` | The method on its area interface (or a new area interface added to `StationGateway`), returning `Call[Result]` | required |
-| `models/station.py` | The result dataclass, if new | conditional |
-| `core/requires.py` | `METHOD_REQUIRES["area.method"] = ("dut", "idle", …)`; a new tag also needs `TAG_TEXT` | required |
+| `gateway/wire/bindings.py` | `"attr": "area.method"` in `WIRE_OF` (the parameters and types come from the two sides; loading checks they agree) | required |
+| `gateway/api/client.py` | The method on `ApiStationGateway`: `return self._call("attr", ...)` | required |
+| `models/station.py` | The app's result dataclass, if new: the same name and fields as the protocol's (a test compares them) | conditional |
+| `core/requires.py` | Only a new tag: its wording in `TAG_TEXT` (the tags themselves are the protocol method's `requires`) | conditional |
 | `gateway/fake/fake_station.py` | `def method(...)`: `return self._respond("area.method", position, run, **params)`. Instrument calls use `_instrument_call`; memory and Python calls live in `gateway/fake/advanced.py` (`FakeAdvanced` plus a one-line method on `AdvancedMethods`) | required |
 | the service that uses it | Call it, report failures with `ErrorPresenter` | required |
 | `tests/unit/gateway/test_fake_station.py` | The fake answers it and refuses it when requires aren't met | recommended |
-| `scripts/architecture/backend_doc.py` | Its entry in `F` (signature, behaviour, errors, changes) and a sample call in `payloads.py`; then `uv run python scripts/architecture/backend_doc.py` regenerates `docs/BACKEND_DESIGN.md` | required |
-| later: `gateway/api/` | `ApiStationGateway` maps it to the client SDK | when the backend exists |
+| `scripts/api/build.py` | A sample call in `Capture.run`; then `uv run python scripts/api/build.py` regenerates `docs/STATION_API_REFERENCE.md` and `docs/station_api.schema.json` (a test fails until you do) | required |
+| `tests/contract/` | A call over TCP by its wire name (`station.call("area.method", ...)`); the result is checked against the protocol type | recommended |
 
 The fake must keep the same rules as the real service (requires, error codes), or the GUI will rely on
 behaviour the real backend won't have.
 
 ## 7. A settings file
 
-Files in `~/.sirat/` (or `~/.sirat_*.json` for formats shared with the old GUI) are loaded through pydantic
+Files in `~/.sibench/` (or `~/.sibench_*.json` for formats shared with the old GUI) are loaded through pydantic
 cleaners, so a bad entry is skipped and reported instead of crashing.
 
 | File | Change | |
@@ -170,7 +187,7 @@ A custom dialog:
 
 | File | Change | |
 |---|---|---|
-| `qml/dialogs/<Name>Dialog.qml` | Built on `ModalDialog`, `visible: vm.isOpen` | required |
+| `qml/dialogs/<Name>Dialog.qml` | Built on `ModalDialog`, `shown: vm.isOpen` (not `visible`: a dialog reopened during its closing animation would stay closed) | required |
 | `qml/shell/DialogHost.qml` | Add `<Name>Dialog { }` | required |
 | a ViewModel | `isOpen` property and open/close slots; register it in the container | required |
 

@@ -1,8 +1,8 @@
 """Pure helpers behind the Advanced page: memory formatting, DUT control parameters, console history."""
 
-from sirat_ui.core.console import CommandHistory, echo, result_lines
-from sirat_ui.core.dut_control import build_kwargs, default_text, parse_value
-from sirat_ui.core.memory import dump_text, parse_number, rows, write_problem
+from sibench_ui.core.console import CommandHistory, echo, result_lines
+from sibench_ui.core.dut_control import build_kwargs, default_text, parse_value
+from sibench_ui.core.memory import dump_text, parse_number, rows, write_problem
 
 
 def test_parse_number_hex_decimal_and_rejects():
