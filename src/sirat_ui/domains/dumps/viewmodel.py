@@ -1,4 +1,4 @@
-"""Dumps page (req 12): saved dumps, and starting each kind of comparison.
+"""Diffs page (req 12): saved dumps, and starting each kind of comparison.
 
 Take a dump, Diff vs live, Compare with, Compare files and Radio Calculator diff (req 21) start here; the
 peripheral picker (picker_viewmodel.py), the progress dialog (progress_viewmodel.py) and the comparison card
@@ -41,7 +41,7 @@ def _label(f: DumpFile) -> str:
 
 
 class DumpsViewModel(BaseViewModel):
-    """The Dumps page: the saved dump files and starting each kind of comparison."""
+    """The Diffs page: the saved dump files and starting each kind of comparison."""
 
     changed = pyqtSignal()
 

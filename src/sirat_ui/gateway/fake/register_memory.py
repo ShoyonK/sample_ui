@@ -8,7 +8,9 @@ from typing import Dict, List, Optional
 from sirat_ui.gateway.errors import ApiError, ErrorCode
 from sirat_ui.models.registers import PeripheralDef, RegisterDef
 
-_RAC_STATES = (1, 3, 3, 4, 3)
+_RAC_STATES = (1, 3, 3, 4, 3)                 # RXWARM, RXSEARCH, RXSEARCH, RXFRAME, RXSEARCH
+_DEMOD_STATE = {1: 1, 3: 2, 4: 5}             # RAC state -> MODEM.STATUS DEMODSTATE (warming, searching, frame)
+_RXFRAME = 4
 
 
 class RegisterMemory:
@@ -63,8 +65,16 @@ class RegisterMemory:
         self._tick += 1
         self._set_if_present("SYNTH.FREQ", 2_440_000 + self._rng.randint(-3, 3))
         self._set_if_present("AGC.RSSI", (self._rng.randint(-86, -68)) & 0xFFFF)
-        self._set_if_present("RAC.STATUS", _RAC_STATES[self._tick % len(_RAC_STATES)])
-        self._set_if_present("BUFC.BUF0_STATUS", self._rng.randint(0, 64))
+        state = _RAC_STATES[self._tick % len(_RAC_STATES)]
+        self._set_if_present("RAC.STATUS", state)
+        self._set_if_present("MODEM.STATUS", _DEMOD_STATE[state])
+        self._set_if_present("FRC.STATUS", int(state == _RXFRAME))
+        waiting = self._rng.randint(0, 64)
+        self._set_if_present("BUFC.BUF0_STATUS", waiting)
+        if "BUFC.BUF0_WRITEOFFSET" in self.values:   # frames arrive: the write offset moves on, reads trail it
+            written = (self.values["BUFC.BUF0_WRITEOFFSET"] + 24 + waiting) & 0x1FFF
+            self._set_if_present("BUFC.BUF0_WRITEOFFSET", written)
+            self._set_if_present("BUFC.BUF0_READOFFSET", (written - waiting) & 0x1FFF)
 
     def _set_if_present(self, name: str, value: int) -> None:
         if name in self.values:

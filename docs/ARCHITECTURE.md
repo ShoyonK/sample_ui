@@ -888,7 +888,7 @@ flowchart LR
     Registers["Registers"]
     Watch["Watch"]
     Actions_and_sequences["Actions and sequences"]
-    Dumps["Dumps"]
+    Diffs["Diffs"]
     Radio["Radio"]
     Instruments["Instruments"]
     Advanced["Advanced"]

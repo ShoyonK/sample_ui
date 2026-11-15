@@ -1,4 +1,4 @@
-"""The comparison card on the Dumps page: a register comparison (req 12) or a Radio Calculator diff (req 21),
+"""The comparison card on the Diffs page: a register comparison (req 12) or a Radio Calculator diff (req 21),
 with sorting for the radio table and Save report."""
 
 from __future__ import annotations

@@ -19,7 +19,7 @@ _PAGES: List[Dict[str, Any]] = [
      "source": "../pages/actions/ActionsPage.qml"},
     {"key": "sequences", "title": "Sequences", "label": "Sequences", "icon": "list", "ready": True,
      "source": "../pages/sequences/SequencesPage.qml"},
-    {"key": "dumps", "title": "Dumps and diffs", "label": "Dumps", "icon": "compare", "ready": True,
+    {"key": "dumps", "title": "Diffs", "label": "Diffs", "icon": "compare", "ready": True,
      "source": "../pages/dumps/DumpsPage.qml"},
     {"key": "radio", "title": "Radio and PHY", "label": "Radio", "icon": "antenna", "ready": True,
      "source": "../pages/radio/RadioPage.qml"},

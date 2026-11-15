@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import logging
 import sys
 from pathlib import Path
@@ -16,11 +17,12 @@ from sirat_ui.app.paths import daily_log_dir, default_home, dumps_dir, session_l
 from sirat_ui.app.qt_post import QtPoster
 from sirat_ui.app.qt_scheduler import QtScheduler
 from sirat_ui.gateway.api.client import ApiStationGateway
+from sirat_ui.gateway.fake.chip import build_chip
 from sirat_ui.gateway.fake.fake_station import FakeStationGateway
 from sirat_ui.gateway.fake.scenarios import SCENARIOS, Scenario, apply_scenario
 from sirat_ui.gateway.fake.server import DEFAULT_PORT, serve
 from sirat_ui.gateway.port import StationGateway
-from sirat_ui.stores.demo_data import seed_demo_data
+from sirat_ui.stores.demo_data import seed_demo_data, seed_demo_dumps
 from sirat_ui.stores.json_store import UserStores
 
 _running: Optional[Application] = None
@@ -38,13 +40,17 @@ def build_app(backend: str = "fake", scenario: str = "happy", home: Optional[Pat
     - fake-tcp: the fake station behind a TCP server in this process, reached over JSON-RPC like a real one;
     - api: the station service at host:port.
 
-    Demo data is only seeded for the fake backends, so a real station's home folder is never touched.
+    Demo data is only seeded for the fake backends, so a real station's home folder is never touched. The fake
+    backends keep their dumps in the demo home too (with three demo dumps to compare), not in the real dumps folder.
     """
     if backend not in BACKENDS:
         raise SystemExit(f"Unknown backend {backend!r}. Choose one of: {', '.join(BACKENDS)}")
     home = home or default_home(backend)
+    if dumps is None:
+        dumps = dumps_dir() if backend == "api" else home / ".sirat" / "dumps"
     if seed_demo and backend != "api":
         seed_demo_data(UserStores.in_home(home))
+        seed_demo_dumps(dumps, build_chip(), dt.date.today())
     qt_app, created = ensure_qt_app(argv)
     scheduler = QtScheduler()
     gateway: StationGateway
@@ -61,7 +67,7 @@ def build_app(backend: str = "fake", scenario: str = "happy", home: Optional[Pat
             chosen = Scenario("station", "A station service", autoconnect=False)
             label = f"Station at {host}:{port}"
         gateway = _api_gateway(host, port, scheduler)
-    container = ServiceContainer(gateway, home, scheduler, backend_label=label, dumps_dir=dumps or dumps_dir())
+    container = ServiceContainer(gateway, home, scheduler, backend_label=label, dumps_dir=dumps)
     return Application(qt_app, container, owns_qt_app=created), chosen
 
 

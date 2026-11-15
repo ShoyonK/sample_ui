@@ -217,7 +217,7 @@ The 35 features group into 11 pages. Each page loads the first time it's opened 
 | **Logger** | Tracked fields, sample rate, start/stop, live plots | 17 |
 | **Actions** | Large actions view, edit sheet, generate code | 13, 16 |
 | **Sequences** | Sequence list + editor (reorder, add/remove), run/abort with progress | 14 |
-| **Dumps** | Take dump, compare dumps, diff vs live, Radio Calculator diff | 12, 21 |
+| **Diffs** | Take dump, compare dumps, diff vs live, Radio Calculator diff | 12, 21 |
 | **Radio** | Load LPW/WiFi PHY, PRS routing | 23, 24 |
 | **Instruments** | Signal generator, BLE packet config, GFSK generator, RF switch, temp chamber, ECA | 25–30 |
 | **Advanced** | Python console, custom functions, DUT control API explorer, memory viewer | 15, 19, 20, 22 |

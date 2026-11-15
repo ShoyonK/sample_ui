@@ -562,7 +562,7 @@ PAGE = {
     "Registers": ["PeripheralTreeViewModel", "RegisterDetailViewModel", "RegisterShortcutsViewModel", "HistoryViewModel"],
     "Watch": ["WatchListViewModel", "DataLoggerViewModel"],
     "Actions and sequences": ["ActionsViewModel", "SequencesViewModel"],
-    "Dumps": ["DumpsViewModel"],
+    "Diffs": ["DumpsViewModel"],
     "Radio": ["LpwPhyViewModel", "WifiPhyViewModel", "PrsViewModel"],
     "Instruments": ["InstrumentViewModel", "SignalGeneratorViewModel", "RfSwitchViewModel", "ChamberViewModel",
                     "EcaViewModel"],
